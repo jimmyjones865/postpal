@@ -21,6 +21,7 @@ const defaultConfig: AppConfig = {
     postalCode: '',
     country: 'DE',
   },
+  favoriteProducts: ['brief-standard', 'brief-gross', 'paket'],
 };
 
 export function useConfig() {
@@ -57,6 +58,10 @@ export function useConfig() {
     updateConfig({ senderAddress: { ...config.senderAddress, ...address } });
   };
 
+  const updateFavoriteProducts = (favorites: string[]) => {
+    updateConfig({ favoriteProducts: favorites });
+  };
+
   const isConfigured = Boolean(
     config.apiCredentials.username &&
     config.apiCredentials.password &&
@@ -74,5 +79,6 @@ export function useConfig() {
     updateApiCredentials,
     updatePrinterConfig,
     updateSenderAddress,
+    updateFavoriteProducts,
   };
 }

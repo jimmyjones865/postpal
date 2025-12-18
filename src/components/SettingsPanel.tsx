@@ -1,15 +1,17 @@
-import { Settings, User, Printer, Key } from 'lucide-react';
+import { Settings, User, Printer, Key, Package } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AppConfig, PAPER_FORMATS } from '@/types/shipping';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AppConfig, PAPER_FORMATS, SHIPPING_PRODUCTS } from '@/types/shipping';
 
 interface SettingsPanelProps {
   config: AppConfig;
   onUpdateApiCredentials: (creds: Partial<AppConfig['apiCredentials']>) => void;
   onUpdatePrinterConfig: (printer: Partial<AppConfig['printerConfig']>) => void;
   onUpdateSenderAddress: (address: Partial<AppConfig['senderAddress']>) => void;
+  onUpdateFavoriteProducts: (favorites: string[]) => void;
 }
 
 export function SettingsPanel({
@@ -17,7 +19,20 @@ export function SettingsPanel({
   onUpdateApiCredentials,
   onUpdatePrinterConfig,
   onUpdateSenderAddress,
+  onUpdateFavoriteProducts,
 }: SettingsPanelProps) {
+  const domesticProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'domestic');
+  const internationalProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'international');
+
+  const toggleFavorite = (productId: string) => {
+    const current = config.favoriteProducts || [];
+    if (current.includes(productId)) {
+      onUpdateFavoriteProducts(current.filter((id) => id !== productId));
+    } else {
+      onUpdateFavoriteProducts([...current, productId]);
+    }
+  };
+
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -26,7 +41,7 @@ export function SettingsPanel({
       </div>
 
       <Tabs defaultValue="api" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 mb-4">
+        <TabsList className="w-full grid grid-cols-4 mb-4">
           <TabsTrigger value="api" className="text-xs gap-1">
             <Key className="w-3 h-3" />
             API
@@ -38,6 +53,10 @@ export function SettingsPanel({
           <TabsTrigger value="printer" className="text-xs gap-1">
             <Printer className="w-3 h-3" />
             Printer
+          </TabsTrigger>
+          <TabsTrigger value="products" className="text-xs gap-1">
+            <Package className="w-3 h-3" />
+            Products
           </TabsTrigger>
         </TabsList>
 
@@ -72,6 +91,9 @@ export function SettingsPanel({
               className="h-9 text-sm"
             />
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Uses <a href="https://github.com/schaechinger/internetmarke" target="_blank" rel="noopener" className="text-primary hover:underline">internetmarke</a> library
+          </p>
         </TabsContent>
 
         <TabsContent value="sender" className="space-y-3 mt-0">
@@ -167,6 +189,44 @@ export function SettingsPanel({
               onChange={(e) => onUpdatePrinterConfig({ printerName: e.target.value })}
               className="h-9 text-sm"
             />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="products" className="space-y-4 mt-0">
+          <p className="text-xs text-muted-foreground">
+            Select products to show on the main screen
+          </p>
+          
+          <div>
+            <Label className="config-label mb-2 block">Domestic (DE)</Label>
+            <div className="space-y-2">
+              {domesticProducts.map((product) => (
+                <label key={product.id} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={(config.favoriteProducts || []).includes(product.id)}
+                    onCheckedChange={() => toggleFavorite(product.id)}
+                  />
+                  <span className="text-sm">{product.name}</span>
+                  <span className="text-xs text-muted-foreground">{product.price}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="config-label mb-2 block">International</Label>
+            <div className="space-y-2">
+              {internationalProducts.map((product) => (
+                <label key={product.id} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={(config.favoriteProducts || []).includes(product.id)}
+                    onCheckedChange={() => toggleFavorite(product.id)}
+                  />
+                  <span className="text-sm">{product.name}</span>
+                  <span className="text-xs text-muted-foreground">{product.price}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
