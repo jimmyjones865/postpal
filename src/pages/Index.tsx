@@ -23,8 +23,17 @@ const Index = () => {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [einschreibenEnabled, setEinschreibenEnabled] = useState(false);
 
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct;
+
+  const handleProductSelect = (productId: string) => {
+    setSelectedProduct(productId);
+    const product = SHIPPING_PRODUCTS.find(p => p.id === productId);
+    if (!product?.supportsEinschreiben) {
+      setEinschreibenEnabled(false);
+    }
+  };
 
   const handlePrint = async () => {
     if (!isConfigured) {
@@ -60,9 +69,10 @@ const Index = () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     const product = SHIPPING_PRODUCTS.find(p => p.id === selectedProduct);
+    const addonText = einschreibenEnabled ? ' + Einschreiben Einwurf' : '';
     toast({
       title: 'Label Generated',
-      description: `${product?.name} label ready to print.`,
+      description: `${product?.name}${addonText} label ready to print.`,
     });
     
     setIsPrinting(false);
@@ -133,8 +143,10 @@ const Index = () => {
               <h2 className="section-title">Select Product</h2>
               <ProductSelector
                 selectedProduct={selectedProduct}
-                onSelect={setSelectedProduct}
+                onSelect={handleProductSelect}
                 favoriteProducts={config.favoriteProducts || []}
+                einschreibenEnabled={einschreibenEnabled}
+                onEinschreibenChange={setEinschreibenEnabled}
               />
             </div>
           </div>
