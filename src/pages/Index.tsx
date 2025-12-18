@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Printer, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useConfig } from '@/hooks/useConfig';
 import { SettingsPanel } from '@/components/SettingsPanel';
@@ -18,11 +17,14 @@ const Index = () => {
     updateApiCredentials,
     updatePrinterConfig,
     updateSenderAddress,
+    updateFavoriteProducts,
   } = useConfig();
 
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct;
 
   const handlePrint = async () => {
     if (!isConfigured) {
@@ -106,6 +108,7 @@ const Index = () => {
               onUpdateApiCredentials={updateApiCredentials}
               onUpdatePrinterConfig={updatePrinterConfig}
               onUpdateSenderAddress={updateSenderAddress}
+              onUpdateFavoriteProducts={updateFavoriteProducts}
             />
           </aside>
 
@@ -115,6 +118,9 @@ const Index = () => {
               <AddressInput
                 value={recipientAddress}
                 onChange={setRecipientAddress}
+                onPrint={handlePrint}
+                isPrinting={isPrinting}
+                canPrint={canPrint}
               />
               <LabelPreview
                 senderAddress={config.senderAddress}
@@ -128,26 +134,9 @@ const Index = () => {
               <ProductSelector
                 selectedProduct={selectedProduct}
                 onSelect={setSelectedProduct}
+                favoriteProducts={config.favoriteProducts || []}
               />
             </div>
-
-            <Button
-              onClick={handlePrint}
-              disabled={isPrinting || !isConfigured || !recipientAddress || !selectedProduct}
-              className="w-full h-12 text-base font-semibold"
-            >
-              {isPrinting ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⏳</span>
-                  Generating Label...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Printer className="w-5 h-5" />
-                  Print Label
-                </span>
-              )}
-            </Button>
           </div>
         </div>
       </main>

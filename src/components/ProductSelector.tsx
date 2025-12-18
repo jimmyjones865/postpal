@@ -1,15 +1,19 @@
-import { Package, Globe, Home } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { SHIPPING_PRODUCTS, ShippingProduct } from '@/types/shipping';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectorProps {
   selectedProduct: string | null;
   onSelect: (productId: string) => void;
+  favoriteProducts: string[];
 }
 
-export function ProductSelector({ selectedProduct, onSelect }: ProductSelectorProps) {
-  const domesticProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'domestic');
-  const internationalProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'international');
+export function ProductSelector({ selectedProduct, onSelect, favoriteProducts }: ProductSelectorProps) {
+  const [showOther, setShowOther] = useState(false);
+  
+  const favorites = SHIPPING_PRODUCTS.filter((p) => favoriteProducts.includes(p.id));
+  const others = SHIPPING_PRODUCTS.filter((p) => !favoriteProducts.includes(p.id));
 
   const ProductCard = ({ product }: { product: ShippingProduct }) => (
     <button
@@ -28,30 +32,40 @@ export function ProductSelector({ selectedProduct, onSelect }: ProductSelectorPr
   );
 
   return (
-    <div className="space-y-4">
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Home className="w-4 h-4 text-muted-foreground" />
-          <h3 className="section-title mb-0">Domestic (DE)</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {domesticProducts.map((product) => (
+    <div className="space-y-3">
+      {favorites.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {favorites.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-      </div>
+      )}
 
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-muted-foreground" />
-          <h3 className="section-title mb-0">International</h3>
+      {others.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowOther(!showOther)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showOther ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {showOther ? 'Hide' : 'Show'} other products ({others.length})
+          </button>
+          
+          {showOther && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+              {others.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {internationalProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </div>
+      )}
+
+      {favorites.length === 0 && others.length > 0 && !showOther && (
+        <p className="text-xs text-muted-foreground">
+          No favorite products selected. Go to Settings → Products to choose.
+        </p>
+      )}
     </div>
   );
 }

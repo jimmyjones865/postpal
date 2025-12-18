@@ -1,12 +1,23 @@
-import { MapPin } from 'lucide-react';
+import { MapPin, Printer } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 
 interface AddressInputProps {
   value: string;
   onChange: (value: string) => void;
+  onPrint: () => void;
+  isPrinting: boolean;
+  canPrint: boolean;
 }
 
-export function AddressInput({ value, onChange }: AddressInputProps) {
+export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint }: AddressInputProps) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canPrint) {
+      e.preventDefault();
+      onPrint();
+    }
+  };
+
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -20,11 +31,32 @@ Musterstraße 123
 Deutschland`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="address-input min-h-[140px] resize-none bg-muted/50 border-border"
+        onKeyDown={handleKeyDown}
+        className="address-input min-h-[120px] resize-none bg-muted/50 border-border"
       />
-      <p className="text-xs text-muted-foreground mt-2">
-        Enter the complete address as it should appear on the label
-      </p>
+      <div className="flex items-center justify-between mt-3">
+        <p className="text-xs text-muted-foreground">
+          Ctrl+Enter to print
+        </p>
+        <Button
+          onClick={onPrint}
+          disabled={isPrinting || !canPrint}
+          size="sm"
+          className="h-9"
+        >
+          {isPrinting ? (
+            <span className="flex items-center gap-2">
+              <span className="animate-spin">⏳</span>
+              Printing...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Printer className="w-4 h-4" />
+              Print Label
+            </span>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

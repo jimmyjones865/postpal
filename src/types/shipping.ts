@@ -30,6 +30,7 @@ export interface AppConfig {
   apiCredentials: ApiCredentials;
   printerConfig: PrinterConfig;
   senderAddress: SenderAddress;
+  favoriteProducts: string[];
 }
 
 export const SHIPPING_PRODUCTS: ShippingProduct[] = [
