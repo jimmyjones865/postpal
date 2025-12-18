@@ -4,6 +4,13 @@ export interface ShippingProduct {
   description: string;
   price: string;
   type: 'domestic' | 'international';
+  supportsEinschreiben?: boolean;
+}
+
+export interface ShippingAddon {
+  id: string;
+  name: string;
+  price: string;
 }
 
 export interface SenderAddress {
@@ -35,10 +42,10 @@ export interface AppConfig {
 
 export const SHIPPING_PRODUCTS: ShippingProduct[] = [
   // Domestic
-  { id: 'brief-standard', name: 'Brief Standard', description: 'Up to 20g', price: '0.85€', type: 'domestic' },
-  { id: 'brief-kompakt', name: 'Brief Kompakt', description: 'Up to 50g', price: '1.00€', type: 'domestic' },
-  { id: 'brief-gross', name: 'Großbrief', description: 'Up to 500g', price: '1.60€', type: 'domestic' },
-  { id: 'brief-maxi', name: 'Maxibrief', description: 'Up to 1000g', price: '2.75€', type: 'domestic' },
+  { id: 'brief-standard', name: 'Brief Standard', description: 'Up to 20g', price: '0.85€', type: 'domestic', supportsEinschreiben: true },
+  { id: 'brief-kompakt', name: 'Brief Kompakt', description: 'Up to 50g', price: '1.00€', type: 'domestic', supportsEinschreiben: true },
+  { id: 'brief-gross', name: 'Großbrief', description: 'Up to 500g', price: '1.60€', type: 'domestic', supportsEinschreiben: true },
+  { id: 'brief-maxi', name: 'Maxibrief', description: 'Up to 1000g', price: '2.75€', type: 'domestic', supportsEinschreiben: true },
   { id: 'paket-s', name: 'Päckchen S', description: 'Up to 2kg', price: '3.99€', type: 'domestic' },
   { id: 'paket-m', name: 'Päckchen M', description: 'Up to 2kg', price: '4.79€', type: 'domestic' },
   { id: 'paket', name: 'Paket', description: 'Up to 31.5kg', price: '6.99€', type: 'domestic' },
@@ -51,6 +58,10 @@ export const SHIPPING_PRODUCTS: ShippingProduct[] = [
   { id: 'int-paket-s', name: 'Päckchen S Int.', description: 'Up to 2kg', price: '9.49€', type: 'international' },
   { id: 'int-paket-m', name: 'Päckchen M Int.', description: 'Up to 2kg', price: '17.49€', type: 'international' },
   { id: 'int-paket-l', name: 'Paket Int. L', description: 'Up to 5kg', price: '18.99€', type: 'international' },
+];
+
+export const SHIPPING_ADDONS: ShippingAddon[] = [
+  { id: 'einschreiben-einwurf', name: 'Einschreiben Einwurf', price: '2.35€' },
 ];
 
 export const PAPER_FORMATS = [
