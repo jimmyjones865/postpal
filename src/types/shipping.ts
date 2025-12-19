@@ -28,9 +28,10 @@ export interface PrinterConfig {
 }
 
 export interface ApiCredentials {
-  username: string;
-  password: string;
-  ekp: string; // EKP number for Deutsche Post
+  apiKey: string;
+  apiSecret: string;
+  portokasseLogin: string;
+  portokassePassword: string;
 }
 
 export interface AppConfig {

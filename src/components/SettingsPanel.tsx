@@ -62,38 +62,45 @@ export function SettingsPanel({
 
         <TabsContent value="api" className="space-y-3 mt-0">
           <div className="config-field">
-            <Label className="config-label">Username</Label>
+            <Label className="config-label">API Key</Label>
             <Input
               type="text"
-              placeholder="API Username"
-              value={config.apiCredentials.username}
-              onChange={(e) => onUpdateApiCredentials({ username: e.target.value })}
+              placeholder="Partner ID / API Key"
+              value={config.apiCredentials.apiKey}
+              onChange={(e) => onUpdateApiCredentials({ apiKey: e.target.value })}
               className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
-            <Label className="config-label">Password</Label>
+            <Label className="config-label">API Secret</Label>
             <Input
               type="password"
-              placeholder="API Password"
-              value={config.apiCredentials.password}
-              onChange={(e) => onUpdateApiCredentials({ password: e.target.value })}
+              placeholder="Partner Secret"
+              value={config.apiCredentials.apiSecret}
+              onChange={(e) => onUpdateApiCredentials({ apiSecret: e.target.value })}
               className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
-            <Label className="config-label">EKP Number</Label>
+            <Label className="config-label">Portokasse Login</Label>
             <Input
               type="text"
-              placeholder="EKP-Nummer"
-              value={config.apiCredentials.ekp}
-              onChange={(e) => onUpdateApiCredentials({ ekp: e.target.value })}
+              placeholder="Email / Username"
+              value={config.apiCredentials.portokasseLogin}
+              onChange={(e) => onUpdateApiCredentials({ portokasseLogin: e.target.value })}
               className="h-9 text-sm"
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Uses <a href="https://github.com/schaechinger/internetmarke" target="_blank" rel="noopener" className="text-primary hover:underline">internetmarke</a> library
-          </p>
+          <div className="config-field">
+            <Label className="config-label">Portokasse Password</Label>
+            <Input
+              type="password"
+              placeholder="Password"
+              value={config.apiCredentials.portokassePassword}
+              onChange={(e) => onUpdateApiCredentials({ portokassePassword: e.target.value })}
+              className="h-9 text-sm"
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="sender" className="space-y-3 mt-0">
