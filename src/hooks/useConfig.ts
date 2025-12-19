@@ -5,9 +5,10 @@ const STORAGE_KEY = 'dp-label-config';
 
 const defaultConfig: AppConfig = {
   apiCredentials: {
-    username: '',
-    password: '',
-    ekp: '',
+    apiKey: '',
+    apiSecret: '',
+    portokasseLogin: '',
+    portokassePassword: '',
   },
   printerConfig: {
     paperFormat: 'a6',
@@ -63,8 +64,8 @@ export function useConfig() {
   };
 
   const isConfigured = Boolean(
-    config.apiCredentials.username &&
-    config.apiCredentials.password &&
+    config.apiCredentials.apiKey &&
+    config.apiCredentials.apiSecret &&
     config.senderAddress.name &&
     config.senderAddress.street &&
     config.senderAddress.city &&
