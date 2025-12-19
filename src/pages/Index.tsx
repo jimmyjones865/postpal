@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Printer, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConfig } from '@/hooks/useConfig';
+import { useProducts } from '@/hooks/useProducts';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput } from '@/components/AddressInput';
 import { LabelPreview } from '@/components/LabelPreview';
-import { SHIPPING_PRODUCTS } from '@/types/shipping';
 
 const Index = () => {
   const { toast } = useToast();
@@ -20,6 +20,8 @@ const Index = () => {
     updateFavoriteProducts,
   } = useConfig();
 
+  const { products, isLoading: productsLoading } = useProducts();
+
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -27,9 +29,9 @@ const Index = () => {
 
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct;
 
-  const handleProductSelect = (productId: string) => {
-    setSelectedProduct(productId);
-    const product = SHIPPING_PRODUCTS.find(p => p.id === productId);
+  const handleProductSelect = (productCode: string) => {
+    setSelectedProduct(productCode);
+    const product = products.find(p => p.code === productCode);
     if (!product?.supportsEinschreiben) {
       setEinschreibenEnabled(false);
     }
@@ -68,7 +70,7 @@ const Index = () => {
     // Simulate API call - in production this would call Deutsche Post API
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const product = SHIPPING_PRODUCTS.find(p => p.id === selectedProduct);
+    const product = products.find(p => p.code === selectedProduct);
     const addonText = einschreibenEnabled ? ' + Einschreiben Einwurf' : '';
     toast({
       title: 'Label Generated',
@@ -78,13 +80,15 @@ const Index = () => {
     setIsPrinting(false);
   };
 
-  if (!isLoaded) {
+  if (!isLoaded || productsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     );
   }
+
+  const selectedProductData = products.find(p => p.code === selectedProduct) || null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,6 +119,7 @@ const Index = () => {
           <aside className="space-y-4">
             <SettingsPanel
               config={config}
+              products={products}
               onUpdateApiCredentials={updateApiCredentials}
               onUpdatePrinterConfig={updatePrinterConfig}
               onUpdateSenderAddress={updateSenderAddress}
@@ -135,13 +140,14 @@ const Index = () => {
               <LabelPreview
                 senderAddress={config.senderAddress}
                 recipientAddress={recipientAddress}
-                selectedProduct={selectedProduct}
+                selectedProduct={selectedProductData}
               />
             </div>
 
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="section-title">Select Product</h2>
               <ProductSelector
+                products={products}
                 selectedProduct={selectedProduct}
                 onSelect={handleProductSelect}
                 favoriteProducts={config.favoriteProducts || []}

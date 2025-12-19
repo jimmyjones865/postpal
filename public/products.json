@@ -1,0 +1,16 @@
+[
+  { "code": "brief-standard", "name": "Brief Standard", "cost": 0.85, "domestic": true, "maxWeight": 20, "supportsEinschreiben": true },
+  { "code": "brief-kompakt", "name": "Brief Kompakt", "cost": 1.00, "domestic": true, "maxWeight": 50, "supportsEinschreiben": true },
+  { "code": "brief-gross", "name": "Großbrief", "cost": 1.60, "domestic": true, "maxWeight": 500, "supportsEinschreiben": true },
+  { "code": "brief-maxi", "name": "Maxibrief", "cost": 2.75, "domestic": true, "maxWeight": 1000, "supportsEinschreiben": true },
+  { "code": "paket-s", "name": "Päckchen S", "cost": 3.99, "domestic": true, "maxWeight": 2000 },
+  { "code": "paket-m", "name": "Päckchen M", "cost": 4.79, "domestic": true, "maxWeight": 2000 },
+  { "code": "paket", "name": "Paket", "cost": 6.99, "domestic": true, "maxWeight": 31500 },
+  { "code": "int-brief-standard", "name": "Brief International", "cost": 1.10, "domestic": false, "maxWeight": 20 },
+  { "code": "int-brief-kompakt", "name": "Kompaktbrief Int.", "cost": 1.70, "domestic": false, "maxWeight": 50 },
+  { "code": "int-brief-gross", "name": "Großbrief Int.", "cost": 3.70, "domestic": false, "maxWeight": 500 },
+  { "code": "int-paket-xs", "name": "Päckchen XS Int.", "cost": 4.89, "domestic": false, "maxWeight": 500 },
+  { "code": "int-paket-s", "name": "Päckchen S Int.", "cost": 9.49, "domestic": false, "maxWeight": 2000 },
+  { "code": "int-paket-m", "name": "Päckchen M Int.", "cost": 17.49, "domestic": false, "maxWeight": 2000 },
+  { "code": "int-paket-l", "name": "Paket Int. L", "cost": 18.99, "domestic": false, "maxWeight": 5000 }
+]

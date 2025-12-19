@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AppConfig, PAPER_FORMATS, SHIPPING_PRODUCTS } from '@/types/shipping';
+import { AppConfig, PAPER_FORMATS, ShippingProduct } from '@/types/shipping';
 
 interface SettingsPanelProps {
   config: AppConfig;
+  products: ShippingProduct[];
   onUpdateApiCredentials: (creds: Partial<AppConfig['apiCredentials']>) => void;
   onUpdatePrinterConfig: (printer: Partial<AppConfig['printerConfig']>) => void;
   onUpdateSenderAddress: (address: Partial<AppConfig['senderAddress']>) => void;
@@ -16,20 +17,21 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({
   config,
+  products,
   onUpdateApiCredentials,
   onUpdatePrinterConfig,
   onUpdateSenderAddress,
   onUpdateFavoriteProducts,
 }: SettingsPanelProps) {
-  const domesticProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'domestic');
-  const internationalProducts = SHIPPING_PRODUCTS.filter((p) => p.type === 'international');
+  const domesticProducts = products.filter((p) => p.domestic);
+  const internationalProducts = products.filter((p) => !p.domestic);
 
-  const toggleFavorite = (productId: string) => {
+  const toggleFavorite = (productCode: string) => {
     const current = config.favoriteProducts || [];
-    if (current.includes(productId)) {
-      onUpdateFavoriteProducts(current.filter((id) => id !== productId));
+    if (current.includes(productCode)) {
+      onUpdateFavoriteProducts(current.filter((code) => code !== productCode));
     } else {
-      onUpdateFavoriteProducts([...current, productId]);
+      onUpdateFavoriteProducts([...current, productCode]);
     }
   };
 
@@ -208,13 +210,13 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">Domestic (DE)</Label>
             <div className="space-y-2">
               {domesticProducts.map((product) => (
-                <label key={product.id} className="flex items-center gap-2 cursor-pointer">
+                <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                   <Checkbox
-                    checked={(config.favoriteProducts || []).includes(product.id)}
-                    onCheckedChange={() => toggleFavorite(product.id)}
+                    checked={(config.favoriteProducts || []).includes(product.code)}
+                    onCheckedChange={() => toggleFavorite(product.code)}
                   />
                   <span className="text-sm">{product.name}</span>
-                  <span className="text-xs text-muted-foreground">{product.price}</span>
+                  <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
                 </label>
               ))}
             </div>
@@ -224,13 +226,13 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">International</Label>
             <div className="space-y-2">
               {internationalProducts.map((product) => (
-                <label key={product.id} className="flex items-center gap-2 cursor-pointer">
+                <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                   <Checkbox
-                    checked={(config.favoriteProducts || []).includes(product.id)}
-                    onCheckedChange={() => toggleFavorite(product.id)}
+                    checked={(config.favoriteProducts || []).includes(product.code)}
+                    onCheckedChange={() => toggleFavorite(product.code)}
                   />
                   <span className="text-sm">{product.name}</span>
-                  <span className="text-xs text-muted-foreground">{product.price}</span>
+                  <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
                 </label>
               ))}
             </div>
