@@ -1,17 +1,13 @@
 import { Package } from 'lucide-react';
-import { AppConfig, SHIPPING_PRODUCTS } from '@/types/shipping';
+import { AppConfig, ShippingProduct } from '@/types/shipping';
 
 interface LabelPreviewProps {
   senderAddress: AppConfig['senderAddress'];
   recipientAddress: string;
-  selectedProduct: string | null;
+  selectedProduct: ShippingProduct | null;
 }
 
 export function LabelPreview({ senderAddress, recipientAddress, selectedProduct }: LabelPreviewProps) {
-  const product = selectedProduct 
-    ? SHIPPING_PRODUCTS.find(p => p.id === selectedProduct) 
-    : null;
-
   const formatSenderAddress = () => {
     const lines = [];
     if (senderAddress.company) lines.push(senderAddress.company);
@@ -31,9 +27,9 @@ export function LabelPreview({ senderAddress, recipientAddress, selectedProduct 
       
       <div className="bg-foreground/95 text-background rounded-md p-4 aspect-[4/3] relative overflow-hidden">
         {/* Product badge */}
-        {product && (
+        {selectedProduct && (
           <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded">
-            {product.name}
+            {selectedProduct.name}
           </div>
         )}
         

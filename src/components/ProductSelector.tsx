@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Home, Globe } from 'lucide-react';
-import { SHIPPING_PRODUCTS, SHIPPING_ADDONS, ShippingProduct } from '@/types/shipping';
+import { SHIPPING_ADDONS, ShippingProduct } from '@/types/shipping';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface ProductSelectorProps {
+  products: ShippingProduct[];
   selectedProduct: string | null;
-  onSelect: (productId: string) => void;
+  onSelect: (productCode: string) => void;
   favoriteProducts: string[];
   einschreibenEnabled: boolean;
   onEinschreibenChange: (enabled: boolean) => void;
 }
 
 export function ProductSelector({ 
+  products,
   selectedProduct, 
   onSelect, 
   favoriteProducts,
@@ -21,30 +23,35 @@ export function ProductSelector({
 }: ProductSelectorProps) {
   const [showOther, setShowOther] = useState(false);
   
-  const favorites = SHIPPING_PRODUCTS.filter((p) => favoriteProducts.includes(p.id));
-  const others = SHIPPING_PRODUCTS.filter((p) => !favoriteProducts.includes(p.id));
+  const favorites = products.filter((p) => favoriteProducts.includes(p.code));
+  const others = products.filter((p) => !favoriteProducts.includes(p.code));
   
-  const favDomestic = favorites.filter((p) => p.type === 'domestic');
-  const favInternational = favorites.filter((p) => p.type === 'international');
-  const otherDomestic = others.filter((p) => p.type === 'domestic');
-  const otherInternational = others.filter((p) => p.type === 'international');
+  const favDomestic = favorites.filter((p) => p.domestic);
+  const favInternational = favorites.filter((p) => !p.domestic);
+  const otherDomestic = others.filter((p) => p.domestic);
+  const otherInternational = others.filter((p) => !p.domestic);
 
-  const selectedProductData = SHIPPING_PRODUCTS.find(p => p.id === selectedProduct);
+  const selectedProductData = products.find(p => p.code === selectedProduct);
   const einschreiben = SHIPPING_ADDONS.find(a => a.id === 'einschreiben-einwurf');
+
+  const formatWeight = (grams: number) => {
+    if (grams >= 1000) return `${(grams / 1000).toFixed(1)}kg`;
+    return `${grams}g`;
+  };
 
   const ProductCard = ({ product }: { product: ShippingProduct }) => (
     <button
-      onClick={() => onSelect(product.id)}
+      onClick={() => onSelect(product.code)}
       className={cn(
         'product-card text-left w-full',
-        selectedProduct === product.id && 'selected'
+        selectedProduct === product.code && 'selected'
       )}
     >
       <div className="flex justify-between items-start mb-1">
         <span className="font-medium text-sm">{product.name}</span>
-        <span className="text-primary font-mono text-xs">{product.price}</span>
+        <span className="text-primary font-mono text-xs">{product.cost.toFixed(2)}€</span>
       </div>
-      <span className="text-xs text-muted-foreground">{product.description}</span>
+      <span className="text-xs text-muted-foreground">Max {formatWeight(product.maxWeight)}</span>
     </button>
   );
 
@@ -74,7 +81,7 @@ export function ProductSelector({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.code} product={product} />
           ))}
         </div>
       </div>
