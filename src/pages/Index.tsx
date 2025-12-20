@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { Printer, AlertCircle } from 'lucide-react';
+import { Printer, AlertCircle, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
+import { useLabelHistory } from '@/hooks/useLabelHistory';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput } from '@/components/AddressInput';
 import { LabelPreview } from '@/components/LabelPreview';
+import { LabelHistory } from '@/components/LabelHistory';
+import { validateAddress } from '@/lib/addressValidation';
+import { saveLabel, StoredLabel } from '@/lib/labelStorage';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
   const { toast } = useToast();
@@ -21,13 +26,15 @@ const Index = () => {
   } = useConfig();
 
   const { products, isLoading: productsLoading } = useProducts();
+  const { labels, isLoading: labelsLoading, error: labelsError, refresh: refreshLabels, removeLabel, addLabel } = useLabelHistory();
 
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [einschreibenEnabled, setEinschreibenEnabled] = useState(false);
 
-  const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct;
+  const validation = validateAddress(recipientAddress);
+  const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
 
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
@@ -56,6 +63,15 @@ const Index = () => {
       return;
     }
 
+    if (!validation.isValid) {
+      toast({
+        title: 'Address Invalid',
+        description: 'Please fix the address validation errors before printing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!selectedProduct) {
       toast({
         title: 'Product Required',
@@ -67,17 +83,50 @@ const Index = () => {
 
     setIsPrinting(true);
     
-    // Simulate API call - in production this would call Deutsche Post API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const product = products.find(p => p.code === selectedProduct);
-    const addonText = einschreibenEnabled ? ' + Einschreiben Einwurf' : '';
-    toast({
-      title: 'Label Generated',
-      description: `${product?.name}${addonText} label ready to print.`,
-    });
-    
-    setIsPrinting(false);
+    try {
+      // Simulate API call - in production this would call Deutsche Post API and get real PDF
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const product = products.find(p => p.code === selectedProduct);
+      const addonText = einschreibenEnabled ? ' + Einschreiben Einwurf' : '';
+      
+      // For now, create a placeholder PDF (base64 encoded)
+      // In production, this would be the actual PDF from Deutsche Post API
+      const placeholderPdf = btoa('PDF placeholder - replace with actual Deutsche Post PDF');
+      
+      // Save to storage
+      try {
+        const savedLabel = await saveLabel({
+          pdfBase64: placeholderPdf,
+          recipientAddress,
+          productCode: selectedProduct,
+          productName: product?.name || selectedProduct,
+          einschreiben: einschreibenEnabled,
+        });
+        
+        addLabel(savedLabel);
+        
+        toast({
+          title: 'Label Generated & Saved',
+          description: `${product?.name}${addonText} label ready to print.`,
+        });
+      } catch (saveError) {
+        // Storage might not be available (e.g., no backend running)
+        console.warn('Could not save label to storage:', saveError);
+        toast({
+          title: 'Label Generated',
+          description: `${product?.name}${addonText} label ready. (Storage unavailable)`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Print Failed',
+        description: 'Failed to generate label. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   if (!isLoaded || productsLoading) {
@@ -129,32 +178,63 @@ const Index = () => {
 
           {/* Main content */}
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <AddressInput
-                value={recipientAddress}
-                onChange={setRecipientAddress}
-                onPrint={handlePrint}
-                isPrinting={isPrinting}
-                canPrint={canPrint}
-              />
-              <LabelPreview
-                senderAddress={config.senderAddress}
-                recipientAddress={recipientAddress}
-                selectedProduct={selectedProductData}
-              />
-            </div>
+            <Tabs defaultValue="create" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="create">
+                  <Printer className="w-4 h-4 mr-2" />
+                  Create Label
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="w-4 h-4 mr-2" />
+                  History ({labels.length})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="create" className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <AddressInput
+                    value={recipientAddress}
+                    onChange={setRecipientAddress}
+                    onPrint={handlePrint}
+                    isPrinting={isPrinting}
+                    canPrint={canPrint}
+                  />
+                  <LabelPreview
+                    senderAddress={config.senderAddress}
+                    recipientAddress={recipientAddress}
+                    selectedProduct={selectedProductData}
+                  />
+                </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h2 className="section-title">Select Product</h2>
-              <ProductSelector
-                products={products}
-                selectedProduct={selectedProduct}
-                onSelect={handleProductSelect}
-                favoriteProducts={config.favoriteProducts || []}
-                einschreibenEnabled={einschreibenEnabled}
-                onEinschreibenChange={setEinschreibenEnabled}
-              />
-            </div>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <h2 className="section-title">Select Product</h2>
+                  <ProductSelector
+                    products={products}
+                    selectedProduct={selectedProduct}
+                    onSelect={handleProductSelect}
+                    favoriteProducts={config.favoriteProducts || []}
+                    einschreibenEnabled={einschreibenEnabled}
+                    onEinschreibenChange={setEinschreibenEnabled}
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="history">
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <History className="w-4 h-4 text-primary" />
+                    <h2 className="font-semibold text-sm">Print History</h2>
+                  </div>
+                  <LabelHistory
+                    labels={labels}
+                    isLoading={labelsLoading}
+                    error={labelsError}
+                    onRefresh={refreshLabels}
+                    onDelete={removeLabel}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </main>

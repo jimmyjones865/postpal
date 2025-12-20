@@ -5,4 +5,18 @@ services:
       - "3000:80"
     volumes:
       - ./products.json:/usr/share/nginx/html/products.json:ro
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    restart: unless-stopped
+
+  dp-labels-api:
+    build: ./server
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./labels:/data/labels
+    environment:
+      - PDF_STORAGE_PATH=/data/labels
+      - RETENTION_DAYS=60
+      - API_PORT=3001
     restart: unless-stopped
