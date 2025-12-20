@@ -190,6 +190,21 @@ export function SettingsPanel({
             </Select>
           </div>
           <div className="config-field">
+            <Label className="config-label">Orientation</Label>
+            <Select
+              value={config.printerConfig.orientation}
+              onValueChange={(value: 'portrait' | 'landscape') => onUpdatePrinterConfig({ orientation: value })}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select orientation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="portrait">Portrait</SelectItem>
+                <SelectItem value="landscape">Landscape</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="config-field">
             <Label className="config-label">Printer Name</Label>
             <Input
               type="text"
@@ -199,6 +214,11 @@ export function SettingsPanel({
               className="h-9 text-sm"
             />
           </div>
+          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+            <strong>Note:</strong> Printer selection uses the browser's print dialog. 
+            The printer name here is for reference only. When printing, select your 
+            preferred printer in the system dialog.
+          </p>
         </TabsContent>
 
         <TabsContent value="products" className="space-y-4 mt-0">
