@@ -25,6 +25,7 @@ export interface SenderAddress {
 export interface PrinterConfig {
   paperFormat: string;
   printerName: string;
+  orientation: 'portrait' | 'landscape';
 }
 
 export interface ApiCredentials {

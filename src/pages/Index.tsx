@@ -212,6 +212,7 @@ const Index = () => {
                     products={products}
                     selectedProduct={selectedProduct}
                     onSelect={handleProductSelect}
+                    onDoubleClick={handlePrint}
                     favoriteProducts={config.favoriteProducts || []}
                     einschreibenEnabled={einschreibenEnabled}
                     onEinschreibenChange={setEinschreibenEnabled}

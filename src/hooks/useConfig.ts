@@ -13,6 +13,7 @@ const defaultConfig: AppConfig = {
   printerConfig: {
     paperFormat: 'a6',
     printerName: '',
+    orientation: 'portrait',
   },
   senderAddress: {
     name: '',
