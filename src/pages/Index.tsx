@@ -9,6 +9,7 @@ import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput } from '@/components/AddressInput';
 import { LabelPreview } from '@/components/LabelPreview';
 import { LabelHistory } from '@/components/LabelHistory';
+import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
 import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel, StoredLabel } from '@/lib/labelStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -192,13 +193,19 @@ const Index = () => {
               
               <TabsContent value="create" className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                  <AddressInput
-                    value={recipientAddress}
-                    onChange={setRecipientAddress}
-                    onPrint={handlePrint}
-                    isPrinting={isPrinting}
-                    canPrint={canPrint}
-                  />
+                  <div className="space-y-3">
+                    <AddressInput
+                      value={recipientAddress}
+                      onChange={setRecipientAddress}
+                      onPrint={handlePrint}
+                      isPrinting={isPrinting}
+                      canPrint={canPrint}
+                    />
+                    <ParsedAddressEditor
+                      rawAddress={recipientAddress}
+                      onAddressChange={setRecipientAddress}
+                    />
+                  </div>
                   <LabelPreview
                     senderAddress={config.senderAddress}
                     recipientAddress={recipientAddress}
