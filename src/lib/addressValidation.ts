@@ -1,7 +1,7 @@
 // Address validation for Deutsche Post requirements
-// Max 50 chars per line, German alphabet + specific special characters only
+// Max 50 chars per line, German alphabet + specific altered letters (e.g., í, â) + specific special characters only
 
-// Allowed characters: German alphanumeric + , . - & / ( ) ` +
+// Allowed characters: German alphanumeric + aeiou altered by ´`^ + , . - & / ( ) ` +
 // German alphabet includes: a-z A-Z äöüß ÄÖÜ 0-9
 const ALLOWED_PATTERN = /^[a-zA-ZäöüßÄÖÜáàÁÀéèÉÈíìÍÌóòÓÒúùÚÙâÂêÊîÎôÔûÛ0-9\s,.\-&/()`+]*$/;
 
