@@ -4,7 +4,6 @@ export interface StoredLabel {
   recipientAddress: string;
   productCode: string;
   productName: string;
-  einschreiben: boolean;
   createdAt: string;
 }
 
@@ -15,7 +14,6 @@ export async function saveLabel(data: {
   recipientAddress: string;
   productCode: string;
   productName: string;
-  einschreiben: boolean;
 }): Promise<StoredLabel> {
   const response = await fetch(`${API_BASE}/labels`, {
     method: 'POST',
