@@ -24,6 +24,10 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Lora&display=swap");
 
+@import url("https://fonts.googleapis.com/css2?family=Inter&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono&display=swap");
+
 @layer base {
   :root {
     /* Nord Dark defaults */
@@ -57,8 +61,8 @@
 
     --radius: 0.375rem;
 
-    --font-sans: Roboto, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
     /* Sidebar */
     --sidebar-background: 220 16% 22%; /* nord0 */
