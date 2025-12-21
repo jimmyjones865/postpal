@@ -15,6 +15,20 @@ const PDF_STORAGE_PATH = process.env.PDF_STORAGE_PATH || '/data/labels';
 const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS || '60', 10);
 const PORT = process.env.API_PORT || 3001;
 
+let metadataWriteInProgress = false;
+
+async function withMetadataLock(fn) {
+  while (metadataWriteInProgress) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  metadataWriteInProgress = true;
+  try {
+    return await fn();
+  } finally {
+    metadataWriteInProgress = false;
+  }
+}
+
 // Ensure storage directory exists
 async function ensureStorageDir() {
   try {
@@ -27,12 +41,25 @@ async function ensureStorageDir() {
 // Label metadata storage (JSON file)
 const METADATA_FILE = path.join(PDF_STORAGE_PATH, 'labels.json');
 
+//async function loadMetadata() {
+//  try {
+//    const data = await fs.readFile(METADATA_FILE, 'utf-8');
+//    return JSON.parse(data);
+//  } catch {
+//    return { labels: [] };
+//  }
+//}
+
 async function loadMetadata() {
   try {
     const data = await fs.readFile(METADATA_FILE, 'utf-8');
     return JSON.parse(data);
-  } catch {
-    return { labels: [] };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return { labels: [] };
+    }
+    console.error('Metadata file is unreadable or corrupted:', err);
+    throw err;
   }
 }
 
