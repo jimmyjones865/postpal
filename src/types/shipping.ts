@@ -4,7 +4,8 @@ export interface ShippingProduct {
   cost: number;
   domestic: boolean;
   maxWeight: number; // in grams
-  supportsEinschreiben?: boolean;
+  group: 'standard' | 'kompakt' | 'gross' | 'maxi';
+  tracked?: boolean;
 }
 
 export interface ShippingAddon {
@@ -41,10 +42,6 @@ export interface AppConfig {
   senderAddress: SenderAddress;
   favoriteProducts: string[];
 }
-
-export const SHIPPING_ADDONS: ShippingAddon[] = [
-  { id: 'einschreiben-einwurf', name: 'Einschreiben Einwurf', price: '2.35€' },
-];
 
 export const PAPER_FORMATS = [
   { id: 'a4', name: 'A4 (210 × 297 mm)' },

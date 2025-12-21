@@ -10,8 +10,9 @@ import { AddressInput } from '@/components/AddressInput';
 import { LabelPreview } from '@/components/LabelPreview';
 import { LabelHistory } from '@/components/LabelHistory';
 import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
+import { WalletBalance } from '@/components/WalletBalance';
 import { validateAddress } from '@/lib/addressValidation';
-import { saveLabel, StoredLabel } from '@/lib/labelStorage';
+import { saveLabel } from '@/lib/labelStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
@@ -32,17 +33,13 @@ const Index = () => {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [einschreibenEnabled, setEinschreibenEnabled] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
 
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
-    const product = products.find(p => p.code === productCode);
-    if (!product?.supportsEinschreiben) {
-      setEinschreibenEnabled(false);
-    }
   };
 
   const handlePrint = async () => {
@@ -50,6 +47,17 @@ const Index = () => {
       toast({
         title: 'Configuration Required',
         description: 'Please complete the API and sender address configuration.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check wallet balance
+    const product = products.find(p => p.code === selectedProduct);
+    if (product && walletBalance !== null && walletBalance < product.cost) {
+      toast({
+        title: 'Insufficient Balance',
+        description: `Wallet balance (${walletBalance.toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`,
         variant: 'destructive',
       });
       return;
@@ -89,7 +97,6 @@ const Index = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const product = products.find(p => p.code === selectedProduct);
-      const addonText = einschreibenEnabled ? ' + Einschreiben Einwurf' : '';
       
       // For now, create a placeholder PDF (base64 encoded)
       // In production, this would be the actual PDF from Deutsche Post API
@@ -102,21 +109,20 @@ const Index = () => {
           recipientAddress,
           productCode: selectedProduct,
           productName: product?.name || selectedProduct,
-          einschreiben: einschreibenEnabled,
         });
         
         addLabel(savedLabel);
         
         toast({
           title: 'Label Generated & Saved',
-          description: `${product?.name}${addonText} label ready to print.`,
+          description: `${product?.name} label ready to print.`,
         });
       } catch (saveError) {
         // Storage might not be available (e.g., no backend running)
         console.warn('Could not save label to storage:', saveError);
         toast({
           title: 'Label Generated',
-          description: `${product?.name}${addonText} label ready. (Storage unavailable)`,
+          description: `${product?.name} label ready. (Storage unavailable)`,
         });
       }
     } catch (error) {
@@ -154,12 +160,15 @@ const Index = () => {
             </div>
           </div>
           
-          {!isConfigured && (
-            <div className="flex items-center gap-2 text-xs text-amber-500">
-              <AlertCircle className="w-4 h-4" />
-              <span>Setup required</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <WalletBalance onBalanceChange={setWalletBalance} />
+            {!isConfigured && (
+              <div className="flex items-center gap-2 text-xs text-amber-500">
+                <AlertCircle className="w-4 h-4" />
+                <span>Setup required</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -221,8 +230,6 @@ const Index = () => {
                     onSelect={handleProductSelect}
                     onDoubleClick={handlePrint}
                     favoriteProducts={config.favoriteProducts || []}
-                    einschreibenEnabled={einschreibenEnabled}
-                    onEinschreibenChange={setEinschreibenEnabled}
                   />
                 </div>
               </TabsContent>

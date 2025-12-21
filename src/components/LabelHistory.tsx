@@ -94,9 +94,6 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete }: 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                     <Package className="w-3 h-3" />
                     <span className="font-medium">{label.productName}</span>
-                    {label.einschreiben && (
-                      <span className="text-primary">+ Einschreiben</span>
-                    )}
                   </div>
                   <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed overflow-hidden text-ellipsis">
                     {label.recipientAddress.split('\n').slice(0, 3).join('\n')}
