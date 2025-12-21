@@ -20,6 +20,9 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap");
 
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Lora&display=swap");
 
 @layer base {
   :root {
@@ -54,8 +57,8 @@
 
     --radius: 0.375rem;
 
-    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --font-sans: Roboto, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
 
     /* Sidebar */
     --sidebar-background: 220 16% 22%; /* nord0 */
@@ -88,6 +91,8 @@
   /* Explicit dark class retained for Tailwind compatibility */
   .dark {
     color-scheme: dark;
+    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+    --font-sans: Roboto, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
   }
 }
 
