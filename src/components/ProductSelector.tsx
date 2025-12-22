@@ -61,6 +61,9 @@ export function ProductSelector({
     return groups;
   };
 
+  // Redesigned product card based on mockup:
+  // Price prominent top-left, R indicator top-right
+  // Product name below, weight in corner
   const ProductCard = ({ product }: { product: ShippingProduct }) => {
     const isSelected = selectedProduct === product.code;
     
@@ -72,20 +75,32 @@ export function ProductSelector({
           onDoubleClick();
         }}
         className={cn(
-          'product-card text-left w-full',
-          isSelected && 'selected'
+          'relative text-left w-full p-3 rounded-lg border transition-all',
+          'hover:border-primary/50 hover:bg-muted/30',
+          isSelected 
+            ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
+            : 'border-border bg-card'
         )}
       >
-        <div className="flex justify-between items-start mb-1">
-          <span className="font-medium text-sm flex items-center gap-1">
-            {product.tracked && (
-              <span className="text-primary font-bold">R</span>
-            )}
-            {product.name}
+        {/* Top row: Price and tracked indicator */}
+        <div className="flex justify-between items-start mb-2">
+          <span className="text-lg font-bold font-mono">
+            {product.cost.toFixed(2)} €
           </span>
-          <span className="text-primary font-mono text-xs">{product.cost.toFixed(2)}€</span>
+          {product.tracked && (
+            <span className="text-base font-bold text-foreground">R</span>
+          )}
         </div>
-        <span className="text-xs text-muted-foreground">Max {formatWeight(product.maxWeight)}</span>
+        
+        {/* Product name */}
+        <div className="text-xs text-muted-foreground leading-tight mb-1">
+          {product.name}
+        </div>
+        
+        {/* Weight in bottom right */}
+        <div className="absolute bottom-2 right-3 text-xs text-muted-foreground font-mono">
+          {formatWeight(product.maxWeight)}
+        </div>
       </button>
     );
   };
@@ -105,12 +120,12 @@ export function ProductSelector({
     return (
       <div>
         <div className={cn(
-          "flex items-center gap-2 mb-2 px-2 py-1 rounded-md text-xs font-medium",
+          "flex items-center gap-2 mb-3 px-2 py-1.5 rounded-md text-xs font-medium",
           type === 'domestic' 
-            ? "bg-amber-500/10 text-amber-500" 
-            : "bg-blue-500/10 text-blue-500"
+            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+            : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
         )}>
-          {type === 'domestic' ? <Home className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+          {type === 'domestic' ? <Home className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
           <span>{type === 'domestic' ? 'Domestic (DE)' : 'International'}</span>
         </div>
         
@@ -120,7 +135,7 @@ export function ProductSelector({
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
                 {GROUP_LABELS[groupKey as ProductGroup]}
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-2">
                 {groupProducts.map((product) => (
                   <ProductCard key={product.code} product={product} />
                 ))}
