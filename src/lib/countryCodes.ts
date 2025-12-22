@@ -39,7 +39,7 @@ export const COUNTRY_CODES: Record<string, string> = {
 'bosna i herzegovina': 'BIH',
 'босна и херцеговина': 'BIH',
 'bosnien und herzegowina': 'BIH',
-'bosnien': 'BIH'
+'bosnien': 'BIH',
 // BLR — Belarus
 'belarus': 'BLR',
 'беларусь': 'BLR',
@@ -52,7 +52,7 @@ export const COUNTRY_CODES: Record<string, string> = {
 'svizzera': 'CHE',
 'svizra': 'CHE',
 'schweizerische eidgenossenschaft': 'CHE',
-'schweiz': 'CHE'
+'schweiz': 'CHE',
 // CYP — Cyprus
 'cyprus': 'CYP',
 'κύπρος': 'CYP',
