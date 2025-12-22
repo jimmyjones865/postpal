@@ -11,13 +11,13 @@ import { LabelPreview } from '@/components/LabelPreview';
 import { LabelHistory } from '@/components/LabelHistory';
 import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
 import { WalletBalance } from '@/components/WalletBalance';
+import { TrackingNumber } from '@/components/TrackingNumber';
 import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel } from '@/lib/labelStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 const Index = () => {
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const {
     config,
     isLoaded,
@@ -27,10 +27,7 @@ const Index = () => {
     updateSenderAddress,
     updateFavoriteProducts
   } = useConfig();
-  const {
-    products,
-    isLoading: productsLoading
-  } = useProducts();
+  const { products, isLoading: productsLoading } = useProducts();
   const {
     labels,
     isLoading: labelsLoading,
@@ -39,15 +36,24 @@ const Index = () => {
     removeLabel,
     addLabel
   } = useLabelHistory();
+  
   const [recipientAddress, setRecipientAddress] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
+  
+  const selectedProductData = products.find(p => p.code === selectedProduct) || null;
+
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
+    // Clear tracking number when selecting a new product
+    setTrackingNumber(null);
   };
+
   const handlePrint = async () => {
     if (!isConfigured) {
       toast({
@@ -58,7 +64,6 @@ const Index = () => {
       return;
     }
 
-    // Check wallet balance
     const product = products.find(p => p.code === selectedProduct);
     if (product && walletBalance !== null && walletBalance < product.cost) {
       toast({
@@ -68,6 +73,7 @@ const Index = () => {
       });
       return;
     }
+    
     if (!recipientAddress.trim()) {
       toast({
         title: 'Address Required',
@@ -76,6 +82,7 @@ const Index = () => {
       });
       return;
     }
+    
     if (!validation.isValid) {
       toast({
         title: 'Address Invalid',
@@ -84,6 +91,7 @@ const Index = () => {
       });
       return;
     }
+    
     if (!selectedProduct) {
       toast({
         title: 'Product Required',
@@ -92,17 +100,22 @@ const Index = () => {
       });
       return;
     }
+    
     setIsPrinting(true);
     try {
-      // Simulate API call - in production this would call Deutsche Post API and get real PDF
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const product = products.find(p => p.code === selectedProduct);
 
-      // For now, create a placeholder PDF (base64 encoded)
-      // In production, this would be the actual PDF from Deutsche Post API
       const placeholderPdf = btoa('PDF placeholder - replace with actual Deutsche Post PDF');
+      
+      // Simulate tracking number for tracked products
+      const generatedTrackingNumber = product?.tracked 
+        ? `RR${Date.now().toString().slice(-9)}DE`
+        : null;
+      
+      if (generatedTrackingNumber) {
+        setTrackingNumber(generatedTrackingNumber);
+      }
 
-      // Save to storage
       try {
         const savedLabel = await saveLabel({
           pdfBase64: placeholderPdf,
@@ -116,7 +129,6 @@ const Index = () => {
           description: `${product?.name} label ready to print.`
         });
       } catch (saveError) {
-        // Storage might not be available (e.g., no backend running)
         console.warn('Could not save label to storage:', saveError);
         toast({
           title: 'Label Generated',
@@ -133,13 +145,17 @@ const Index = () => {
       setIsPrinting(false);
     }
   };
+
   if (!isLoaded || productsLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>;
+      </div>
+    );
   }
-  const selectedProductData = products.find(p => p.code === selectedProduct) || null;
-  return <div className="min-h-screen bg-background">
+
+  return (
+    <div className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -154,63 +170,109 @@ const Index = () => {
           
           <div className="flex items-center gap-3">
             <WalletBalance onBalanceChange={setWalletBalance} />
-            {!isConfigured && <div className="flex items-center gap-2 text-xs text-amber-500">
+            {!isConfigured && (
+              <div className="flex items-center gap-2 text-xs text-amber-500">
                 <AlertCircle className="w-4 h-4" />
                 <span>Setup required</span>
-              </div>}
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-6">
-        <div className="grid lg:grid-cols-[320px_1fr] gap-6">
-          {/* Sidebar */}
-          <aside className="space-y-4">
-            <SettingsPanel config={config} products={products} onUpdateApiCredentials={updateApiCredentials} onUpdatePrinterConfig={updatePrinterConfig} onUpdateSenderAddress={updateSenderAddress} onUpdateFavoriteProducts={updateFavoriteProducts} />
-          </aside>
+        <Tabs defaultValue="create" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+            <TabsTrigger value="create">
+              <Printer className="w-4 h-4 mr-2" />
+              Create Label
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <History className="w-4 h-4 mr-2" />
+              History ({labels.length})
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="create" className="space-y-6">
+            {/* Settings - Collapsible at top */}
+            <SettingsPanel 
+              config={config} 
+              products={products} 
+              onUpdateApiCredentials={updateApiCredentials} 
+              onUpdatePrinterConfig={updatePrinterConfig} 
+              onUpdateSenderAddress={updateSenderAddress} 
+              onUpdateFavoriteProducts={updateFavoriteProducts} 
+            />
 
-          {/* Main content */}
-          <div className="space-y-6">
-            <Tabs defaultValue="create" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="create">
-                  <Printer className="w-4 h-4 mr-2" />
-                  Create Label
-                </TabsTrigger>
-                <TabsTrigger value="history">
-                  <History className="w-4 h-4 mr-2" />
-                  History ({labels.length})
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="create" className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <AddressInput value={recipientAddress} onChange={setRecipientAddress} onPrint={handlePrint} isPrinting={isPrinting} canPrint={canPrint} />
-                    <ParsedAddressEditor rawAddress={recipientAddress} onAddressChange={setRecipientAddress} />
-                  </div>
-                  <LabelPreview senderAddress={config.senderAddress} recipientAddress={recipientAddress} selectedProduct={selectedProductData} />
-                </div>
+            {/* Main content: Paste Field - Address Fields - Preview */}
+            <div className="grid lg:grid-cols-[1fr_280px_280px] gap-6">
+              {/* Paste full address field */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-medium mb-3">Paste Address</h3>
+                <AddressInput 
+                  value={recipientAddress} 
+                  onChange={setRecipientAddress} 
+                  onPrint={handlePrint} 
+                  isPrinting={isPrinting} 
+                  canPrint={canPrint} 
+                />
+              </div>
 
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <h2 className="section-title">Select Product</h2>
-                  <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={handleProductSelect} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts || []} />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="history">
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <History className="w-4 h-4 text-primary" />
-                    <h2 className="font-semibold text-sm">Print History</h2>
-                  </div>
-                  <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+              {/* Address lines panel - always visible */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-medium mb-3">Address Lines</h3>
+                <ParsedAddressEditor 
+                  rawAddress={recipientAddress} 
+                  onAddressChange={setRecipientAddress} 
+                />
+              </div>
+
+              {/* Preview */}
+              <div className="space-y-0">
+                <LabelPreview 
+                  senderAddress={config.senderAddress} 
+                  recipientAddress={recipientAddress} 
+                  selectedProduct={selectedProductData} 
+                />
+                <TrackingNumber 
+                  trackingNumber={trackingNumber}
+                  isTracked={selectedProductData?.tracked || false}
+                />
+              </div>
+            </div>
+
+            {/* Product selector */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h2 className="text-sm font-medium mb-4">Select Product</h2>
+              <ProductSelector 
+                products={products} 
+                selectedProduct={selectedProduct} 
+                onSelect={handleProductSelect} 
+                onDoubleClick={handlePrint} 
+                favoriteProducts={config.favoriteProducts || []} 
+              />
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="w-4 h-4 text-primary" />
+                <h2 className="font-semibold text-sm">Print History</h2>
+              </div>
+              <LabelHistory 
+                labels={labels} 
+                isLoading={labelsLoading} 
+                error={labelsError} 
+                onRefresh={refreshLabels} 
+                onDelete={removeLabel} 
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;
