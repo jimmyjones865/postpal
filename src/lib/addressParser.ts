@@ -17,14 +17,38 @@ export interface ParsedAddress {
   country: string;        // Country
 }
 
-// Pattern to detect ZIP code line (German: 5 digits, International: various)
-const ZIP_CITY_PATTERN = /^(\d{4,6})\s+(.+)$/;
+// Pattern to detect ZIP code line - supports various formats:
+// German: "12345 Berlin" (5 digits + space + city)
+// Dutch: "1066LH Amsterdam" or "1066 LH Amsterdam" (4 digits + 2 letters + city)
+// French/Belgian: "75001 Paris" (5 digits + space + city)
+// UK: "SW1A 1AA London" (alphanumeric postcode + city)
+// Generic: digits/letters combo followed by city name
+const ZIP_CITY_PATTERNS = [
+  /^(\d{5})\s+(.+)$/,                           // German: 12345 Berlin
+  /^(\d{4}\s?[A-Z]{2})\s+(.+)$/i,               // Dutch: 1066LH Amsterdam or 1066 LH Amsterdam
+  /^(\d{4,5})\s+(.+)$/,                         // Generic European: 4-5 digits + city
+  /^([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})\s+(.+)$/i, // UK: SW1A 1AA London
+  /^(\d{3,6}[-\s]?\d{0,4})\s+(.+)$/,            // Various: with possible separator
+];
 
 // Pattern to detect street with house number
 const STREET_PATTERN = /^.+\s+\d+[a-zA-Z]?(\s*[-–\/]\s*\d+[a-zA-Z]?)?$/;
 
 // Common additional name indicators
 const ADDITIONAL_NAME_INDICATORS = ['c/o', 'c.o.', 'z.hd.', 'z. hd.', 'attn', 'attn:', 'bei', 'firma', 'gmbh', 'ag', 'kg', 'ohg', 'ug', 'e.v.', 'e.k.'];
+
+// Common country names to help identify country lines
+const COUNTRY_NAMES = [
+  'deutschland', 'germany', 'netherlands', 'nederland', 'france', 'frankreich',
+  'belgium', 'belgien', 'austria', 'österreich', 'switzerland', 'schweiz',
+  'italy', 'italien', 'spain', 'spanien', 'poland', 'polen', 'czech republic',
+  'united kingdom', 'uk', 'usa', 'united states'
+];
+
+function isLikelyCountry(line: string): boolean {
+  const lower = line.toLowerCase().trim();
+  return COUNTRY_NAMES.some(c => lower === c || lower.startsWith(c));
+}
 
 function isLikelyAdditionalName(line: string): boolean {
   const lower = line.toLowerCase();
@@ -35,8 +59,19 @@ function isLikelyStreet(line: string): boolean {
   return STREET_PATTERN.test(line.trim());
 }
 
+function tryParseZipCity(line: string): { zip: string; city: string } | null {
+  const trimmed = line.trim();
+  for (const pattern of ZIP_CITY_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) {
+      return { zip: match[1], city: match[2] };
+    }
+  }
+  return null;
+}
+
 function isLikelyZipCity(line: string): boolean {
-  return ZIP_CITY_PATTERN.test(line.trim());
+  return tryParseZipCity(line) !== null;
 }
 
 export function parseAddress(rawAddress: string): ParsedAddress {
@@ -76,10 +111,10 @@ export function parseAddress(rawAddress: string): ParsedAddress {
 
   // Parse ZIP and City
   if (zipCityIndex !== -1) {
-    const match = lines[zipCityIndex].match(ZIP_CITY_PATTERN);
-    if (match) {
-      result.zip = match[1];
-      result.city = match[2];
+    const parsed = tryParseZipCity(lines[zipCityIndex]);
+    if (parsed) {
+      result.zip = parsed.zip;
+      result.city = parsed.city;
     }
   }
 
@@ -129,10 +164,10 @@ export function parseAddress(rawAddress: string): ParsedAddress {
     const lastLineIndex = countryIndex !== -1 ? countryIndex - 1 : lines.length - 1;
     if (lastLineIndex > 0) {
       const lastLine = lines[lastLineIndex];
-      const match = lastLine.match(ZIP_CITY_PATTERN);
-      if (match) {
-        result.zip = match[1];
-        result.city = match[2];
+      const parsed = tryParseZipCity(lastLine);
+      if (parsed) {
+        result.zip = parsed.zip;
+        result.city = parsed.city;
       } else {
         // Just put the whole line as city
         result.city = lastLine;
