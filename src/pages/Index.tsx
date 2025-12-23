@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, AlertCircle, History, Mail } from 'lucide-react';
+import { Printer, AlertCircle, History, Mail, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
@@ -182,7 +182,7 @@ const Index = () => {
 
       <main className="max-w-7xl mx-auto p-6">
         <Tabs defaultValue="create" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+          <TabsList className="grid w-full max-w-lg grid-cols-3 mb-6">
             <TabsTrigger value="create">
               <Printer className="w-4 h-4 mr-2" />
               Create Label
@@ -191,18 +191,13 @@ const Index = () => {
               <History className="w-4 h-4 mr-2" />
               History ({labels.length})
             </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="create" className="space-y-6">
-            {/* Settings - Collapsible at top */}
-            <SettingsPanel 
-              config={config} 
-              products={products} 
-              onUpdateApiCredentials={updateApiCredentials} 
-              onUpdatePrinterConfig={updatePrinterConfig} 
-              onUpdateSenderAddress={updateSenderAddress} 
-              onUpdateFavoriteProducts={updateFavoriteProducts} 
-            />
 
             {/* Main content: Paste Field - Address Fields - Preview */}
             <div className="grid lg:grid-cols-[1fr_280px_280px] gap-6">
@@ -268,6 +263,17 @@ const Index = () => {
                 onDelete={removeLabel} 
               />
             </div>
+          </TabsContent>
+          
+          <TabsContent value="settings">
+            <SettingsPanel 
+              config={config} 
+              products={products} 
+              onUpdateApiCredentials={updateApiCredentials} 
+              onUpdatePrinterConfig={updatePrinterConfig} 
+              onUpdateSenderAddress={updateSenderAddress} 
+              onUpdateFavoriteProducts={updateFavoriteProducts} 
+            />
           </TabsContent>
         </Tabs>
       </main>
