@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { parseAddress, ParsedAddress, formatParsedAddress } from '@/lib/addressParser';
-import { AlertTriangle } from 'lucide-react';
+import { emptyAddress, ParsedAddress, formatParsedAddress } from '@/lib/addressParser';
+import { useLibpostal } from '@/hooks/useLibpostal';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useDebouncedCallback } from '@/hooks/useDebounce';
 
 interface ParsedAddressEditorProps {
   rawAddress: string;
@@ -10,16 +12,30 @@ interface ParsedAddressEditorProps {
 }
 
 export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddressEditorProps) {
-  const [parsed, setParsed] = useState<ParsedAddress>(() => parseAddress(rawAddress));
-  const lastRawRef = useRef(rawAddress);
+  const [parsed, setParsed] = useState<ParsedAddress>(emptyAddress);
+  const lastRawRef = useRef('');
+  const { parseWithLibpostal, isLoading, isAvailable } = useLibpostal();
 
-  // Only re-parse when rawAddress changes externally (not from our own edits)
+  // Debounced parse function
+  const debouncedParse = useDebouncedCallback(async (address: string) => {
+    if (!address.trim()) {
+      setParsed(emptyAddress());
+      return;
+    }
+    
+    const result = await parseWithLibpostal(address);
+    if (result) {
+      setParsed(result);
+    }
+  }, 500);
+
+  // Parse when rawAddress changes externally
   useEffect(() => {
     if (rawAddress !== lastRawRef.current) {
-      setParsed(parseAddress(rawAddress));
       lastRawRef.current = rawAddress;
+      debouncedParse(rawAddress);
     }
-  }, [rawAddress]);
+  }, [rawAddress, debouncedParse]);
 
   // Warning: both optional lines are filled
   const hasBothOptionalLines = Boolean(parsed.additionalName?.trim() && parsed.addressLine2?.trim());
@@ -34,6 +50,21 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddre
 
   return (
     <div className="space-y-2">
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>Parsing address...</span>
+        </div>
+      )}
+      
+      {/* libpostal unavailable warning */}
+      {isAvailable === false && (
+        <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 text-xs">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>Address parsing service unavailable. Manual entry required.</span>
+        </div>
+      )}
       {/* Warning if both optional lines are filled */}
       {hasBothOptionalLines && (
         <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 text-xs">
