@@ -15,6 +15,16 @@ const PDF_STORAGE_PATH = process.env.PDF_STORAGE_PATH || '/data/labels';
 const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS || '60', 10);
 const PORT = process.env.API_PORT || 3001;
 
+// Deutsche Post API configuration
+const DHL_API_BASE = 'https://api-eu.dhl.com/post/de/shipping/im/v1';
+
+// Token cache
+let cachedToken = {
+  accessToken: null,
+  expiresAt: 0,
+  walletBalance: null
+};
+
 let metadataWriteInProgress = false;
 
 async function withMetadataLock(fn) {
@@ -106,6 +116,176 @@ async function cleanupOldLabels() {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', storagePath: PDF_STORAGE_PATH, retentionDays: RETENTION_DAYS });
+});
+
+// ==================== Deutsche Post API ====================
+
+// Authenticate and get token + wallet balance
+async function authenticateDHL(credentials) {
+  const { apiKey, apiSecret, portokasseLogin, portokassePassword } = credentials;
+  
+  if (!apiKey || !apiSecret || !portokasseLogin || !portokassePassword) {
+    throw new Error('Missing API credentials');
+  }
+  
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: apiKey,
+    client_secret: apiSecret,
+    username: portokasseLogin,
+    password: portokassePassword
+  });
+  
+  console.log('Authenticating with Deutsche Post API...');
+  
+  const response = await fetch(`${DHL_API_BASE}/user`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: body.toString()
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('DHL auth failed:', response.status, errorText);
+    throw new Error(`Authentication failed: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  console.log('DHL auth successful, token received');
+  
+  return data;
+}
+
+// Get or refresh access token
+async function getAccessToken(credentials, forceRefresh = false) {
+  const now = Date.now();
+  
+  // Return cached token if still valid (with 5 min buffer)
+  if (!forceRefresh && cachedToken.accessToken && cachedToken.expiresAt > now + 5 * 60 * 1000) {
+    return cachedToken;
+  }
+  
+  const authData = await authenticateDHL(credentials);
+  
+  // Cache the token (valid for 24h, but we use the returned expires_in)
+  const expiresIn = authData.expires_in || 86400; // Default 24h
+  cachedToken = {
+    accessToken: authData.access_token,
+    expiresAt: now + expiresIn * 1000,
+    walletBalance: authData.wallet_balance ?? authData.walletBalance ?? null
+  };
+  
+  return cachedToken;
+}
+
+// Endpoint: Get wallet balance (and refresh token)
+app.post('/api/wallet/balance', async (req, res) => {
+  try {
+    const { credentials } = req.body;
+    
+    if (!credentials) {
+      return res.status(400).json({ error: 'Missing credentials' });
+    }
+    
+    // Force refresh to get current balance
+    const tokenData = await getAccessToken(credentials, true);
+    
+    res.json({ 
+      balance: tokenData.walletBalance,
+      expiresAt: tokenData.expiresAt
+    });
+  } catch (err) {
+    console.error('Failed to get wallet balance:', err);
+    res.status(500).json({ error: err.message || 'Failed to get wallet balance' });
+  }
+});
+
+// Helper: Build address object, omitting empty fields
+function buildAddressObject(addr) {
+  const result = {};
+  
+  if (addr.name) result.name = addr.name;
+  if (addr.additionalName) result.additionalName = addr.additionalName;
+  if (addr.addressLine1) result.addressLine1 = addr.addressLine1;
+  if (addr.addressLine2) result.addressLine2 = addr.addressLine2;
+  if (addr.postalCode) result.postalCode = addr.postalCode;
+  if (addr.city) result.city = addr.city;
+  if (addr.country) result.country = addr.country;
+  
+  return result;
+}
+
+// Endpoint: Purchase shipping label
+app.post('/api/labels/purchase', async (req, res) => {
+  try {
+    const { credentials, sender, receiver, productCode, priceInCents } = req.body;
+    
+    if (!credentials || !sender || !receiver || !productCode || priceInCents === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Get valid access token
+    const tokenData = await getAccessToken(credentials);
+    
+    // Build the request payload
+    const payload = {
+      type: 'AppShoppingCartPDFRequest',
+      total: priceInCents,
+      createShippingList: '0',
+      dpi: 'DPI300',
+      pageFormatId: 176,
+      positions: [{
+        productCode: productCode,
+        imageID: 0,
+        address: {
+          sender: buildAddressObject(sender),
+          receiver: buildAddressObject(receiver)
+        },
+        voucherLayout: 'ADDRESS_ZONE',
+        positionType: 'AppShoppingCartPDFPosition',
+        position: {
+          labelX: 1,
+          labelY: 1,
+          page: 1
+        }
+      }]
+    };
+    
+    console.log('Purchasing label with payload:', JSON.stringify(payload, null, 2));
+    
+    const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokenData.accessToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Label purchase failed:', response.status, errorText);
+      throw new Error(`Label purchase failed: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Label purchased successfully:', data);
+    
+    // The response should contain a PDF URL
+    res.json({
+      success: true,
+      pdfUrl: data.link || data.pdfUrl || data.url,
+      trackingNumber: data.trackingNumber || data.voucherId || null,
+      newBalance: data.walletBalance ?? cachedToken.walletBalance,
+      rawResponse: data
+    });
+  } catch (err) {
+    console.error('Failed to purchase label:', err);
+    res.status(500).json({ error: err.message || 'Failed to purchase label' });
+  }
 });
 
 // Parse address using libpostal
