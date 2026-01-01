@@ -1,11 +1,5 @@
-// Parse a freeform address into structured fields
-// Expected format (5 lines max):
-// Line 1: Name (first + last name)
-// Line 2: Optional - additionalName (company, c/o) OR goes to addressLine2
-// Line 3: Street + house number
-// Line 4: Optional - addressLine2 (apartment, floor) if line 2 was additionalName
-// Line 5: ZIP City
-// Line 6: Country (optional, defaults to Deutschland)
+// Address types and formatting utilities
+// Parsing is done server-side via libpostal
 
 export interface ParsedAddress {
   name: string;           // First & last name
@@ -17,70 +11,8 @@ export interface ParsedAddress {
   country: string;        // Country
 }
 
-// Pattern to detect ZIP code line - supports various formats:
-// German: "12345 Berlin" (5 digits + space + city)
-// Dutch: "1066LH Amsterdam" or "1066 LH Amsterdam" (4 digits + 2 letters + city)
-// French/Belgian: "75001 Paris" (5 digits + space + city)
-// UK: "SW1A 1AA London" (alphanumeric postcode + city)
-// Generic: digits/letters combo followed by city name
-const ZIP_CITY_PATTERNS = [
-  /^(\d{5})\s+(.+)$/,                           // German: 12345 Berlin
-  /^(\d{4}\s?[A-Z]{2})\s+(.+)$/i,               // Dutch: 1066LH Amsterdam or 1066 LH Amsterdam
-  /^(\d{4,5})\s+(.+)$/,                         // Generic European: 4-5 digits + city
-  /^([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})\s+(.+)$/i, // UK: SW1A 1AA London
-  /^(\d{3,6}[-\s]?\d{0,4})\s+(.+)$/,            // Various: with possible separator
-];
-
-// Pattern to detect street with house number
-const STREET_PATTERN = /^.+\s+\d+[a-zA-Z]?(\s*[-–\/]\s*\d+[a-zA-Z]?)?$/;
-
-// Common additional name indicators
-const ADDITIONAL_NAME_INDICATORS = ['c/o', 'c.o.', 'z.hd.', 'z. hd.', 'attn', 'attn:', 'bei', 'firma', 'gmbh', 'ag', 'kg', 'ohg', 'ug', 'e.v.', 'e.k.'];
-
-// Common country names to help identify country lines
-const COUNTRY_NAMES = [
-  'deutschland', 'germany', 'netherlands', 'nederland', 'france', 'frankreich',
-  'belgium', 'belgien', 'austria', 'österreich', 'switzerland', 'schweiz',
-  'italy', 'italien', 'spain', 'spanien', 'poland', 'polen', 'czech republic',
-  'united kingdom', 'uk', 'usa', 'united states'
-];
-
-function isLikelyCountry(line: string): boolean {
-  const lower = line.toLowerCase().trim();
-  return COUNTRY_NAMES.some(c => lower === c || lower.startsWith(c));
-}
-
-function isLikelyAdditionalName(line: string): boolean {
-  const lower = line.toLowerCase();
-  return ADDITIONAL_NAME_INDICATORS.some(indicator => lower.includes(indicator));
-}
-
-function isLikelyStreet(line: string): boolean {
-  return STREET_PATTERN.test(line.trim());
-}
-
-function tryParseZipCity(line: string): { zip: string; city: string } | null {
-  const trimmed = line.trim();
-  for (const pattern of ZIP_CITY_PATTERNS) {
-    const match = trimmed.match(pattern);
-    if (match) {
-      return { zip: match[1], city: match[2] };
-    }
-  }
-  return null;
-}
-
-function isLikelyZipCity(line: string): boolean {
-  return tryParseZipCity(line) !== null;
-}
-
-export function parseAddress(rawAddress: string): ParsedAddress {
-  const lines = rawAddress
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
-
-  const result: ParsedAddress = {
+export function emptyAddress(): ParsedAddress {
+  return {
     name: '',
     additionalName: '',
     street: '',
@@ -89,93 +21,6 @@ export function parseAddress(rawAddress: string): ParsedAddress {
     city: '',
     country: 'Deutschland',
   };
-
-  if (lines.length === 0) return result;
-
-  // Find the ZIP+City line first (most reliable anchor)
-  let zipCityIndex = -1;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (isLikelyZipCity(lines[i])) {
-      zipCityIndex = i;
-      break;
-    }
-  }
-
-  // If we found ZIP+City, check if there's a country after it
-  let countryIndex = -1;
-  if (zipCityIndex !== -1 && zipCityIndex < lines.length - 1) {
-    // Last line is likely country
-    countryIndex = lines.length - 1;
-    result.country = lines[countryIndex];
-  }
-
-  // Parse ZIP and City
-  if (zipCityIndex !== -1) {
-    const parsed = tryParseZipCity(lines[zipCityIndex]);
-    if (parsed) {
-      result.zip = parsed.zip;
-      result.city = parsed.city;
-    }
-  }
-
-  // First line is always the name
-  if (lines.length > 0) {
-    result.name = lines[0];
-  }
-
-  // Now figure out what's between name and ZIP+City
-  const startIndex = 1;
-  const endIndex = zipCityIndex !== -1 ? zipCityIndex : (countryIndex !== -1 ? countryIndex : lines.length);
-
-  const middleLines = lines.slice(startIndex, endIndex);
-
-  if (middleLines.length === 1) {
-    // Only one line between name and zip - it's the street
-    result.street = middleLines[0];
-  } else if (middleLines.length === 2) {
-    // Two lines - need to figure out which is additionalName vs addressLine2
-    if (isLikelyStreet(middleLines[0])) {
-      // First is street, second is addressLine2
-      result.street = middleLines[0];
-      result.addressLine2 = middleLines[1];
-    } else if (isLikelyStreet(middleLines[1])) {
-      // First is additionalName, second is street
-      result.additionalName = middleLines[0];
-      result.street = middleLines[1];
-    } else if (isLikelyAdditionalName(middleLines[0])) {
-      // First looks like company/c/o, second is street
-      result.additionalName = middleLines[0];
-      result.street = middleLines[1];
-    } else {
-      // Default: first is additional name, second is street
-      result.additionalName = middleLines[0];
-      result.street = middleLines[1];
-    }
-  } else if (middleLines.length >= 3) {
-    // Three or more lines
-    result.additionalName = middleLines[0];
-    result.street = middleLines[1];
-    result.addressLine2 = middleLines.slice(2).join(', ');
-  }
-
-  // If we didn't find ZIP+City with the pattern, try to use remaining lines
-  if (zipCityIndex === -1 && lines.length > 1) {
-    // Use last non-country line as ZIP+City
-    const lastLineIndex = countryIndex !== -1 ? countryIndex - 1 : lines.length - 1;
-    if (lastLineIndex > 0) {
-      const lastLine = lines[lastLineIndex];
-      const parsed = tryParseZipCity(lastLine);
-      if (parsed) {
-        result.zip = parsed.zip;
-        result.city = parsed.city;
-      } else {
-        // Just put the whole line as city
-        result.city = lastLine;
-      }
-    }
-  }
-
-  return result;
 }
 
 export function formatParsedAddress(parsed: ParsedAddress): string {
