@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { parseAddress, ParsedAddress, formatParsedAddress } from '@/lib/addressParser';
@@ -10,24 +10,26 @@ interface ParsedAddressEditorProps {
 }
 
 export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddressEditorProps) {
-  const [localParsed, setLocalParsed] = useState<ParsedAddress | null>(null);
+  const [parsed, setParsed] = useState<ParsedAddress>(() => parseAddress(rawAddress));
+  const lastRawRef = useRef(rawAddress);
 
-  const autoParsed = useMemo(() => parseAddress(rawAddress), [rawAddress]);
-
-  // Sync local state when raw address changes significantly
+  // Only re-parse when rawAddress changes externally (not from our own edits)
   useEffect(() => {
-    setLocalParsed(autoParsed);
+    if (rawAddress !== lastRawRef.current) {
+      setParsed(parseAddress(rawAddress));
+      lastRawRef.current = rawAddress;
+    }
   }, [rawAddress]);
-
-  const parsed = localParsed || autoParsed;
 
   // Warning: both optional lines are filled
   const hasBothOptionalLines = Boolean(parsed.additionalName?.trim() && parsed.addressLine2?.trim());
 
   const handleFieldChange = (field: keyof ParsedAddress, value: string) => {
     const updated = { ...parsed, [field]: value };
-    setLocalParsed(updated);
-    onAddressChange(formatParsedAddress(updated));
+    setParsed(updated);
+    const newRaw = formatParsedAddress(updated);
+    lastRawRef.current = newRaw;
+    onAddressChange(newRaw);
   };
 
   return (
