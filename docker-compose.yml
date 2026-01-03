@@ -19,4 +19,8 @@ services:
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
       - API_PORT=3001
+    networks:
+      default:
+        aliases:
+          - labels-api
     restart: unless-stopped
