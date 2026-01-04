@@ -14,7 +14,7 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ./labels:/data/labels
+      - labels-data:/data/labels
     environment:
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
@@ -24,3 +24,6 @@ services:
         aliases:
           - labels-api
     restart: unless-stopped
+
+volumes:
+  labels-data:
