@@ -41,11 +41,7 @@ async function withMetadataLock(fn) {
 
 // Ensure storage directory exists
 async function ensureStorageDir() {
-  try {
-    await fs.mkdir(PDF_STORAGE_PATH, { recursive: true });
-  } catch (err) {
-    console.error('Failed to create storage directory:', err);
-  }
+  await fs.mkdir(PDF_STORAGE_PATH, { recursive: true });
 }
 
 // Label metadata storage (JSON file)
