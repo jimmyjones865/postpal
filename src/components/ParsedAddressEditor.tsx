@@ -9,9 +9,10 @@ import { useDebouncedCallback } from '@/hooks/useDebounce';
 interface ParsedAddressEditorProps {
   rawAddress: string;
   onAddressChange: (newRaw: string) => void;
+  onParsedChange?: (parsed: ParsedAddress) => void;
 }
 
-export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddressEditorProps) {
+export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChange }: ParsedAddressEditorProps) {
   const [parsed, setParsed] = useState<ParsedAddress>(emptyAddress);
   const lastRawRef = useRef('');
   const { parseWithLibpostal, isLoading, isAvailable } = useLibpostal();
@@ -19,13 +20,16 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddre
   // Debounced parse function
   const debouncedParse = useDebouncedCallback(async (address: string) => {
     if (!address.trim()) {
-      setParsed(emptyAddress());
+      const empty = emptyAddress();
+      setParsed(empty);
+      onParsedChange?.(empty);
       return;
     }
     
     const result = await parseWithLibpostal(address);
     if (result) {
       setParsed(result);
+      onParsedChange?.(result);
     }
   }, 500);
 
@@ -43,6 +47,7 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange }: ParsedAddre
   const handleFieldChange = (field: keyof ParsedAddress, value: string) => {
     const updated = { ...parsed, [field]: value };
     setParsed(updated);
+    onParsedChange?.(updated);
     const newRaw = formatParsedAddress(updated);
     lastRawRef.current = newRaw;
     onAddressChange(newRaw);
