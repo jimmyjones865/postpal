@@ -63,11 +63,12 @@ export function WalletBalance({ credentials, onBalanceChange }: WalletBalancePro
     }
   }, [hasCredentials, balance, error, fetchBalance]);
 
-  const formatBalance = (amount: number) => {
+  const formatBalance = (amountInCents: number) => {
+    // API returns balance in cents, convert to EUR
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
       currency: 'EUR',
-    }).format(amount);
+    }).format(amountInCents / 100);
   };
 
   return (

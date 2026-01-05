@@ -114,6 +114,75 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', storagePath: PDF_STORAGE_PATH, retentionDays: RETENTION_DAYS });
 });
 
+// Debug endpoint: Generate a dummy API call
+app.get('/api/debug/dummy-label-request', async (req, res) => {
+  // Load products to get a real product code
+  let sampleProduct = { code: '1', name: 'Standardbrief', cost: 0.95 };
+  
+  const dummySender = {
+    name: 'Max Mustermann',
+    addressLine1: 'Musterstraße 123',
+    postalCode: '12345',
+    city: 'Berlin',
+    country: 'DEU'
+  };
+  
+  const dummyReceiver = {
+    name: 'Erika Beispiel',
+    addressLine1: 'Beispielweg 456',
+    postalCode: '54321',
+    city: 'München',
+    country: 'DEU'
+  };
+  
+  // Price in cents
+  const priceInCents = Math.round(sampleProduct.cost * 100);
+  
+  const payload = {
+    type: 'AppShoppingCartPDFRequest',
+    total: priceInCents,
+    createShippingList: '0',
+    dpi: 'DPI300',
+    pageFormatId: 176,
+    positions: [{
+      productCode: sampleProduct.code,
+      imageID: 0,
+      address: {
+        sender: dummySender,
+        receiver: dummyReceiver
+      },
+      voucherLayout: 'ADDRESS_ZONE',
+      positionType: 'AppShoppingCartPDFPosition',
+      position: {
+        labelX: 1,
+        labelY: 1,
+        page: 1
+      }
+    }]
+  };
+  
+  const curlCommand = `curl --location '${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true' \\
+--header 'Content-Type: application/json' \\
+--header 'Authorization: Bearer YOUR_ACCESS_TOKEN' \\
+--data '${JSON.stringify(payload)}'`;
+
+  res.json({
+    endpoint: `${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN'
+    },
+    payload,
+    curlCommand,
+    notes: {
+      priceInCents: `Product price ${sampleProduct.cost}€ = ${priceInCents} cents`,
+      productCode: sampleProduct.code,
+      productName: sampleProduct.name
+    }
+  });
+});
+
 // ==================== Deutsche Post API ====================
 
 // Authenticate and get token + wallet balance
@@ -261,16 +330,34 @@ app.post('/api/labels/purchase', async (req, res) => {
       body: JSON.stringify(payload)
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Label purchase failed:', response.status, errorText);
-      throw new Error(`Label purchase failed: ${response.status} - ${errorText}`);
+    // Check response status - only 200 means success
+    const responseText = await response.text();
+    console.log(`Label purchase response: status=${response.status}, body=${responseText}`);
+    
+    if (response.status !== 200) {
+      console.error('Label purchase failed:', response.status, responseText);
+      return res.status(response.status).json({ 
+        error: `Label purchase failed: HTTP ${response.status}`,
+        details: responseText,
+        status: response.status
+      });
     }
     
-    const data = await response.json();
-    console.log('Label purchased successfully:', data);
+    // Parse response
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('Failed to parse label response as JSON:', responseText);
+      return res.status(500).json({ 
+        error: 'Invalid response from DHL API',
+        details: responseText
+      });
+    }
     
-    // The response should contain a PDF URL
+    console.log('Label purchased successfully:', JSON.stringify(data, null, 2));
+    
+    // The response should contain a PDF URL or PDF data
     res.json({
       success: true,
       pdfUrl: data.link || data.pdfUrl || data.url,
