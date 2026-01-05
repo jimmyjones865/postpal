@@ -65,10 +65,12 @@ const Index = () => {
     }
 
     const product = products.find(p => p.code === selectedProduct);
-    if (product && walletBalance !== null && walletBalance < product.cost) {
+    // walletBalance is in cents from API, product.cost is in EUR
+    const productCostInCents = product ? Math.round(product.cost * 100) : 0;
+    if (product && walletBalance !== null && walletBalance < productCostInCents) {
       toast({
         title: 'Insufficient Balance',
-        description: `Wallet balance (${walletBalance.toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`,
+        description: `Wallet balance (${(walletBalance / 100).toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`,
         variant: 'destructive'
       });
       return;
