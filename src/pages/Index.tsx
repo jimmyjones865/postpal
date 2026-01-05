@@ -14,6 +14,8 @@ import { WalletBalance } from '@/components/WalletBalance';
 import { TrackingNumber } from '@/components/TrackingNumber';
 import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel } from '@/lib/labelStorage';
+import { ParsedAddress, emptyAddress } from '@/lib/addressParser';
+import { getCountryCode } from '@/lib/countryCodes';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
@@ -38,6 +40,7 @@ const Index = () => {
   } = useLabelHistory();
   
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [parsedRecipient, setParsedRecipient] = useState<ParsedAddress>(emptyAddress());
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -105,42 +108,113 @@ const Index = () => {
     
     setIsPrinting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const placeholderPdf = btoa('PDF placeholder - replace with actual Deutsche Post PDF');
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
       
-      // Simulate tracking number for tracked products
-      const generatedTrackingNumber = product?.tracked 
-        ? `RR${Date.now().toString().slice(-9)}DE`
-        : null;
+      // Build receiver object from parsed address
+      const receiver = {
+        name: parsedRecipient.name,
+        additionalName: parsedRecipient.additionalName || undefined,
+        addressLine1: parsedRecipient.street,
+        addressLine2: parsedRecipient.addressLine2 || undefined,
+        postalCode: parsedRecipient.zip,
+        city: parsedRecipient.city,
+        country: getCountryCode(parsedRecipient.country)
+      };
       
-      if (generatedTrackingNumber) {
-        setTrackingNumber(generatedTrackingNumber);
+      // Call the purchase API
+      const purchaseResponse = await fetch(`${API_BASE}/labels/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credentials: {
+            username: config.apiCredentials.portokasseLogin,
+            password: config.apiCredentials.portokassePassword,
+            clientId: config.apiCredentials.apiKey,
+            clientSecret: config.apiCredentials.apiSecret
+          },
+          sender: {
+            name: config.senderAddress.name,
+            additionalName: config.senderAddress.company || undefined,
+            addressLine1: config.senderAddress.street,
+            postalCode: config.senderAddress.postalCode,
+            city: config.senderAddress.city,
+            country: config.senderAddress.country
+          },
+          receiver,
+          productCode: selectedProduct,
+          priceInCents: productCostInCents
+        })
+      });
+      
+      const purchaseData = await purchaseResponse.json();
+      
+      // Check for errors - the API should return success: true only on HTTP 200
+      if (!purchaseResponse.ok || !purchaseData.success) {
+        console.error('Label purchase failed:', purchaseData);
+        toast({
+          title: 'Purchase Failed',
+          description: purchaseData.error || purchaseData.details || 'Failed to purchase label from Deutsche Post.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      console.log('Label purchased successfully:', purchaseData);
+      
+      // Update tracking number if provided
+      if (purchaseData.trackingNumber) {
+        setTrackingNumber(purchaseData.trackingNumber);
+      }
+      
+      // Update wallet balance if returned
+      if (purchaseData.newBalance !== undefined) {
+        setWalletBalance(purchaseData.newBalance);
       }
 
+      // Save the label to storage
       try {
+        // If we have a PDF URL, fetch it and convert to base64
+        let pdfBase64 = '';
+        if (purchaseData.pdfUrl) {
+          try {
+            const pdfResponse = await fetch(purchaseData.pdfUrl);
+            const pdfBlob = await pdfResponse.blob();
+            pdfBase64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                resolve(base64);
+              };
+              reader.readAsDataURL(pdfBlob);
+            });
+          } catch (pdfError) {
+            console.warn('Could not fetch PDF:', pdfError);
+          }
+        }
+        
         const savedLabel = await saveLabel({
-          pdfBase64: placeholderPdf,
+          pdfBase64,
           recipientAddress,
           productCode: selectedProduct,
           productName: product?.name || selectedProduct
         });
         addLabel(savedLabel);
         toast({
-          title: 'Label Generated & Saved',
+          title: 'Label Purchased & Saved',
           description: `${product?.name} label ready to print.`
         });
       } catch (saveError) {
         console.warn('Could not save label to storage:', saveError);
         toast({
-          title: 'Label Generated',
-          description: `${product?.name} label ready. (Storage unavailable)`
+          title: 'Label Purchased',
+          description: `${product?.name} label purchased. (Local storage unavailable)`
         });
       }
     } catch (error) {
+      console.error('Label purchase error:', error);
       toast({
-        title: 'Print Failed',
-        description: 'Failed to generate label. Please try again.',
+        title: 'Purchase Failed',
+        description: error instanceof Error ? error.message : 'Failed to purchase label. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -220,7 +294,8 @@ const Index = () => {
                 <h3 className="text-sm font-medium mb-3">Address Lines</h3>
                 <ParsedAddressEditor 
                   rawAddress={recipientAddress} 
-                  onAddressChange={setRecipientAddress} 
+                  onAddressChange={setRecipientAddress}
+                  onParsedChange={setParsedRecipient}
                 />
               </div>
 
