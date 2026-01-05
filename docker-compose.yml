@@ -1,5 +1,5 @@
 services:
-  dp-labels:
+  web:
     build: .
     ports:
       - "3000:80"
@@ -9,7 +9,7 @@ services:
       - VITE_API_URL=http://localhost:3001/api
     restart: unless-stopped
 
-  dp-labels-api:
+  api:
     build: ./server
     ports:
       - "3001:3001"
