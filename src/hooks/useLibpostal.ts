@@ -20,8 +20,8 @@ export function useLibpostal(): UseLibpostalResult {
     setError(null);
     
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/parse-address`, {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const response = await fetch(`${apiUrl}/parse-address`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
