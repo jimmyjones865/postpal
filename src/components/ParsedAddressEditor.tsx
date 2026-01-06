@@ -27,6 +27,7 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
     }
     
     const result = await parseWithLibpostal(address);
+    console.log('Libpostal parse result:', result);
     if (result) {
       setParsed(result);
       onParsedChange?.(result);
