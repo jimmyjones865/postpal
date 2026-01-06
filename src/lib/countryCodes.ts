@@ -66,12 +66,13 @@ export const COUNTRY_CODES: Record<string, string> = {
 'česko': 'CZE',
 'cesko': 'CZE',
 'česká republika': 'CZE',
-'ceska republika': 'CZE',
-'tschechien': 'CZE',
-// DEU — Germany
-'germany': 'DEU',
-'bundesrepublik deutschland': 'DEU',
-'deutschland': 'DEU',
+  'ceska republika': 'CZE',
+  'tschechien': 'CZE',
+  // DEU — Germany
+  'germany': 'DEU',
+  'bundesrepublik deutschland': 'DEU',
+  'deutschland': 'DEU',
+  'de': 'DEU',  // Common 2-letter code
 // DNK — Denmark
 'denmark': 'DNK',
 'danmark': 'DNK',

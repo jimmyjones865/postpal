@@ -121,16 +121,19 @@ const Index = () => {
         country: getCountryCode(parsedRecipient.country)
       };
       
+      // Convert sender country to ISO code
+      const senderCountryCode = getCountryCode(config.senderAddress.country) || config.senderAddress.country;
+      
       // Call the purchase API
       const purchaseResponse = await fetch(`${API_BASE}/labels/purchase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           credentials: {
-            username: config.apiCredentials.portokasseLogin,
-            password: config.apiCredentials.portokassePassword,
-            clientId: config.apiCredentials.apiKey,
-            clientSecret: config.apiCredentials.apiSecret
+            portokasseLogin: config.apiCredentials.portokasseLogin,
+            portokassePassword: config.apiCredentials.portokassePassword,
+            apiKey: config.apiCredentials.apiKey,
+            apiSecret: config.apiCredentials.apiSecret
           },
           sender: {
             name: config.senderAddress.name,
@@ -138,7 +141,7 @@ const Index = () => {
             addressLine1: config.senderAddress.street,
             postalCode: config.senderAddress.postalCode,
             city: config.senderAddress.city,
-            country: config.senderAddress.country
+            country: senderCountryCode
           },
           receiver,
           productCode: selectedProduct,
