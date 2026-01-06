@@ -384,16 +384,29 @@ app.post('/api/parse-address', async (req, res) => {
     let postal;
     try {
       postal = (await import('node-postal')).default;
+      console.log('node-postal loaded successfully');
     } catch (importErr) {
-      console.warn('libpostal not available, using fallback parser');
+      console.error('Failed to import node-postal:', importErr.message);
       return res.status(501).json({ 
         error: 'libpostal not installed',
-        message: 'Install node-postal for advanced parsing'
+        message: 'Install node-postal for advanced parsing',
+        details: importErr.message
       });
     }
     
     // Parse the address using libpostal
-    const parsed = postal.parser.parse_address(address);
+    console.log('Parsing address:', address);
+    let parsed;
+    try {
+      parsed = postal.parser.parse_address(address);
+      console.log('Libpostal raw output:', JSON.stringify(parsed));
+    } catch (parseErr) {
+      console.error('Libpostal parsing threw error:', parseErr);
+      return res.status(500).json({ 
+        error: 'Libpostal parsing failed', 
+        details: parseErr.message 
+      });
+    }
     
     // Map libpostal output to our ParsedAddress structure
     // libpostal returns array of { component, label }
