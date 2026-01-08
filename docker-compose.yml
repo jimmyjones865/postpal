@@ -1,28 +1,18 @@
 services:
-  web:
+  app:
     build: .
     ports:
-      - "3000:80"
-    volumes:
-      - ./public/products.json:/usr/share/nginx/html/products.json:ro
-    environment:
-      - VITE_API_URL=http://localhost:3001/api
-    restart: unless-stopped
-
-  api:
-    build: ./server
-    ports:
-      - "3001:3001"
+      - "3000:3000"
     volumes:
       - labels-data:/data/labels
+      - ./public/products.json:/app/public/products.json:ro
+    env_file:
+      - .env
     environment:
+      - PORT=3000
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
-      - API_PORT=3001
-    networks:
-      default:
-        aliases:
-          - labels-api
+      - STATIC_PATH=/app/public
     restart: unless-stopped
 
 volumes:
