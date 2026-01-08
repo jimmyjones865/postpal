@@ -7,8 +7,7 @@ PDF_STORAGE_PATH="${PDF_STORAGE_PATH:-/data/labels}"
 mkdir -p "$PDF_STORAGE_PATH"
 
 # Fix ownership so the non-root node user can write metadata + PDFs
-# (also fixes existing files created as root from earlier runs)
 chown -R node:node "$PDF_STORAGE_PATH" || true
 
-# Drop privileges
+# Drop privileges and start server
 exec su-exec node node /app/index.js
