@@ -371,8 +371,10 @@ app.post('/api/labels/purchase', async (req, res) => {
   }
 });
 
-// Parse address using libpostal
-app.post('/api/parse-address', async (req, res) => {
+// Address parser - using lightweight European regex parser
+import { parseAddress } from './lib/european-address-parser.js';
+
+app.post('/api/parse-address', (req, res) => {
   try {
     const { address } = req.body;
     
@@ -380,104 +382,9 @@ app.post('/api/parse-address', async (req, res) => {
       return res.status(400).json({ error: 'Missing address field' });
     }
     
-    // Import libpostal dynamically (only if available)
-    let postal;
-    try {
-      postal = (await import('node-postal')).default;
-      console.log('node-postal loaded successfully');
-    } catch (importErr) {
-      console.error('Failed to import node-postal:', importErr.message);
-      return res.status(501).json({ 
-        error: 'libpostal not installed',
-        message: 'Install node-postal for advanced parsing',
-        details: importErr.message
-      });
-    }
-    
-    // Parse the address using libpostal
     console.log('Parsing address:', address);
-    let parsed;
-    try {
-      parsed = postal.parser.parse_address(address);
-      console.log('Libpostal raw output:', JSON.stringify(parsed));
-    } catch (parseErr) {
-      console.error('Libpostal parsing threw error:', parseErr);
-      return res.status(500).json({ 
-        error: 'Libpostal parsing failed', 
-        details: parseErr.message 
-      });
-    }
-    
-    // Map libpostal output to our ParsedAddress structure
-    // libpostal returns array of { component, label }
-    const result = {
-      name: '',
-      additionalName: '',
-      street: '',
-      addressLine2: '',
-      zip: '',
-      city: '',
-      country: 'Deutschland'
-    };
-    
-    let houseNumber = '';
-    let road = '';
-    
-    for (const { component, label } of parsed) {
-      switch (label) {
-        case 'house':
-          // Could be person name or company
-          if (!result.name) {
-            result.name = component;
-          } else if (!result.additionalName) {
-            result.additionalName = component;
-          }
-          break;
-        case 'house_number':
-          houseNumber = component;
-          break;
-        case 'road':
-          road = component;
-          break;
-        case 'unit':
-        case 'level':
-        case 'staircase':
-        case 'entrance':
-          // These go to addressLine2
-          if (result.addressLine2) {
-            result.addressLine2 += `, ${component}`;
-          } else {
-            result.addressLine2 = component;
-          }
-          break;
-        case 'postcode':
-          result.zip = component;
-          break;
-        case 'city':
-        case 'city_district':
-        case 'suburb':
-          if (!result.city) {
-            result.city = component;
-          }
-          break;
-        case 'country':
-          result.country = component;
-          break;
-        case 'state':
-        case 'state_district':
-          // Ignore for German addresses
-          break;
-      }
-    }
-    
-    // Combine street and house number
-    if (road && houseNumber) {
-      result.street = `${road} ${houseNumber}`;
-    } else if (road) {
-      result.street = road;
-    } else if (houseNumber) {
-      result.street = houseNumber;
-    }
+    const result = parseAddress(address);
+    console.log('Parsed result:', JSON.stringify(result));
     
     res.json(result);
   } catch (err) {
