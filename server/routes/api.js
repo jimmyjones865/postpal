@@ -126,6 +126,12 @@ export function createApiRouter() {
     });
     
     console.log('Authenticating with Deutsche Post API...');
+    console.log('Using credentials:', {
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}...` : 'MISSING',
+      apiSecret: apiSecret ? '***SET***' : 'MISSING',
+      portokasseLogin: portokasseLogin ? `${portokasseLogin.substring(0, 3)}...` : 'MISSING',
+      portokassePassword: portokassePassword ? '***SET***' : 'MISSING'
+    });
     
     const response = await fetch(`${DHL_API_BASE}/user`, {
       method: 'POST',
