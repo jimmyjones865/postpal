@@ -176,11 +176,15 @@ const Index = () => {
 
       // Save the label to storage
       try {
-        // If we have a PDF URL, fetch it and convert to base64
+        // If we have a PDF URL, fetch it via our proxy to avoid CORS and convert to base64
         let pdfBase64 = '';
         if (purchaseData.pdfUrl) {
           try {
-            const pdfResponse = await fetch(purchaseData.pdfUrl);
+            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}`;
+            const pdfResponse = await fetch(proxyUrl);
+            if (!pdfResponse.ok) {
+              throw new Error(`PDF fetch failed: ${pdfResponse.status}`);
+            }
             const pdfBlob = await pdfResponse.blob();
             pdfBase64 = await new Promise<string>((resolve) => {
               const reader = new FileReader();

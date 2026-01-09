@@ -361,16 +361,64 @@ export function createApiRouter() {
       
       console.log('Label purchased successfully:', JSON.stringify(data, null, 2));
       
+      // Extract voucherId from shoppingCart if available
+      const voucherId = data.shoppingCart?.voucherList?.[0]?.voucherId || null;
+      const trackId = data.shoppingCart?.voucherList?.[0]?.trackId || null;
+      
+      // DHL API has a typo: "walletBallance" (double l)
+      const newBalance = data.walletBallance ?? data.walletBalance ?? cachedToken?.walletBalance;
+      
+      // Update cached token balance
+      if (newBalance !== undefined && cachedToken) {
+        cachedToken.walletBalance = newBalance;
+      }
+      
       res.json({
         success: true,
         pdfUrl: data.link || data.pdfUrl || data.url,
-        trackingNumber: data.trackingNumber || data.voucherId || null,
-        newBalance: data.walletBalance ?? cachedToken.walletBalance,
+        trackingNumber: trackId || voucherId || null,
+        voucherId,
+        newBalance,
         rawResponse: data
       });
     } catch (err) {
       console.error('Failed to purchase label:', err);
       res.status(500).json({ error: err.message || 'Failed to purchase label' });
+    }
+  });
+
+  // Proxy PDF download from DHL (to avoid CORS issues)
+  router.get('/proxy-pdf', async (req, res) => {
+    try {
+      const { url } = req.query;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'Missing url parameter' });
+      }
+      
+      // Only allow DHL URLs for security
+      if (!url.startsWith('https://internetmarke.deutschepost.de/')) {
+        return res.status(403).json({ error: 'Only Deutsche Post URLs are allowed' });
+      }
+      
+      console.log('Proxying PDF from:', url);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error('PDF fetch failed:', response.status);
+        return res.status(response.status).json({ error: 'Failed to fetch PDF' });
+      }
+      
+      const contentType = response.headers.get('content-type') || 'application/pdf';
+      const buffer = await response.arrayBuffer();
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', 'inline; filename="label.pdf"');
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      console.error('PDF proxy error:', err);
+      res.status(500).json({ error: 'Failed to proxy PDF' });
     }
   });
 
