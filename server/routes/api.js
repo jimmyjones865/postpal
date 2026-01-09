@@ -127,11 +127,14 @@ export function createApiRouter() {
     
     console.log('Authenticating with Deutsche Post API...');
     console.log('Using credentials:', {
-      apiKey: apiKey ? `${apiKey.substring(0, 4)}...` : 'MISSING',
-      apiSecret: apiSecret ? '***SET***' : 'MISSING',
-      portokasseLogin: portokasseLogin ? `${portokasseLogin.substring(0, 3)}...` : 'MISSING',
-      portokassePassword: portokassePassword ? '***SET***' : 'MISSING'
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'MISSING',
+      apiSecret: apiSecret ? `${apiSecret.length} chars` : 'MISSING',
+      portokasseLogin: portokasseLogin || 'MISSING',
+      portokassePassword: portokassePassword ? `${portokassePassword.length} chars` : 'MISSING'
     });
+    
+    // Log the encoded body (without secrets)
+    console.log('Request body params:', body.toString().replace(/password=[^&]+/, 'password=***').replace(/client_secret=[^&]+/, 'client_secret=***'));
     
     const response = await fetch(`${DHL_API_BASE}/user`, {
       method: 'POST',
@@ -142,10 +145,11 @@ export function createApiRouter() {
       body: body.toString()
     });
     
+    const responseText = await response.text();
+    console.log('DHL auth response:', response.status, responseText);
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('DHL auth failed:', response.status, errorText);
-      throw new Error(`Authentication failed: ${response.status} - ${errorText}`);
+      throw new Error(`Authentication failed: ${response.status} - ${responseText}`);
     }
     
     const data = await response.json();
