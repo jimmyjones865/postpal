@@ -152,8 +152,8 @@ export function createApiRouter() {
       throw new Error(`Authentication failed: ${response.status} - ${responseText}`);
     }
     
-    const data = await response.json();
-    console.log('DHL auth successful, token received');
+    const data = JSON.parse(responseText);
+    console.log('DHL auth successful, token received, balance:', data.walletBalance);
     
     return data;
   }
