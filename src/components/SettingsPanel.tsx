@@ -1,4 +1,4 @@
-import { Settings, User, Printer, Package, Lock } from 'lucide-react';
+import { Settings, User, Printer, Package } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,6 @@ import { AppConfig, PAPER_FORMATS, ShippingProduct } from '@/types/shipping';
 interface SettingsPanelProps {
   config: AppConfig;
   products: ShippingProduct[];
-  onUpdateApiCredentials: (creds: Partial<AppConfig['apiCredentials']>) => void;
   onUpdatePrinterConfig: (printer: Partial<AppConfig['printerConfig']>) => void;
   onUpdateSenderAddress: (address: Partial<AppConfig['senderAddress']>) => void;
   onUpdateFavoriteProducts: (favorites: string[]) => void;
@@ -18,7 +17,6 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   config,
   products,
-  onUpdateApiCredentials,
   onUpdatePrinterConfig,
   onUpdateSenderAddress,
   onUpdateFavoriteProducts
@@ -42,12 +40,8 @@ export function SettingsPanel({
         <h2 className="font-semibold text-sm">Settings</h2>
       </div>
       
-      <Tabs defaultValue="api" className="w-full">
-        <TabsList className="w-full grid grid-cols-4 mb-4">
-          <TabsTrigger value="api" className="text-xs gap-1">
-            <Lock className="w-3 h-3" />
-            API
-          </TabsTrigger>
+      <Tabs defaultValue="sender" className="w-full">
+        <TabsList className="w-full grid grid-cols-3 mb-4">
           <TabsTrigger value="sender" className="text-xs gap-1">
             <User className="w-3 h-3" />
             Sender
@@ -61,49 +55,6 @@ export function SettingsPanel({
             Products
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="api" className="space-y-3 mt-0">
-          <div className="config-field">
-            <Label className="config-label">API Key</Label>
-            <Input 
-              type="text" 
-              placeholder="Partner ID / API Key" 
-              value={config.apiCredentials.apiKey} 
-              onChange={e => onUpdateApiCredentials({ apiKey: e.target.value })} 
-              className="h-9 text-sm" 
-            />
-          </div>
-          <div className="config-field">
-            <Label className="config-label">API Secret</Label>
-            <Input 
-              type="password" 
-              placeholder="Partner Secret" 
-              value={config.apiCredentials.apiSecret} 
-              onChange={e => onUpdateApiCredentials({ apiSecret: e.target.value })} 
-              className="h-9 text-sm" 
-            />
-          </div>
-          <div className="config-field">
-            <Label className="config-label">Portokasse Login</Label>
-            <Input 
-              type="text" 
-              placeholder="Email / Username" 
-              value={config.apiCredentials.portokasseLogin} 
-              onChange={e => onUpdateApiCredentials({ portokasseLogin: e.target.value })} 
-              className="h-9 text-sm" 
-            />
-          </div>
-          <div className="config-field">
-            <Label className="config-label">Portokasse Password</Label>
-            <Input 
-              type="password" 
-              placeholder="Password" 
-              value={config.apiCredentials.portokassePassword} 
-              onChange={e => onUpdateApiCredentials({ portokassePassword: e.target.value })} 
-              className="h-9 text-sm" 
-            />
-          </div>
-        </TabsContent>
 
         <TabsContent value="sender" className="space-y-3 mt-0">
           <div className="config-field">
