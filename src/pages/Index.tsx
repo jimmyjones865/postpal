@@ -176,11 +176,13 @@ const Index = () => {
 
       // Save the label to storage
       try {
-        // If we have a PDF URL, fetch it via our proxy to avoid CORS and convert to base64
+        // If we have a PDF URL, fetch it via our proxy (with cropping) and convert to base64
         let pdfBase64 = '';
         if (purchaseData.pdfUrl) {
           try {
-            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}`;
+            const cropH = config.printerConfig.cropMarginHorizontal ?? 5;
+            const cropV = config.printerConfig.cropMarginVertical ?? 5;
+            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}&cropH=${cropH}&cropV=${cropV}`;
             const pdfResponse = await fetch(proxyUrl);
             if (!pdfResponse.ok) {
               throw new Error(`PDF fetch failed: ${pdfResponse.status}`);

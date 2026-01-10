@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
+import { cropPdfWhitespace } from '../lib/pdf-cropper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -398,10 +399,10 @@ export function createApiRouter() {
     }
   });
 
-  // Proxy PDF download from DHL (to avoid CORS issues)
+  // Proxy PDF download from DHL (to avoid CORS issues) with optional cropping
   router.get('/proxy-pdf', async (req, res) => {
     try {
-      const { url } = req.query;
+      const { url, cropH, cropV } = req.query;
       
       if (!url || typeof url !== 'string') {
         return res.status(400).json({ error: 'Missing url parameter' });
@@ -422,11 +423,26 @@ export function createApiRouter() {
       }
       
       const contentType = response.headers.get('content-type') || 'application/pdf';
-      const buffer = await response.arrayBuffer();
+      let buffer = Buffer.from(await response.arrayBuffer());
+      
+      // Apply cropping if margins are specified
+      const marginH = parseFloat(cropH) || 0;
+      const marginV = parseFloat(cropV) || 0;
+      
+      if (marginH >= 0 || marginV >= 0) {
+        try {
+          console.log(`Cropping PDF with margins: H=${marginH}mm, V=${marginV}mm`);
+          buffer = await cropPdfWhitespace(buffer, marginH, marginV);
+          console.log('PDF cropped successfully');
+        } catch (cropError) {
+          console.error('Failed to crop PDF, returning original:', cropError.message);
+          // Continue with original PDF if cropping fails
+        }
+      }
       
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', 'inline; filename="label.pdf"');
-      res.send(Buffer.from(buffer));
+      res.send(buffer);
     } catch (err) {
       console.error('PDF proxy error:', err);
       res.status(500).json({ error: 'Failed to proxy PDF' });
