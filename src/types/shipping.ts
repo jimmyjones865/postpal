@@ -27,6 +27,8 @@ export interface PrinterConfig {
   paperFormat: string;
   printerName: string;
   orientation: 'portrait' | 'landscape';
+  cropMarginHorizontal: number; // in mm
+  cropMarginVertical: number;   // in mm
 }
 
 export interface ApiCredentials {

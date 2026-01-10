@@ -165,6 +165,40 @@ export function SettingsPanel({
               className="h-9 text-sm" 
             />
           </div>
+          
+          <div className="border-t border-border pt-3 mt-3">
+            <Label className="config-label mb-2 block">Label Cropping (minimize paper usage)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="config-field">
+                <Label className="config-label text-xs">Horizontal Margin (mm)</Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="50"
+                  placeholder="5" 
+                  value={config.printerConfig.cropMarginHorizontal ?? 5} 
+                  onChange={e => onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })} 
+                  className="h-9 text-sm" 
+                />
+              </div>
+              <div className="config-field">
+                <Label className="config-label text-xs">Vertical Margin (mm)</Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="50"
+                  placeholder="5" 
+                  value={config.printerConfig.cropMarginVertical ?? 5} 
+                  onChange={e => onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })} 
+                  className="h-9 text-sm" 
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Crops whitespace from labels, keeping the specified margins around the content.
+            </p>
+          </div>
+          
           <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
             <strong>Note:</strong> Printer selection uses the browser's print dialog. 
             The printer name here is for reference only.
