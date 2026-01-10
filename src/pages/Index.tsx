@@ -353,7 +353,6 @@ const Index = () => {
             <SettingsPanel 
               config={config} 
               products={products} 
-              onUpdateApiCredentials={updateApiCredentials} 
               onUpdatePrinterConfig={updatePrinterConfig} 
               onUpdateSenderAddress={updateSenderAddress} 
               onUpdateFavoriteProducts={updateFavoriteProducts} 

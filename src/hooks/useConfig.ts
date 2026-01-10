@@ -29,6 +29,26 @@ const defaultConfig: AppConfig = {
 export function useConfig() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [serverCredentialsConfigured, setServerCredentialsConfigured] = useState<boolean | null>(null);
+
+  // Check if server has credentials configured
+  useEffect(() => {
+    async function checkServerCredentials() {
+      try {
+        const response = await fetch('/api/credentials/status');
+        if (response.ok) {
+          const data = await response.json();
+          setServerCredentialsConfigured(data.configured);
+        } else {
+          setServerCredentialsConfigured(false);
+        }
+      } catch (e) {
+        console.error('Failed to check server credentials:', e);
+        setServerCredentialsConfigured(false);
+      }
+    }
+    checkServerCredentials();
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -64,9 +84,9 @@ export function useConfig() {
     updateConfig({ favoriteProducts: favorites });
   };
 
+  // isConfigured now checks server-side credentials
   const isConfigured = Boolean(
-    config.apiCredentials.apiKey &&
-    config.apiCredentials.apiSecret &&
+    serverCredentialsConfigured &&
     config.senderAddress.name &&
     config.senderAddress.street &&
     config.senderAddress.city &&
@@ -77,6 +97,7 @@ export function useConfig() {
     config,
     isLoaded,
     isConfigured,
+    serverCredentialsConfigured,
     updateConfig,
     updateApiCredentials,
     updatePrinterConfig,

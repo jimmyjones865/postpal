@@ -202,6 +202,17 @@ export function createApiRouter() {
     res.json({ status: 'ok', storagePath: PDF_STORAGE_PATH, retentionDays: RETENTION_DAYS });
   });
 
+  // Check if server-side credentials are configured
+  router.get('/credentials/status', (req, res) => {
+    const hasCredentials = Boolean(
+      process.env.DHL_API_KEY &&
+      process.env.DHL_API_SECRET &&
+      process.env.DHL_PORTOKASSE_LOGIN &&
+      process.env.DHL_PORTOKASSE_PASSWORD
+    );
+    res.json({ configured: hasCredentials });
+  });
+
   // Debug endpoint: Generate a dummy API call
   router.get('/debug/dummy-label-request', async (req, res) => {
     let sampleProduct = { code: '1', name: 'Standardbrief', cost: 0.95 };
