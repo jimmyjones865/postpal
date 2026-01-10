@@ -7,12 +7,20 @@ services:
       - labels-data:/data/labels
       - ./public/products.json:/app/public/products.json:ro
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
+      # Server configuration
       - PORT=3000
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
       - STATIC_PATH=/app/public
+      # DHL credentials (optional - can also be configured per-device in browser)
+      # Uncomment and set values, or use .env file
+      # - DHL_API_KEY=
+      # - DHL_API_SECRET=
+      # - DHL_PORTOKASSE_LOGIN=
+      # - DHL_PORTOKASSE_PASSWORD=
     restart: unless-stopped
 
 volumes:
