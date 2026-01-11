@@ -174,15 +174,14 @@ const Index = () => {
         setWalletBalance(purchaseData.newBalance);
       }
 
-      // Save the label to storage
+      // Save the label to storage (original, uncropped PDF)
       try {
-        // If we have a PDF URL, fetch it via our proxy (with cropping) and convert to base64
+        // If we have a PDF URL, fetch it via our proxy (WITHOUT cropping) and convert to base64
         let pdfBase64 = '';
         if (purchaseData.pdfUrl) {
           try {
-            const cropH = config.printerConfig.cropMarginHorizontal ?? 5;
-            const cropV = config.printerConfig.cropMarginVertical ?? 5;
-            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}&cropH=${cropH}&cropV=${cropV}`;
+            // Fetch original PDF without cropping for storage
+            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}`;
             const pdfResponse = await fetch(proxyUrl);
             if (!pdfResponse.ok) {
               throw new Error(`PDF fetch failed: ${pdfResponse.status}`);
@@ -346,7 +345,11 @@ const Index = () => {
                 isLoading={labelsLoading} 
                 error={labelsError} 
                 onRefresh={refreshLabels} 
-                onDelete={removeLabel} 
+                onDelete={removeLabel}
+                printOptions={{
+                  cropH: config.printerConfig.cropMarginHorizontal ?? 5,
+                  cropV: config.printerConfig.cropMarginVertical ?? 5
+                }}
               />
             </div>
           </TabsContent>

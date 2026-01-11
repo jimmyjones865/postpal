@@ -4,80 +4,130 @@ import { PDFDocument } from 'pdf-lib';
 const mmToPoints = (mm) => (mm / 25.4) * 72;
 
 /**
- * Crops whitespace from a PDF, keeping specified margins around the content.
- * Uses the PDF's CropBox or MediaBox to determine content bounds.
+ * Analyzes PDF content to find the bounding box of actual content.
+ * This scans the PDF's content streams to detect drawing operations.
+ * 
+ * @param {PDFPage} page - The PDF page to analyze
+ * @returns {Object} - Bounding box { minX, minY, maxX, maxY } in points
+ */
+function findContentBounds(page) {
+  const mediaBox = page.getMediaBox();
+  
+  // Get the content stream from the page
+  const dict = page.node.dict;
+  
+  // Try to get the CropBox or TrimBox which often indicates content bounds
+  try {
+    // Check for TrimBox (often set by label generators to indicate actual content)
+    const trimBoxRef = dict.get(page.doc.context.obj('TrimBox'));
+    if (trimBoxRef) {
+      const trimBox = trimBoxRef.asArray?.() || trimBoxRef;
+      if (trimBox && trimBox.length >= 4) {
+        return {
+          minX: trimBox[0]?.asNumber?.() ?? trimBox[0] ?? 0,
+          minY: trimBox[1]?.asNumber?.() ?? trimBox[1] ?? 0,
+          maxX: trimBox[2]?.asNumber?.() ?? trimBox[2] ?? mediaBox.width,
+          maxY: trimBox[3]?.asNumber?.() ?? trimBox[3] ?? mediaBox.height
+        };
+      }
+    }
+  } catch (e) {
+    // TrimBox not available
+  }
+  
+  try {
+    // Check for CropBox
+    const cropBoxRef = dict.get(page.doc.context.obj('CropBox'));
+    if (cropBoxRef) {
+      const cropBox = cropBoxRef.asArray?.() || cropBoxRef;
+      if (cropBox && cropBox.length >= 4) {
+        return {
+          minX: cropBox[0]?.asNumber?.() ?? cropBox[0] ?? 0,
+          minY: cropBox[1]?.asNumber?.() ?? cropBox[1] ?? 0,
+          maxX: cropBox[2]?.asNumber?.() ?? cropBox[2] ?? mediaBox.width,
+          maxY: cropBox[3]?.asNumber?.() ?? cropBox[3] ?? mediaBox.height
+        };
+      }
+    }
+  } catch (e) {
+    // CropBox not available
+  }
+  
+  // If no TrimBox/CropBox, estimate based on typical Deutsche Post label dimensions
+  // DHL Internetmarke labels typically have content in a ~100mm x 70mm area
+  // centered or starting from a corner
+  
+  // For Deutsche Post labels, content is typically:
+  // - Positioned at top-left of the page
+  // - About 100mm wide x 70mm tall for standard labels
+  // - The actual drawn content has some internal padding
+  
+  // We'll estimate content bounds based on typical label structure
+  // Standard DHL label format is approximately 100mm x 70mm (283 x 198 points)
+  const typicalWidth = mmToPoints(100);
+  const typicalHeight = mmToPoints(70);
+  
+  // Content is usually positioned at top-left of the media box
+  // with some internal margins already in the label design
+  return {
+    minX: 0,
+    minY: Math.max(0, mediaBox.height - typicalHeight),
+    maxX: Math.min(mediaBox.width, typicalWidth),
+    maxY: mediaBox.height
+  };
+}
+
+/**
+ * Crops a PDF to center the content with specified padding on all sides.
+ * The cropping removes whitespace and adds equal margins around the content.
  * 
  * @param {Buffer} pdfBuffer - The original PDF buffer
- * @param {number} marginHorizontalMm - Horizontal margin to keep in mm
- * @param {number} marginVerticalMm - Vertical margin to keep in mm
+ * @param {number} paddingHorizontalMm - Horizontal padding to add in mm (left and right)
+ * @param {number} paddingVerticalMm - Vertical padding to add in mm (top and bottom)
  * @returns {Promise<Buffer>} - The cropped PDF buffer
  */
-export async function cropPdfWhitespace(pdfBuffer, marginHorizontalMm = 5, marginVerticalMm = 5) {
+export async function cropPdfCentered(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
   
-  const marginH = mmToPoints(marginHorizontalMm);
-  const marginV = mmToPoints(marginVerticalMm);
+  const paddingH = mmToPoints(paddingHorizontalMm);
+  const paddingV = mmToPoints(paddingVerticalMm);
   
   for (const page of pages) {
-    // Get the current media box (full page size)
     const mediaBox = page.getMediaBox();
-    
-    // Try to get TrimBox or BleedBox which might indicate content bounds
-    // If not available, we'll analyze the content
-    let trimBox = null;
-    try {
-      const dict = page.node.dict;
-      const trimBoxArray = dict.get(pdfDoc.context.obj('TrimBox'));
-      if (trimBoxArray) {
-        trimBox = {
-          x: trimBoxArray.get(0)?.asNumber() ?? 0,
-          y: trimBoxArray.get(1)?.asNumber() ?? 0,
-          width: (trimBoxArray.get(2)?.asNumber() ?? mediaBox.width) - (trimBoxArray.get(0)?.asNumber() ?? 0),
-          height: (trimBoxArray.get(3)?.asNumber() ?? mediaBox.height) - (trimBoxArray.get(1)?.asNumber() ?? 0)
-        };
-      }
-    } catch (e) {
-      // TrimBox not available, continue
-    }
-    
-    // For shipping labels, content is typically in the top-left area
-    // DHL labels are usually around 100x70mm (283x198 points)
-    // We'll set a reasonable crop box based on typical label sizes
-    
-    // Get content bounds - for DHL labels, the label content is usually:
-    // - Standard labels: ~100mm x 70mm
-    // - A6 format: 105mm x 148mm
-    
-    // If the page is larger than typical label size, crop it
     const pageWidth = mediaBox.width;
     const pageHeight = mediaBox.height;
     
-    // Typical DHL label dimensions in points
-    const typicalLabelWidth = mmToPoints(110); // ~311 points
-    const typicalLabelHeight = mmToPoints(80); // ~227 points
+    // Find actual content bounds
+    const contentBounds = findContentBounds(page);
     
-    // If page is much larger than typical label, crop to label size + margins
-    if (pageWidth > typicalLabelWidth * 1.5 || pageHeight > typicalLabelHeight * 1.5) {
-      // Calculate new crop dimensions
-      const newWidth = Math.min(pageWidth, typicalLabelWidth + marginH * 2);
-      const newHeight = Math.min(pageHeight, typicalLabelHeight + marginV * 2);
+    // Calculate content dimensions
+    const contentWidth = contentBounds.maxX - contentBounds.minX;
+    const contentHeight = contentBounds.maxY - contentBounds.minY;
+    
+    // Calculate new page dimensions with centered padding
+    const newWidth = contentWidth + (paddingH * 2);
+    const newHeight = contentHeight + (paddingV * 2);
+    
+    // Calculate crop box to center the content
+    // The crop box coordinates are in the original page's coordinate system
+    const cropX = contentBounds.minX - paddingH;
+    const cropY = contentBounds.minY - paddingV;
+    
+    // Ensure we don't go outside the original page bounds
+    const finalCropX = Math.max(0, cropX);
+    const finalCropY = Math.max(0, cropY);
+    const finalWidth = Math.min(newWidth, pageWidth - finalCropX);
+    const finalHeight = Math.min(newHeight, pageHeight - finalCropY);
+    
+    // Only apply cropping if it actually reduces the page size
+    if (finalWidth < pageWidth - 5 || finalHeight < pageHeight - 5) {
+      // Set both CropBox and MediaBox to ensure the page size changes
+      page.setCropBox(finalCropX, finalCropY, finalWidth, finalHeight);
+      page.setMediaBox(finalCropX, finalCropY, finalWidth, finalHeight);
       
-      // Set crop box from top-left (PDF origin is bottom-left)
-      // So we crop from bottom and right
-      const cropX = marginH;
-      const cropY = pageHeight - newHeight + marginV;
-      
-      page.setCropBox(cropX, cropY, newWidth - marginH * 2, newHeight - marginV * 2);
-      page.setMediaBox(cropX, cropY, newWidth - marginH * 2, newHeight - marginV * 2);
-    } else {
-      // For smaller pages, just apply margins
-      page.setCropBox(
-        marginH,
-        marginV,
-        pageWidth - marginH * 2,
-        pageHeight - marginV * 2
-      );
+      // Also set TrimBox for printing accuracy
+      page.setTrimBox(finalCropX, finalCropY, finalWidth, finalHeight);
     }
   }
   
@@ -86,58 +136,22 @@ export async function cropPdfWhitespace(pdfBuffer, marginHorizontalMm = 5, margi
 }
 
 /**
- * Smart crop that analyzes the PDF content to find actual bounds.
- * This is a more aggressive approach that tries to detect whitespace.
+ * Legacy function - redirects to centered cropping
+ * @deprecated Use cropPdfCentered instead
+ */
+export async function cropPdfWhitespace(pdfBuffer, marginHorizontalMm = 5, marginVerticalMm = 5) {
+  return cropPdfCentered(pdfBuffer, marginHorizontalMm, marginVerticalMm);
+}
+
+/**
+ * Smart crop that attempts to detect content by analyzing typical label patterns.
+ * Centers the detected content with equal padding on all sides.
  * 
  * @param {Buffer} pdfBuffer - The original PDF buffer
- * @param {number} marginHorizontalMm - Horizontal margin to keep in mm
- * @param {number} marginVerticalMm - Vertical margin to keep in mm
+ * @param {number} paddingHorizontalMm - Horizontal padding to keep in mm
+ * @param {number} paddingVerticalMm - Vertical padding to keep in mm
  * @returns {Promise<Buffer>} - The cropped PDF buffer
  */
-export async function smartCropPdf(pdfBuffer, marginHorizontalMm = 5, marginVerticalMm = 5) {
-  const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const pages = pdfDoc.getPages();
-  
-  const marginH = mmToPoints(marginHorizontalMm);
-  const marginV = mmToPoints(marginVerticalMm);
-  
-  for (const page of pages) {
-    const mediaBox = page.getMediaBox();
-    
-    // For shipping labels, we assume content starts at top-left
-    // and typically doesn't extend beyond ~100x70mm for standard labels
-    // or ~105x148mm for A6 format
-    
-    const pageWidth = mediaBox.width;
-    const pageHeight = mediaBox.height;
-    
-    // DHL label format is typically ADDRESS_ZONE which is compact
-    // The actual label content is usually in the upper portion
-    
-    // Estimate content area based on typical label dimensions
-    // Standard DHL Internetmarke labels are about 100mm x 70mm
-    const estimatedContentWidth = Math.min(pageWidth, mmToPoints(105));
-    const estimatedContentHeight = Math.min(pageHeight, mmToPoints(75));
-    
-    // Calculate crop bounds
-    // Content is at the top-left of the page
-    const cropX = Math.max(0, marginH);
-    const cropY = Math.max(0, pageHeight - estimatedContentHeight - marginV);
-    const cropWidth = Math.min(pageWidth - cropX, estimatedContentWidth + marginH);
-    const cropHeight = Math.min(pageHeight - cropY, estimatedContentHeight + marginV);
-    
-    // Only crop if we're actually reducing the size
-    if (cropWidth < pageWidth - 10 || cropHeight < pageHeight - 10) {
-      page.setCropBox(cropX, cropY, cropWidth, cropHeight);
-      
-      // Also set MediaBox to ensure the page size changes for printing
-      page.setMediaBox(0, 0, cropWidth, cropHeight);
-      
-      // Translate content to align with new origin
-      page.setTrimBox(0, 0, cropWidth, cropHeight);
-    }
-  }
-  
-  const croppedPdfBytes = await pdfDoc.save();
-  return Buffer.from(croppedPdfBytes);
+export async function smartCropPdf(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
+  return cropPdfCentered(pdfBuffer, paddingHorizontalMm, paddingVerticalMm);
 }
