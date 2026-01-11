@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { History, Printer, Trash2, RefreshCw, Calendar, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
+import { StoredLabel, printLabel, getLabelPdfUrl, PrintOptions } from '@/lib/labelStorage';
 import { formatDistanceToNow } from 'date-fns';
 
 interface LabelHistoryProps {
@@ -11,16 +11,17 @@ interface LabelHistoryProps {
   error: string | null;
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
+  printOptions?: PrintOptions;
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions }: LabelHistoryProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
     setPrintingId(label.id);
     try {
-      await printLabel(label.id);
+      await printLabel(label.id, printOptions);
     } finally {
       setPrintingId(null);
     }

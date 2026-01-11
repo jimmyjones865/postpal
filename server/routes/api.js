@@ -399,10 +399,10 @@ export function createApiRouter() {
     }
   });
 
-  // Proxy PDF download from DHL (to avoid CORS issues) with optional cropping
+  // Proxy PDF download from DHL (to avoid CORS issues) - returns original PDF without cropping
   router.get('/proxy-pdf', async (req, res) => {
     try {
-      const { url, cropH, cropV } = req.query;
+      const { url } = req.query;
       
       if (!url || typeof url !== 'string') {
         return res.status(400).json({ error: 'Missing url parameter' });
@@ -423,22 +423,7 @@ export function createApiRouter() {
       }
       
       const contentType = response.headers.get('content-type') || 'application/pdf';
-      let buffer = Buffer.from(await response.arrayBuffer());
-      
-      // Apply cropping if margins are specified
-      const marginH = parseFloat(cropH) || 0;
-      const marginV = parseFloat(cropV) || 0;
-      
-      if (marginH >= 0 || marginV >= 0) {
-        try {
-          console.log(`Cropping PDF with margins: H=${marginH}mm, V=${marginV}mm`);
-          buffer = await cropPdfWhitespace(buffer, marginH, marginV);
-          console.log('PDF cropped successfully');
-        } catch (cropError) {
-          console.error('Failed to crop PDF, returning original:', cropError.message);
-          // Continue with original PDF if cropping fails
-        }
-      }
+      const buffer = Buffer.from(await response.arrayBuffer());
       
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', 'inline; filename="label.pdf"');
@@ -519,9 +504,11 @@ export function createApiRouter() {
     }
   });
 
-  // Get a specific label PDF
+  // Get a specific label PDF (with optional cropping for printing)
   router.get('/labels/:id/pdf', async (req, res) => {
     try {
+      const { print, cropH, cropV } = req.query;
+      
       const metadata = await loadMetadata();
       const label = metadata.labels.find(l => l.id === req.params.id);
       
@@ -530,7 +517,22 @@ export function createApiRouter() {
       }
       
       const filepath = path.join(PDF_STORAGE_PATH, label.filename);
-      const pdfBuffer = await fs.readFile(filepath);
+      let pdfBuffer = await fs.readFile(filepath);
+      
+      // Apply cropping only when printing (print=1 and crop margins specified)
+      if (print === '1') {
+        const marginH = parseFloat(cropH) || 5;
+        const marginV = parseFloat(cropV) || 5;
+        
+        try {
+          console.log(`Cropping PDF for print: H=${marginH}mm, V=${marginV}mm`);
+          pdfBuffer = await cropPdfWhitespace(pdfBuffer, marginH, marginV);
+          console.log('PDF cropped successfully for printing');
+        } catch (cropError) {
+          console.error('Failed to crop PDF, returning original:', cropError.message);
+          // Continue with original PDF if cropping fails
+        }
+      }
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="${label.filename}"`);
