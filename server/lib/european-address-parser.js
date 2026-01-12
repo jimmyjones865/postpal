@@ -65,18 +65,115 @@ const ADDITIONAL_LINE_PREFIXES = [
   /^p\.?\s?o\.?\s?box\s+/i,
 ];
 
-// Country detection patterns
-const COUNTRY_PATTERNS = {
-  'Deutschland': [/\bde\b/i, /\bdeu\b/i, /\bgermany\b/i, /\bdeutschland\b/i],
-  'Österreich': [/\bat\b/i, /\baut\b/i, /\baustria\b/i, /\bösterreich\b/i],
-  'Schweiz': [/\bch\b/i, /\bche\b/i, /\bswitzerland\b/i, /\bschweiz\b/i, /\bsuisse\b/i],
-  'Niederlande': [/\bnl\b/i, /\bnld\b/i, /\bnetherlands\b/i, /\bniederlande\b/i, /\bholland\b/i],
-  'Polen': [/\bpl\b/i, /\bpol\b/i, /\bpoland\b/i, /\bpolen\b/i, /\bpolska\b/i],
-  'Belgien': [/\bbe\b/i, /\bbel\b/i, /\bbelgium\b/i, /\bbelgien\b/i, /\bbelgique\b/i],
-  'Frankreich': [/\bfr\b/i, /\bfra\b/i, /\bfrance\b/i, /\bfrankreich\b/i],
-  'Italien': [/\bit\b/i, /\bita\b/i, /\bitaly\b/i, /\bitalien\b/i, /\bitalia\b/i],
-  'Spanien': [/\bes\b/i, /\besp\b/i, /\bspain\b/i, /\bspanien\b/i, /\bespaña\b/i],
-  'Vereinigtes Königreich': [/\bgb\b/i, /\buk\b/i, /\bunited\s*kingdom\b/i, /\bgreat\s*britain\b/i, /\bengland\b/i],
+// Comprehensive country name mapping (name -> German display name)
+// This must cover all countries users might type
+const COUNTRY_NAME_MAP = {
+  // Albania
+  'albania': 'Albanien', 'albanien': 'Albanien', 'shqipëria': 'Albanien', 'shqiperia': 'Albanien',
+  // Andorra
+  'andorra': 'Andorra',
+  // Austria
+  'austria': 'Österreich', 'österreich': 'Österreich', 'oesterreich': 'Österreich', 'at': 'Österreich', 'aut': 'Österreich',
+  // Belgium
+  'belgium': 'Belgien', 'belgien': 'Belgien', 'belgië': 'Belgien', 'belgie': 'Belgien', 'belgique': 'Belgien', 'be': 'Belgien', 'bel': 'Belgien',
+  // Bosnia
+  'bosnia and herzegovina': 'Bosnien und Herzegowina', 'bosna i hercegovina': 'Bosnien und Herzegowina', 'bosnien und herzegowina': 'Bosnien und Herzegowina', 'bosnien': 'Bosnien und Herzegowina',
+  // Bulgaria
+  'bulgaria': 'Bulgarien', 'bulgarien': 'Bulgarien', 'българия': 'Bulgarien',
+  // Belarus
+  'belarus': 'Weißrussland', 'weißrussland': 'Weißrussland', 'weissrussland': 'Weißrussland',
+  // Croatia
+  'croatia': 'Kroatien', 'kroatien': 'Kroatien', 'hrvatska': 'Kroatien', 'hr': 'Kroatien', 'hrv': 'Kroatien',
+  // Cyprus
+  'cyprus': 'Zypern', 'zypern': 'Zypern', 'κύπρος': 'Zypern', 'kypros': 'Zypern', 'cy': 'Zypern', 'cyp': 'Zypern',
+  // Czechia
+  'czechia': 'Tschechien', 'czech republic': 'Tschechien', 'tschechien': 'Tschechien', 'česko': 'Tschechien', 'cesko': 'Tschechien', 'cz': 'Tschechien', 'cze': 'Tschechien',
+  // Denmark
+  'denmark': 'Dänemark', 'dänemark': 'Dänemark', 'daenemark': 'Dänemark', 'danmark': 'Dänemark', 'dk': 'Dänemark', 'dnk': 'Dänemark',
+  // Estonia
+  'estonia': 'Estland', 'estland': 'Estland', 'eesti': 'Estland', 'ee': 'Estland', 'est': 'Estland',
+  // Finland
+  'finland': 'Finnland', 'finnland': 'Finnland', 'suomi': 'Finnland', 'fi': 'Finnland', 'fin': 'Finnland',
+  // France
+  'france': 'Frankreich', 'frankreich': 'Frankreich', 'fr': 'Frankreich', 'fra': 'Frankreich',
+  // Germany
+  'germany': 'Deutschland', 'deutschland': 'Deutschland', 'de': 'Deutschland', 'deu': 'Deutschland',
+  // Greece
+  'greece': 'Griechenland', 'griechenland': 'Griechenland', 'ελλάδα': 'Griechenland', 'hellas': 'Griechenland', 'gr': 'Griechenland', 'grc': 'Griechenland',
+  // Hungary
+  'hungary': 'Ungarn', 'ungarn': 'Ungarn', 'magyarország': 'Ungarn', 'magyarorszag': 'Ungarn', 'hu': 'Ungarn', 'hun': 'Ungarn',
+  // Iceland
+  'iceland': 'Island', 'island': 'Island', 'ísland': 'Island', 'is': 'Island', 'isl': 'Island',
+  // Ireland
+  'ireland': 'Irland', 'irland': 'Irland', 'éire': 'Irland', 'eire': 'Irland', 'ie': 'Irland', 'irl': 'Irland',
+  // Italy
+  'italy': 'Italien', 'italien': 'Italien', 'italia': 'Italien', 'it': 'Italien', 'ita': 'Italien',
+  // Latvia
+  'latvia': 'Lettland', 'lettland': 'Lettland', 'latvija': 'Lettland', 'lv': 'Lettland', 'lva': 'Lettland',
+  // Liechtenstein
+  'liechtenstein': 'Liechtenstein', 'li': 'Liechtenstein', 'lie': 'Liechtenstein',
+  // Lithuania
+  'lithuania': 'Litauen', 'litauen': 'Litauen', 'lietuva': 'Litauen', 'lt': 'Litauen', 'ltu': 'Litauen',
+  // Luxembourg
+  'luxembourg': 'Luxemburg', 'luxemburg': 'Luxemburg', 'lëtzebuerg': 'Luxemburg', 'lu': 'Luxemburg', 'lux': 'Luxemburg',
+  // Malta
+  'malta': 'Malta', 'mt': 'Malta', 'mlt': 'Malta',
+  // Moldova
+  'moldova': 'Moldau', 'moldau': 'Moldau', 'md': 'Moldau', 'mda': 'Moldau',
+  // Monaco
+  'monaco': 'Monaco', 'mc': 'Monaco', 'mco': 'Monaco',
+  // Montenegro
+  'montenegro': 'Montenegro', 'crna gora': 'Montenegro', 'me': 'Montenegro', 'mne': 'Montenegro',
+  // Netherlands
+  'netherlands': 'Niederlande', 'niederlande': 'Niederlande', 'nederland': 'Niederlande', 'holland': 'Niederlande', 'nl': 'Niederlande', 'nld': 'Niederlande',
+  // North Macedonia
+  'north macedonia': 'Nordmazedonien', 'nordmazedonien': 'Nordmazedonien', 'macedonia': 'Nordmazedonien', 'makedonija': 'Nordmazedonien', 'mk': 'Nordmazedonien', 'mkd': 'Nordmazedonien',
+  // Norway
+  'norway': 'Norwegen', 'norwegen': 'Norwegen', 'norge': 'Norwegen', 'no': 'Norwegen', 'nor': 'Norwegen',
+  // Poland
+  'poland': 'Polen', 'polen': 'Polen', 'polska': 'Polen', 'pl': 'Polen', 'pol': 'Polen',
+  // Portugal
+  'portugal': 'Portugal', 'pt': 'Portugal', 'prt': 'Portugal',
+  // Romania
+  'romania': 'Rumänien', 'rumänien': 'Rumänien', 'rumaenien': 'Rumänien', 'românia': 'Rumänien', 'ro': 'Rumänien', 'rou': 'Rumänien',
+  // Russia
+  'russia': 'Russland', 'russland': 'Russland', 'россия': 'Russland', 'ru': 'Russland', 'rus': 'Russland',
+  // San Marino
+  'san marino': 'San Marino', 'sm': 'San Marino', 'smr': 'San Marino',
+  // Serbia
+  'serbia': 'Serbien', 'serbien': 'Serbien', 'srbija': 'Serbien', 'rs': 'Serbien', 'srb': 'Serbien',
+  // Slovakia
+  'slovakia': 'Slowakei', 'slowakei': 'Slowakei', 'slovensko': 'Slowakei', 'sk': 'Slowakei', 'svk': 'Slowakei',
+  // Slovenia
+  'slovenia': 'Slowenien', 'slowenien': 'Slowenien', 'slovenija': 'Slowenien', 'si': 'Slowenien', 'svn': 'Slowenien',
+  // Spain
+  'spain': 'Spanien', 'spanien': 'Spanien', 'españa': 'Spanien', 'espana': 'Spanien', 'es': 'Spanien', 'esp': 'Spanien',
+  // Sweden
+  'sweden': 'Schweden', 'schweden': 'Schweden', 'sverige': 'Schweden', 'se': 'Schweden', 'swe': 'Schweden',
+  // Switzerland
+  'switzerland': 'Schweiz', 'schweiz': 'Schweiz', 'suisse': 'Schweiz', 'svizzera': 'Schweiz', 'ch': 'Schweiz', 'che': 'Schweiz',
+  // Turkey
+  'turkey': 'Türkei', 'türkei': 'Türkei', 'tuerkei': 'Türkei', 'türkiye': 'Türkei', 'turkiye': 'Türkei', 'tr': 'Türkei', 'tur': 'Türkei',
+  // Ukraine
+  'ukraine': 'Ukraine', 'україна': 'Ukraine', 'ua': 'Ukraine', 'ukr': 'Ukraine',
+  // United Kingdom
+  'united kingdom': 'Vereinigtes Königreich', 'uk': 'Vereinigtes Königreich', 'great britain': 'Vereinigtes Königreich', 'britain': 'Vereinigtes Königreich', 'england': 'Vereinigtes Königreich', 'scotland': 'Vereinigtes Königreich', 'wales': 'Vereinigtes Königreich', 'northern ireland': 'Vereinigtes Königreich', 'gb': 'Vereinigtes Königreich', 'gbr': 'Vereinigtes Königreich', 'großbritannien': 'Vereinigtes Königreich', 'grossbritannien': 'Vereinigtes Königreich',
+  // Vatican
+  'vatican city': 'Vatikanstadt', 'vatican': 'Vatikanstadt', 'holy see': 'Vatikanstadt', 'vatikanstadt': 'Vatikanstadt', 'va': 'Vatikanstadt', 'vat': 'Vatikanstadt',
+  // Non-European common destinations
+  'usa': 'USA', 'united states': 'USA', 'vereinigte staaten': 'USA', 'amerika': 'USA', 'us': 'USA',
+  'canada': 'Kanada', 'kanada': 'Kanada', 'ca': 'Kanada',
+  'australia': 'Australien', 'australien': 'Australien', 'au': 'Australien',
+  'new zealand': 'Neuseeland', 'neuseeland': 'Neuseeland', 'nz': 'Neuseeland',
+  'japan': 'Japan', 'jp': 'Japan',
+  'china': 'China', 'cn': 'China',
+  'south korea': 'Südkorea', 'südkorea': 'Südkorea', 'suedkorea': 'Südkorea', 'korea': 'Südkorea', 'kr': 'Südkorea',
+  'india': 'Indien', 'indien': 'Indien', 'in': 'Indien',
+  'brazil': 'Brasilien', 'brasilien': 'Brasilien', 'br': 'Brasilien',
+  'mexico': 'Mexiko', 'mexiko': 'Mexiko', 'mx': 'Mexiko',
+  'south africa': 'Südafrika', 'südafrika': 'Südafrika', 'suedafrika': 'Südafrika', 'za': 'Südafrika',
+  'singapore': 'Singapur', 'singapur': 'Singapur', 'sg': 'Singapur',
+  'thailand': 'Thailand', 'th': 'Thailand',
 };
 
 /**
@@ -199,18 +296,11 @@ export function parseAddress(rawAddress) {
 }
 
 /**
- * Detect country from a string
+ * Detect country from a string using comprehensive country name map
  */
 function detectCountry(text) {
-  const normalized = text.trim();
-  for (const [country, patterns] of Object.entries(COUNTRY_PATTERNS)) {
-    for (const pattern of patterns) {
-      if (pattern.test(normalized)) {
-        return country;
-      }
-    }
-  }
-  return null;
+  const normalized = text.trim().toLowerCase();
+  return COUNTRY_NAME_MAP[normalized] || null;
 }
 
 /**
