@@ -8,6 +8,7 @@ interface ProductSelectorProps {
   selectedProduct: string | null;
   onSelect: (productCode: string) => void;
   onDoubleClick: () => void;
+  /** Products in this list are EXCLUDED from display (hidden products) */
   favoriteProducts: string[];
 }
 
@@ -29,13 +30,15 @@ export function ProductSelector({
 }: ProductSelectorProps) {
   const [showOther, setShowOther] = useState(false);
   
-  const favorites = products.filter((p) => favoriteProducts.includes(p.code));
-  const others = products.filter((p) => !favoriteProducts.includes(p.code));
+  // favoriteProducts now acts as an EXCLUSION list (hidden products)
+  // Products NOT in the list are shown as main products
+  const visibleProducts = products.filter((p) => !favoriteProducts.includes(p.code));
+  const hiddenProducts = products.filter((p) => favoriteProducts.includes(p.code));
   
-  const favDomestic = favorites.filter((p) => p.domestic);
-  const favInternational = favorites.filter((p) => !p.domestic);
-  const otherDomestic = others.filter((p) => p.domestic);
-  const otherInternational = others.filter((p) => !p.domestic);
+  const visibleDomestic = visibleProducts.filter((p) => p.domestic);
+  const visibleInternational = visibleProducts.filter((p) => !p.domestic);
+  const hiddenDomestic = hiddenProducts.filter((p) => p.domestic);
+  const hiddenInternational = hiddenProducts.filter((p) => !p.domestic);
 
   const formatWeight = (grams: number) => {
     if (grams >= 1000) return `${(grams / 1000).toFixed(1)}kg`;
@@ -149,37 +152,37 @@ export function ProductSelector({
 
   return (
     <div className="space-y-4">
-      {/* Favorites */}
-      {favorites.length > 0 && (
+      {/* Main visible products */}
+      {visibleProducts.length > 0 && (
         <div className="space-y-4">
-          <ProductColumns products={favDomestic} type="domestic" />
-          <ProductColumns products={favInternational} type="international" />
+          <ProductColumns products={visibleDomestic} type="domestic" />
+          <ProductColumns products={visibleInternational} type="international" />
         </div>
       )}
 
-      {/* Other products */}
-      {others.length > 0 && (
+      {/* Hidden products (can be expanded) */}
+      {hiddenProducts.length > 0 && (
         <div>
           <button
             onClick={() => setShowOther(!showOther)}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {showOther ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {showOther ? 'Hide' : 'Show'} other products ({others.length})
+            {showOther ? 'Hide' : 'Show'} hidden products ({hiddenProducts.length})
           </button>
           
           {showOther && (
             <div className="space-y-4 mt-3">
-              <ProductColumns products={otherDomestic} type="domestic" />
-              <ProductColumns products={otherInternational} type="international" />
+              <ProductColumns products={hiddenDomestic} type="domestic" />
+              <ProductColumns products={hiddenInternational} type="international" />
             </div>
           )}
         </div>
       )}
 
-      {favorites.length === 0 && (
+      {visibleProducts.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          No favorite products selected. Go to Settings → Products to choose.
+          All products are hidden. Go to Settings → Products to show some.
         </p>
       )}
     </div>

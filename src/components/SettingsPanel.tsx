@@ -207,38 +207,45 @@ export function SettingsPanel({
 
         <TabsContent value="products" className="space-y-4 mt-0">
           <p className="text-xs text-muted-foreground">
-            Select products to show on the main screen
+            Uncheck products to hide them from the main screen
           </p>
           
           <div>
             <Label className="config-label mb-2 block">Domestic (DE)</Label>
             <div className="space-y-2">
-              {domesticProducts.map(product => (
-                <label key={product.code} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox 
-                    checked={(config.favoriteProducts || []).includes(product.code)} 
-                    onCheckedChange={() => toggleFavorite(product.code)} 
-                  />
-                  <span className="text-sm">{product.name}</span>
-                  <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
-                </label>
-              ))}
+              {domesticProducts.map(product => {
+                // Product is shown (checked) if NOT in the exclusion list
+                const isExcluded = (config.favoriteProducts || []).includes(product.code);
+                return (
+                  <label key={product.code} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox 
+                      checked={!isExcluded} 
+                      onCheckedChange={() => toggleFavorite(product.code)} 
+                    />
+                    <span className="text-sm">{product.name}</span>
+                    <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
           <div>
             <Label className="config-label mb-2 block">International</Label>
             <div className="space-y-2">
-              {internationalProducts.map(product => (
-                <label key={product.code} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox 
-                    checked={(config.favoriteProducts || []).includes(product.code)} 
-                    onCheckedChange={() => toggleFavorite(product.code)} 
-                  />
-                  <span className="text-sm">{product.name}</span>
-                  <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
-                </label>
-              ))}
+              {internationalProducts.map(product => {
+                const isExcluded = (config.favoriteProducts || []).includes(product.code);
+                return (
+                  <label key={product.code} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox 
+                      checked={!isExcluded} 
+                      onCheckedChange={() => toggleFavorite(product.code)} 
+                    />
+                    <span className="text-sm">{product.name}</span>
+                    <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
         </TabsContent>

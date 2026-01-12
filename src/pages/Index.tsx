@@ -207,12 +207,26 @@ const Index = () => {
           productName: product?.name || selectedProduct
         });
         addLabel(savedLabel);
+        
+        // Reset form after successful purchase
+        setSelectedProduct(null);
+        setRecipientAddress('');
+        setParsedRecipient(emptyAddress());
+        setTrackingNumber(null);
+        
         toast({
           title: 'Label Purchased & Saved',
           description: `${product?.name} label ready to print.`
         });
       } catch (saveError) {
         console.warn('Could not save label to storage:', saveError);
+        
+        // Still reset form even if storage failed
+        setSelectedProduct(null);
+        setRecipientAddress('');
+        setParsedRecipient(emptyAddress());
+        setTrackingNumber(null);
+        
         toast({
           title: 'Label Purchased',
           description: `${product?.name} label purchased. (Local storage unavailable)`
