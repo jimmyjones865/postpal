@@ -13,10 +13,10 @@ services:
       - RETENTION_DAYS=60
       - STATIC_PATH=/app/public
       # DHL credentials - set values here or create a .env file
-      # - DHL_API_KEY=your_api_key
-      # - DHL_API_SECRET=your_api_secret
-      # - DHL_PORTOKASSE_LOGIN=your_login
-      # - DHL_PORTOKASSE_PASSWORD=your_password
+      - DHL_API_KEY=$DHL_API_KEY
+      - DHL_API_SECRET=$DHL_API_SECRET
+      - DHL_PORTOKASSE_LOGIN=$DHL_PORTOKASSE_LOGIN
+      - DHL_PORTOKASSE_PASSWORD=$DHL_PORTOKASSE_PASSWORD
     restart: unless-stopped
 
 volumes:
