@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 // Convert mm to PDF points (1 point = 1/72 inch, 1 inch = 25.4mm)
 const mmToPoints = (mm) => (mm / 25.4) * 72;
@@ -14,7 +14,7 @@ const pointsToMm = (pts) => (pts / 72) * 25.4;
  */
 async function getContentBoundsPerPage(pdfBuffer) {
   // Load PDF with pdf.js
-  const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+  const loadingTask = getDocument({ data: pdfBuffer });
   const pdfDoc = await loadingTask.promise;
   
   const results = [];
@@ -55,9 +55,9 @@ async function getContentBoundsPerPage(pdfBuffer) {
         const args = opList.argsArray[i];
         
         // Check for image operations (paintImageXObject, paintInlineImageXObject, etc.)
-        if (fn === pdfjsLib.OPS.paintImageXObject || 
-            fn === pdfjsLib.OPS.paintInlineImageXObject ||
-            fn === pdfjsLib.OPS.paintImageMaskXObject) {
+        if (fn === OPS.paintImageXObject || 
+            fn === OPS.paintInlineImageXObject ||
+            fn === OPS.paintImageMaskXObject) {
           // Images often have transform matrices in prior operations
           // We'll rely on text bounds + some padding for graphics
         }

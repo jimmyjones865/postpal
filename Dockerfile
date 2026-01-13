@@ -6,16 +6,13 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Production server
-FROM node:18-alpine
+# Stage 2: Production server (using slim for better compatibility)
+FROM node:18-slim
 WORKDIR /app
-
-# Install su-exec for entrypoint permission handling
-RUN apk add --no-cache su-exec
 
 # Copy server files
 COPY server/package*.json ./
-RUN npm install --production
+RUN npm install --omit=dev
 
 COPY server/ ./
 
@@ -24,4 +21,4 @@ COPY --from=frontend-builder /app/dist ./public
 
 EXPOSE 3000
 
-CMD ["sh", "/app/entrypoint.sh"]
+CMD ["node", "index.js"]
