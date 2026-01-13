@@ -14,6 +14,8 @@
 
 // Zip code patterns by country/type
 const ZIP_PATTERNS = {
+  // Irish Eircode: 3 alphanumeric + space + 4 alphanumeric (A96 YW44, D01 F5P2)
+  irish: /\b([A-Z]\d[\dWX]\s?[A-Z\d]{4})\b/i,
   // German: 5 digits (01234-99999)
   german: /\b(\d{5})\b/,
   // Austrian: 4 digits (1000-9999)
@@ -311,6 +313,7 @@ function extractZipAndCity(line) {
   
   // Try patterns in order of specificity
   const patterns = [
+    { name: 'irish', pattern: ZIP_PATTERNS.irish },
     { name: 'dutch', pattern: ZIP_PATTERNS.dutch },
     { name: 'polish', pattern: ZIP_PATTERNS.polish },
     { name: 'uk', pattern: ZIP_PATTERNS.uk },
