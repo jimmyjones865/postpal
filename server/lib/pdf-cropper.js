@@ -13,8 +13,9 @@ const pointsToMm = (pts) => (pts / 72) * 25.4;
  * @returns {Promise<{minX: number, minY: number, maxX: number, maxY: number, width: number, height: number}[]>}
  */
 async function getContentBoundsPerPage(pdfBuffer) {
-  // Load PDF with pdf.js
-  const loadingTask = getDocument({ data: pdfBuffer });
+  // Load PDF with pdf.js - convert Buffer to Uint8Array
+  const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
+  const loadingTask = getDocument({ data });
   const pdfDoc = await loadingTask.promise;
   
   const results = [];
