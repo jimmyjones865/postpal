@@ -6,8 +6,36 @@ const mmToPoints = (mm) => (mm / 25.4) * 72;
 const pointsToMm = (pts) => (pts / 72) * 25.4;
 
 /**
+ * Multiply two 3x3 transformation matrices (stored as 6-element arrays)
+ * [a, b, c, d, e, f] represents the matrix:
+ * | a  b  0 |
+ * | c  d  0 |
+ * | e  f  1 |
+ */
+function multiplyMatrix(m1, m2) {
+  return [
+    m1[0] * m2[0] + m1[1] * m2[2],
+    m1[0] * m2[1] + m1[1] * m2[3],
+    m1[2] * m2[0] + m1[3] * m2[2],
+    m1[2] * m2[1] + m1[3] * m2[3],
+    m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
+    m1[4] * m2[1] + m1[5] * m2[3] + m2[5]
+  ];
+}
+
+/**
+ * Apply transformation matrix to a point
+ */
+function transformPoint(matrix, x, y) {
+  return [
+    matrix[0] * x + matrix[2] * y + matrix[4],
+    matrix[1] * x + matrix[3] * y + matrix[5]
+  ];
+}
+
+/**
  * Analyzes PDF content to find the actual bounding box of all text and graphics.
- * Uses pdf.js to extract text positions and compute the content bounds.
+ * Uses pdf.js to extract text positions and image bounds.
  * 
  * @param {Buffer} pdfBuffer - The PDF buffer to analyze
  * @returns {Promise<{minX: number, minY: number, maxX: number, maxY: number, width: number, height: number}[]>}
@@ -48,19 +76,56 @@ async function getContentBoundsPerPage(pdfBuffer) {
       }
     }
     
-    // Also analyze operator list for graphics (lines, images, etc.)
+    // Analyze operator list to find image/graphics bounds (like QR codes)
     try {
       const opList = await page.getOperatorList();
+      
+      // Track current transformation matrix (CTM)
+      // Identity matrix: [1, 0, 0, 1, 0, 0]
+      let ctmStack = [[1, 0, 0, 1, 0, 0]];
+      
       for (let i = 0; i < opList.fnArray.length; i++) {
         const fn = opList.fnArray[i];
         const args = opList.argsArray[i];
         
-        // Check for image operations (paintImageXObject, paintInlineImageXObject, etc.)
-        if (fn === OPS.paintImageXObject || 
-            fn === OPS.paintInlineImageXObject ||
-            fn === OPS.paintImageMaskXObject) {
-          // Images often have transform matrices in prior operations
-          // We'll rely on text bounds + some padding for graphics
+        // Handle transformation operations
+        if (fn === OPS.save) {
+          // Push current matrix onto stack
+          ctmStack.push([...ctmStack[ctmStack.length - 1]]);
+        } else if (fn === OPS.restore) {
+          // Pop matrix from stack
+          if (ctmStack.length > 1) {
+            ctmStack.pop();
+          }
+        } else if (fn === OPS.transform) {
+          // Multiply current matrix by new transform
+          const currentMatrix = ctmStack[ctmStack.length - 1];
+          const newMatrix = multiplyMatrix(currentMatrix, args);
+          ctmStack[ctmStack.length - 1] = newMatrix;
+        } else if (fn === OPS.paintImageXObject || 
+                   fn === OPS.paintInlineImageXObject ||
+                   fn === OPS.paintImageMaskXObject) {
+          // Image is painted with current transformation matrix
+          // Images are drawn in a 1x1 unit square, transformed by CTM
+          const ctm = ctmStack[ctmStack.length - 1];
+          
+          // Get the four corners of the unit square transformed by CTM
+          const corners = [
+            transformPoint(ctm, 0, 0),
+            transformPoint(ctm, 1, 0),
+            transformPoint(ctm, 0, 1),
+            transformPoint(ctm, 1, 1)
+          ];
+          
+          // Find bounds of transformed image
+          for (const [cx, cy] of corners) {
+            minX = Math.min(minX, cx);
+            minY = Math.min(minY, cy);
+            maxX = Math.max(maxX, cx);
+            maxY = Math.max(maxY, cy);
+          }
+          
+          console.log(`PDF Crop: Found image at bounds (${pointsToMm(Math.min(...corners.map(c => c[0]))).toFixed(1)}, ${pointsToMm(Math.min(...corners.map(c => c[1]))).toFixed(1)}) to (${pointsToMm(Math.max(...corners.map(c => c[0]))).toFixed(1)}, ${pointsToMm(Math.max(...corners.map(c => c[1]))).toFixed(1)})mm`);
         }
       }
     } catch (e) {
@@ -73,10 +138,8 @@ async function getContentBoundsPerPage(pdfBuffer) {
         pageNum,
         pageHeight: viewport.height,
         pageWidth: viewport.width,
-        // pdf.js uses top-left origin, pdf-lib uses bottom-left
-        // Convert y coordinates: pdfjs y is from top, pdf-lib y is from bottom
         minX,
-        minY, // This is distance from bottom in pdf.js transform coords
+        minY,
         maxX,
         maxY,
         width: maxX - minX,
