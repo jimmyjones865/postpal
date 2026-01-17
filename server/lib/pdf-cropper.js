@@ -150,7 +150,25 @@ export async function cropPdfWithPadding(
   return Buffer.from(await pdfDoc.save());
 }
 
-// ---------------- aliases ----------------
-export const cropPdfCentered = cropPdfWithPadding;
-export const cropPdfWhitespace = cropPdfWithPadding;
-export const smartCropPdf = cropPdfWithPadding;
+/**
+ * @deprecated Legacy name – kept for backward compatibility.
+ * Misleading: this does NOT only remove whitespace.
+ */
+export async function cropPdfWhitespace(
+  pdfBuffer,
+  marginHorizontalMm = 5,
+  marginVerticalMm = 5
+) {
+  return cropPdfWithPadding(pdfBuffer, marginHorizontalMm, marginVerticalMm);
+}
+
+/**
+ * @deprecated Legacy alias – use cropPdfWithPadding instead.
+ */
+export async function smartCropPdf(
+  pdfBuffer,
+  paddingHorizontalMm = 5,
+  paddingVerticalMm = 5
+) {
+  return cropPdfWithPadding(pdfBuffer, paddingHorizontalMm, paddingVerticalMm);
+}
