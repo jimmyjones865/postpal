@@ -99,14 +99,13 @@ export function createApiRouter() {
 
   // ==================== Deutsche Post API ====================
 
-  // Get credentials from environment or request body
-  function getCredentials(reqCredentials) {
-    // Prefer environment variables, fall back to request body
+  // Get credentials from environment
+  function getCredentials() {
     return {
-      apiKey: process.env.DHL_API_KEY || reqCredentials?.apiKey,
-      apiSecret: process.env.DHL_API_SECRET || reqCredentials?.apiSecret,
-      portokasseLogin: process.env.DHL_PORTOKASSE_LOGIN || reqCredentials?.portokasseLogin,
-      portokassePassword: process.env.DHL_PORTOKASSE_PASSWORD || reqCredentials?.portokassePassword
+      apiKey: process.env.DHL_API_KEY,
+      apiSecret: process.env.DHL_API_SECRET,
+      portokasseLogin: process.env.DHL_PORTOKASSE_LOGIN,
+      portokassePassword: process.env.DHL_PORTOKASSE_PASSWORD
     };
   }
 
@@ -154,7 +153,10 @@ export function createApiRouter() {
     }
     
     const data = JSON.parse(responseText);
-    console.log('DHL auth successful, token received, balance:', data.walletBalance);
+    console.log(
+      'DHL auth successful, token received, balance:',
+      data.walletBallance ?? data.walletBalance
+    );
     
     return data;
   }
@@ -172,11 +174,25 @@ export function createApiRouter() {
     
     // Cache the token (valid for 24h, but we use the returned expires_in)
     const expiresIn = authData.expires_in || 86400; // Default 24h
-    cachedToken = {
+
+    const nextCachedToken = {
       accessToken: authData.access_token,
       expiresAt: now + expiresIn * 1000,
-      walletBalance: authData.wallet_balance ?? authData.walletBalance ?? null
+      walletBalance: cachedToken.walletBalance
     };
+
+    if (
+      authData.walletBallance !== undefined ||
+      authData.walletBalance !== undefined ||
+      authData.wallet_balance !== undefined
+    ) {
+      nextCachedToken.walletBalance =
+        authData.walletBallance ??
+        authData.walletBalance ??
+        authData.wallet_balance;
+    }
+ 
+    cachedToken = nextCachedToken;
     
     return cachedToken;
   }
@@ -284,7 +300,7 @@ export function createApiRouter() {
   // Get wallet balance
   router.post('/wallet/balance', async (req, res) => {
     try {
-      const credentials = getCredentials(req.body.credentials);
+      const credentials = getCredentials();
       
       if (!credentials.apiKey) {
         return res.status(400).json({ error: 'Missing credentials' });
@@ -378,19 +394,24 @@ export function createApiRouter() {
       const trackId = data.shoppingCart?.voucherList?.[0]?.trackId || null;
       
       // DHL API has a typo: "walletBallance" (double l)
-      const newBalance = data.walletBallance ?? data.walletBalance ?? cachedToken?.walletBalance;
-      
-      // Update cached token balance
-      if (newBalance !== undefined && cachedToken) {
-        cachedToken.walletBalance = newBalance;
-      }
+      // Update cached token balance ONLY if DHL explicitly returned one
+     if (
+       data.walletBallance !== undefined ||
+       data.walletBalance !== undefined
+     ) {
+       cachedToken.walletBalance =
+         data.walletBallance ?? data.walletBalance;
+     }
+
+      const returnedBalance =
+        data.walletBallance ?? data.walletBalance ?? null;
       
       res.json({
         success: true,
         pdfUrl: data.link || data.pdfUrl || data.url,
         trackingNumber: trackId || voucherId || null,
         voucherId,
-        newBalance,
+        newBalance: returnedBalance,
         rawResponse: data
       });
     } catch (err) {
