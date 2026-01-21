@@ -177,7 +177,7 @@ export function SettingsPanel({
 
         <TabsContent value="printer" className="space-y-3 mt-0">
 
-          <!-- inserted for paper format selection -->
+          // inserted for paper format selection
           <div className="config-field">
             <Label className="config-label">Paper Format</Label>
               {paperFormatsError ? (
@@ -232,7 +232,7 @@ export function SettingsPanel({
               })()}
             </div>
 
-            <!-- end insertion for paper format selection
+            // end insertion for paper format selection
 
           <div className="config-field">
             <Label className="config-label">Orientation</Label>
