@@ -14,6 +14,60 @@ interface SettingsPanelProps {
   onUpdateFavoriteProducts: (favorites: string[]) => void;
 }
 
+// add paper formats selection
+interface PaperFormat {
+  id: number;
+  name: string;
+  description: string;
+  pageType: string;
+  pageLayout: {
+    size: { x: number; y: number };
+    orientation: 'PORTRAIT' | 'LANDSCAPE';
+    labelSpacing: { x: number; y: number };
+    labelCount: { labelX: number; labelY: number };
+    margin: {
+      top: number;
+      bottom: number;
+      left: number;
+      right: number;
+    };
+  };
+}
+
+interface PaperFormatsJson {
+  LABELPAGE?: PaperFormat[];
+  [key: string]: PaperFormat[] | undefined;
+}
+
+const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
+const [paperFormatsError, setPaperFormatsError] = useState<string | null>(null);
+
+useEffect(() => {
+  fetch('/paper-formats.json')
+    .then(r => {
+      if (!r.ok) {
+        throw new Error(`HTTP ${r.status}`);
+      }
+      return r.json();
+    })
+    .then((data: PaperFormatsJson) => {
+      // Flatten all groups into a single list
+      const formats = Object.values(data)
+        .flat()
+        .filter(Boolean) as PaperFormat[];
+
+      setPaperFormats(formats);
+    })
+    .catch(err => {
+      console.error('Failed to load paper formats:', err);
+      setPaperFormatsError('Failed to load paper formats');
+    });
+}, []);
+
+
+// end add paper formats selection
+
+
 export function SettingsPanel({
   config,
   products,
