@@ -176,24 +176,64 @@ export function SettingsPanel({
         </TabsContent>
 
         <TabsContent value="printer" className="space-y-3 mt-0">
+
+          <!-- inserted for paper format selection -->
           <div className="config-field">
             <Label className="config-label">Paper Format</Label>
-            <Select 
-              value={config.printerConfig.paperFormat} 
-              onValueChange={value => onUpdatePrinterConfig({ paperFormat: value })}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select format" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAPER_FORMATS.map(format => (
-                  <SelectItem key={format.id} value={format.id}>
-                    {format.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              {paperFormatsError ? (
+                <p className="text-xs text-destructive">{paperFormatsError}</p>
+              ) : (
+                <Select
+                  value={config.printerConfig.paperFormatName || ''}
+                  onValueChange={value =>
+                    onUpdatePrinterConfig({ paperFormatName: value })
+                  }
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select paper format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paperFormats.map(format => (
+                      <SelectItem key={format.name} value={format.name}>
+                        {format.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            
+              {(() => {
+                const selected = paperFormats.find(
+                  f => f.name === config.printerConfig.paperFormatName
+                );
+            
+                if (!selected) return null;
+            
+                const isRoll = selected.roll?.endless;
+            
+                return (
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                    <div>{selected.description}</div>
+            
+                    {isRoll ? (
+                      <div>
+                        Endless roll · Width {selected.roll!.widthMm} mm
+                      </div>
+                    ) : (
+                      <div>
+                        Sheet {selected.pageLayout.size.x}×
+                        {selected.pageLayout.size.y} mm ·{' '}
+                        {selected.pageLayout.labelCount?.labelX ?? 1}×
+                        {selected.pageLayout.labelCount?.labelY ?? 1} labels
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <!-- end insertion for paper format selection
+
           <div className="config-field">
             <Label className="config-label">Orientation</Label>
             <Select 
