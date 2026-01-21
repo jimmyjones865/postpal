@@ -26,6 +26,7 @@ export interface SenderAddress {
 export interface PrinterConfig {
   paperFormat: string;
   printerName: string;
+  paperFormatName: string; // selection from paper formats file
   orientation: 'portrait' | 'landscape';
   cropMarginHorizontal: number; // in mm
   cropMarginVertical: number;   // in mm
