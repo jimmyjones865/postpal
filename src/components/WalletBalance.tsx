@@ -6,14 +6,18 @@ import { cn } from '@/lib/utils';
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 interface WalletBalanceProps {
+  balance?: number | null;
   onBalanceChange?: (balance: number | null) => void;
 }
 
-export function WalletBalance({ onBalanceChange }: WalletBalanceProps) {
+export function WalletBalance({ balance: externalBalance, onBalanceChange }: WalletBalanceProps) {
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
-  const [balance, setBalance] = useState<number | null>(null);
+  const [internalBalance, setInternalBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use external balance if provided, otherwise use internal state
+  const balance = externalBalance !== undefined ? externalBalance : internalBalance;
 
   /**
    * Fetch server-side configuration status
@@ -50,7 +54,7 @@ export function WalletBalance({ onBalanceChange }: WalletBalanceProps) {
       const data = await response.json();
 
       // balance may legitimately be null (unknown)
-      setBalance(data.balance ?? null);
+      setInternalBalance(data.balance ?? null);
       onBalanceChange?.(data.balance ?? null);
     } catch (err) {
       const message =

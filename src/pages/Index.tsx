@@ -269,7 +269,7 @@ const Index = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <WalletBalance onBalanceChange={setWalletBalance} />
+            <WalletBalance balance={walletBalance} onBalanceChange={setWalletBalance} />
             {!isConfigured && (
               <div className="flex items-center gap-2 text-xs text-amber-500">
                 <AlertCircle className="w-4 h-4" />
