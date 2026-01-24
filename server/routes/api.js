@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
-import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, prepareForEndlessRoll, getContentDimensions } from '../lib/pdf-cropper.js';
+import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -392,7 +392,12 @@ export function createApiRouter() {
   /* Direct printing via CUPS IPP */
   router.post('/print', async (req, res) => {
     try {
-      const { labelId, cupsUrl, printerName, orientation, paperFormatName, cropH, cropV, disableCropping } = req.body;
+      const { 
+        labelId, cupsUrl, printerName, orientation, 
+        cropH, cropV, disableCropping,
+        // Explicit paper settings
+        paperWidthMm, paperHeightMm, endlessRoll
+      } = req.body;
       
       if (!labelId || !cupsUrl || !printerName) {
         return res.status(400).json({ error: 'Missing required fields: labelId, cupsUrl, printerName' });
@@ -408,52 +413,72 @@ export function createApiRouter() {
       // Read original PDF
       let pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
       
-      // Crop the PDF (unless disabled)
+      const cropMarginH = parseFloat(cropH) || 5;
+      const cropMarginV = parseFloat(cropV) || 5;
+      const isLandscape = orientation === 'landscape';
+      
+      // Get cropped dimensions and crop PDF
+      let croppedDimensions = null;
+      
       if (!disableCropping) {
-        const cropMarginH = parseFloat(cropH) || 5;
-        const cropMarginV = parseFloat(cropV) || 5;
-        
         try {
+          croppedDimensions = await getContentDimensions(pdfBuffer, cropMarginH, cropMarginV);
           pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
-          console.log('[Print] PDF cropped');
+          console.log(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
         } catch (cropErr) {
-          console.error('[Print] Crop failed, using original:', cropErr.message);
+          console.error('[Print] Crop failed:', cropErr.message);
+          
+          // For endless roll, cropping is mandatory to determine height
+          if (endlessRoll) {
+            return res.status(500).json({ 
+              error: 'PDF cropping failed',
+              details: 'Cropping is required for endless roll to determine paper height. ' + cropErr.message
+            });
+          }
+          // For fixed paper, continue with explicit dimensions
+          console.log('[Print] Using explicit paper dimensions (crop failed)');
         }
       } else {
-        console.log('[Print] Cropping disabled, using original PDF');
+        console.log('[Print] Cropping disabled, using explicit paper dimensions');
       }
       
-      // Check if paper format is endless roll (detected by "Endlos" in name)
-      const paperFormat = paperFormats.find(f => f.name === paperFormatName);
-      const isEndless = paperFormat?.name?.toLowerCase().includes('endlos');
-      // Roll width comes from pageLayout.size.x in mm
-      const rollWidthMm = paperFormat?.pageLayout?.size?.x;
-      
-      // Track media dimensions for IPP
+      // Calculate media dimensions
       let mediaWidthMm, mediaHeightMm;
       
-      if (isEndless && rollWidthMm) {
-        // Prepare for endless roll printing
-        const isLandscape = orientation === 'landscape';
-        try {
-          const result = await prepareForEndlessRoll(pdfBuffer, rollWidthMm, isLandscape);
-          pdfBuffer = result.buffer;
-          
-          // Set dimensions for IPP media-col attribute
-          if (isLandscape) {
-            mediaWidthMm = result.contentHeightMm;  // After rotation, height becomes width
-            mediaHeightMm = rollWidthMm;
-          } else {
-            mediaWidthMm = rollWidthMm;
-            mediaHeightMm = result.contentHeightMm;
-          }
-          
-          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, content ${Math.round(result.contentWidthMm)}x${Math.round(result.contentHeightMm)}mm, media=${mediaWidthMm?.toFixed(1)}x${mediaHeightMm?.toFixed(1)}mm, landscape=${isLandscape}`);
-        } catch (rollErr) {
-          console.error('[Print] Endless roll preparation failed:', rollErr.message);
+      if (endlessRoll) {
+        // Height from cropped content
+        const contentWidth = croppedDimensions?.cropped?.widthMm || paperWidthMm || 62;
+        const contentHeight = croppedDimensions?.cropped?.heightMm || 40;
+        
+        if (isLandscape) {
+          // After 90° rotation: original width becomes the length (feed direction)
+          mediaWidthMm = paperWidthMm || 62;
+          mediaHeightMm = contentWidth;
+        } else {
+          mediaWidthMm = paperWidthMm || 62;
+          mediaHeightMm = contentHeight;
         }
-      } else if (orientation === 'landscape') {
-        // Just rotate for landscape orientation
+        
+        console.log(`[Print] Endless roll ${isLandscape ? 'landscape' : 'portrait'}: width=${mediaWidthMm}mm, height=${mediaHeightMm.toFixed(1)}mm (from content)`);
+      } else {
+        // Fixed paper size
+        const fixedWidth = paperWidthMm || 62;
+        const fixedHeight = paperHeightMm || 100;
+        
+        if (isLandscape) {
+          // Swap for landscape
+          mediaWidthMm = fixedHeight;
+          mediaHeightMm = fixedWidth;
+        } else {
+          mediaWidthMm = fixedWidth;
+          mediaHeightMm = fixedHeight;
+        }
+        
+        console.log(`[Print] Fixed paper ${isLandscape ? 'landscape' : 'portrait'}: ${mediaWidthMm}x${mediaHeightMm}mm`);
+      }
+      
+      // Rotate PDF if landscape
+      if (isLandscape) {
         try {
           pdfBuffer = await rotatePdf(pdfBuffer, 90);
           console.log('[Print] PDF rotated 90° for landscape');
@@ -462,7 +487,7 @@ export function createApiRouter() {
         }
       }
       
-      // Send to CUPS with explicit dimensions for endless roll
+      // Send to CUPS with explicit dimensions
       const printResult = await sendToCups(pdfBuffer, cupsUrl, printerName, {
         jobName: `Label ${label.id}`,
         mediaWidthMm,
@@ -474,7 +499,8 @@ export function createApiRouter() {
         res.json({ 
           success: true, 
           jobId: printResult.jobId,
-          message: `Print job sent to ${printerName}`
+          message: `Print job sent to ${printerName}`,
+          mediaDimensions: { widthMm: mediaWidthMm, heightMm: mediaHeightMm }
         });
       } else {
         console.error('[Print] Print failed:', printResult.error);

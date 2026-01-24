@@ -227,10 +227,13 @@ const Index = () => {
               cupsUrl: config.printerConfig.cupsUrl,
               printerName: config.printerConfig.printerName,
               orientation: config.printerConfig.orientation,
-              paperFormatName: config.printerConfig.paperFormatName,
               cropH: config.printerConfig.cropMarginHorizontal ?? 5,
               cropV: config.printerConfig.cropMarginVertical ?? 5,
               disableCropping: config.printerConfig.disableCropping || false,
+              // Explicit paper settings
+              paperWidthMm: config.printerConfig.paperWidthMm ?? 62,
+              paperHeightMm: config.printerConfig.paperHeightMm ?? 100,
+              endlessRoll: config.printerConfig.endlessRoll ?? true,
             })
           });
           
@@ -423,7 +426,10 @@ const Index = () => {
                   orientation: config.printerConfig.orientation,
                   paperFormatName: config.printerConfig.paperFormatName || '',
                   enableDirectPrint: config.printerConfig.enableDirectPrint || false,
-                  disableCropping: config.printerConfig.disableCropping || false
+                  disableCropping: config.printerConfig.disableCropping || false,
+                  paperWidthMm: config.printerConfig.paperWidthMm ?? 62,
+                  paperHeightMm: config.printerConfig.paperHeightMm ?? 100,
+                  endlessRoll: config.printerConfig.endlessRoll ?? true,
                 }}
               />
             </div>

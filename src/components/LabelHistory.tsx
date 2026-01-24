@@ -19,6 +19,10 @@ interface LabelHistoryProps {
     paperFormatName: string;
     enableDirectPrint: boolean;
     disableCropping?: boolean;
+    // Explicit paper settings
+    paperWidthMm?: number;
+    paperHeightMm?: number;
+    endlessRoll?: boolean;
   };
 }
 
@@ -40,10 +44,13 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
             cupsUrl: directPrintConfig.cupsUrl,
             printerName: directPrintConfig.printerName,
             orientation: directPrintConfig.orientation,
-            paperFormatName: directPrintConfig.paperFormatName,
             cropH: printOptions?.cropH ?? 5,
             cropV: printOptions?.cropV ?? 5,
             disableCropping: directPrintConfig.disableCropping || false,
+            // Explicit paper settings
+            paperWidthMm: directPrintConfig.paperWidthMm ?? 62,
+            paperHeightMm: directPrintConfig.paperHeightMm ?? 100,
+            endlessRoll: directPrintConfig.endlessRoll ?? true,
           })
         });
         if (!response.ok) {

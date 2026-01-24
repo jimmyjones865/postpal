@@ -20,6 +20,9 @@ const defaultConfig: AppConfig = {
     disableCropping: false,
     cupsUrl: '',
     enableDirectPrint: false,
+    paperWidthMm: 62,      // Common Brother label width
+    paperHeightMm: 100,    // Default fixed height
+    endlessRoll: true,     // Most label printers use endless roll
   },
   senderAddress: {
     name: '',
