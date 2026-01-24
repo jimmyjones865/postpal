@@ -419,10 +419,11 @@ export function createApiRouter() {
         console.error('[Print] Crop failed, using original:', cropErr.message);
       }
       
-      // Check if paper format is endless roll
+      // Check if paper format is endless roll (detected by "Endlos" in name)
       const paperFormat = paperFormats.find(f => f.name === paperFormatName);
-      const isEndless = paperFormat?.roll?.endless === true;
-      const rollWidthMm = paperFormat?.roll?.widthMm;
+      const isEndless = paperFormat?.name?.toLowerCase().includes('endlos');
+      // Roll width comes from pageLayout.size.x in mm
+      const rollWidthMm = paperFormat?.pageLayout?.size?.x;
       
       if (isEndless && rollWidthMm) {
         // Prepare for endless roll printing
@@ -430,7 +431,7 @@ export function createApiRouter() {
         try {
           const result = await prepareForEndlessRoll(pdfBuffer, rollWidthMm, isLandscape);
           pdfBuffer = result.buffer;
-          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, landscape=${isLandscape}`);
+          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, content ${Math.round(result.contentWidthMm)}x${Math.round(result.contentHeightMm)}mm, landscape=${isLandscape}`);
         } catch (rollErr) {
           console.error('[Print] Endless roll preparation failed:', rollErr.message);
         }
