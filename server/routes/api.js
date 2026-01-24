@@ -3,7 +3,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
-import { cropPdfWhitespace } from '../lib/pdf-cropper.js';
+import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, prepareForEndlessRoll } from '../lib/pdf-cropper.js';
+import { sendToCups } from '../lib/cups-printer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -385,6 +386,86 @@ export function createApiRouter() {
     } catch (err) {
       console.error('[Labels] Delete error:', err);
       res.status(500).json({ error: 'Failed to delete label' });
+    }
+  });
+
+  /* Direct printing via CUPS IPP */
+  router.post('/print', async (req, res) => {
+    try {
+      const { labelId, cupsUrl, printerName, orientation, paperFormatName, cropH, cropV } = req.body;
+      
+      if (!labelId || !cupsUrl || !printerName) {
+        return res.status(400).json({ error: 'Missing required fields: labelId, cupsUrl, printerName' });
+      }
+      
+      // Load the label
+      const metadata = await loadMetadata();
+      const label = metadata.labels.find(l => l.id === labelId);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+      
+      // Read original PDF
+      let pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
+      
+      // Crop the PDF
+      const cropMarginH = parseFloat(cropH) || 5;
+      const cropMarginV = parseFloat(cropV) || 5;
+      
+      try {
+        pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
+        console.log('[Print] PDF cropped');
+      } catch (cropErr) {
+        console.error('[Print] Crop failed, using original:', cropErr.message);
+      }
+      
+      // Check if paper format is endless roll
+      const paperFormat = paperFormats.find(f => f.name === paperFormatName);
+      const isEndless = paperFormat?.roll?.endless === true;
+      const rollWidthMm = paperFormat?.roll?.widthMm;
+      
+      if (isEndless && rollWidthMm) {
+        // Prepare for endless roll printing
+        const isLandscape = orientation === 'landscape';
+        try {
+          const result = await prepareForEndlessRoll(pdfBuffer, rollWidthMm, isLandscape);
+          pdfBuffer = result.buffer;
+          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, landscape=${isLandscape}`);
+        } catch (rollErr) {
+          console.error('[Print] Endless roll preparation failed:', rollErr.message);
+        }
+      } else if (orientation === 'landscape') {
+        // Just rotate for landscape orientation
+        try {
+          pdfBuffer = await rotatePdf(pdfBuffer, 90);
+          console.log('[Print] PDF rotated 90° for landscape');
+        } catch (rotateErr) {
+          console.error('[Print] Rotation failed:', rotateErr.message);
+        }
+      }
+      
+      // Send to CUPS
+      const printResult = await sendToCups(pdfBuffer, cupsUrl, printerName, {
+        jobName: `Label ${label.id}`
+      });
+      
+      if (printResult.success) {
+        console.log(`[Print] Job sent to ${printerName}, job ID: ${printResult.jobId}`);
+        res.json({ 
+          success: true, 
+          jobId: printResult.jobId,
+          message: `Print job sent to ${printerName}`
+        });
+      } else {
+        console.error('[Print] Print failed:', printResult.error);
+        res.status(500).json({ 
+          success: false, 
+          error: printResult.error || 'Failed to send print job'
+        });
+      }
+    } catch (err) {
+      console.error('[Print] Error:', err);
+      res.status(500).json({ error: err.message || 'Print failed' });
     }
   });
 

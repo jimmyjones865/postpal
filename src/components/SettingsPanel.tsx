@@ -251,15 +251,50 @@ export function SettingsPanel({
             </Select>
           </div>
 
+          {/* CUPS Direct Printing Section */}
+          <div className="border-t border-border pt-3 mt-3">
+            <Label className="config-label mb-2 block">
+              Direct Printing (CUPS)
+            </Label>
+            
+            <div className="config-field mb-3">
+              <Label className="config-label text-xs">CUPS Server URL</Label>
+              <Input
+                type="text"
+                placeholder="http://192.168.1.100:631"
+                value={config.printerConfig.cupsUrl || ''}
+                onChange={e => onUpdatePrinterConfig({ cupsUrl: e.target.value })}
+                className="h-9 text-sm"
+              />
+            </div>
+            
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={config.printerConfig.enableDirectPrint || false}
+                onCheckedChange={checked => 
+                  onUpdatePrinterConfig({ enableDirectPrint: checked === true })
+                }
+              />
+              <span className="text-sm">Enable direct print to CUPS</span>
+            </label>
+            
+            <p className="text-xs text-muted-foreground mt-2">
+              When enabled, labels will be sent directly to the CUPS server via IPP protocol without opening the browser print dialog.
+            </p>
+          </div>
+
           <div className="config-field">
             <Label className="config-label">Printer Name</Label>
             <Input
               type="text"
-              placeholder="DYMO LabelWriter 450"
+              placeholder="DYMO_LabelWriter_450"
               value={config.printerConfig.printerName}
               onChange={e => onUpdatePrinterConfig({ printerName: e.target.value })}
               className="h-9 text-sm"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              The printer queue name as shown in CUPS (e.g., DYMO_LabelWriter_450)
+            </p>
           </div>
 
           <div className="border-t border-border pt-3 mt-3">
@@ -298,10 +333,6 @@ export function SettingsPanel({
               Crops whitespace from labels, keeping the specified margins around the content.
             </p>
           </div>
-
-          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-            <strong>Note:</strong> Printer selection uses the browser's print dialog. The printer name here is for reference only.
-          </p>
         </TabsContent>
 
         {/* ----- PRODUCTS TAB ----- */}
