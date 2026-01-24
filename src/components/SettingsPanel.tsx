@@ -63,8 +63,15 @@ export function SettingsPanel({
         return json as PaperFormatsJson;
       })
       .then((data: PaperFormatsJson) => {
-        const formats = Object.values(data).flat().filter(Boolean) as PaperFormat[];
-        console.log('Processed paper formats array:', formats);
+        const allFormats = Object.values(data).flat().filter(Boolean) as PaperFormat[];
+        // Deduplicate by name to avoid duplicate entries in dropdown
+        const seenNames = new Set<string>();
+        const formats = allFormats.filter(format => {
+          if (seenNames.has(format.name)) return false;
+          seenNames.add(format.name);
+          return true;
+        });
+        console.log('Processed paper formats array:', formats.length, 'unique formats');
         setPaperFormats(formats);
       })
       .catch(err => {
@@ -190,7 +197,7 @@ export function SettingsPanel({
                 </SelectTrigger>
                 <SelectContent>
                   {paperFormats.map(format => (
-                    <SelectItem key={format.name} value={format.name}>
+                    <SelectItem key={format.id} value={format.name}>
                       {format.name}
                     </SelectItem>
                   ))}
