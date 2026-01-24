@@ -145,7 +145,10 @@ const Index = () => {
           },
           receiver,
           productCode: selectedProduct,
-          priceInCents: productCostInCents
+          priceInCents: productCostInCents,
+
+          paperFormatName: config.printerConfig.paperFormatName,
+
         })
       });
       

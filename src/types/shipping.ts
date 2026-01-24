@@ -46,9 +46,3 @@ export interface AppConfig {
   favoriteProducts: string[];
 }
 
-export const PAPER_FORMATS = [
-  { id: 'a4', name: 'A4 (210 × 297 mm)' },
-  { id: 'a6', name: 'A6 (105 × 148 mm)' },
-  { id: '4x6', name: '4" × 6" (102 × 152 mm)' },
-  { id: 'label-103x199', name: 'Label 103 × 199 mm' },
-];

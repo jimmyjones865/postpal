@@ -1,10 +1,17 @@
+import { useState, useEffect } from 'react';
 import { Settings, User, Printer, Package } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AppConfig, PAPER_FORMATS, ShippingProduct } from '@/types/shipping';
+import { AppConfig, ShippingProduct } from '@/types/shipping';
 
 interface SettingsPanelProps {
   config: AppConfig;
@@ -14,7 +21,7 @@ interface SettingsPanelProps {
   onUpdateFavoriteProducts: (favorites: string[]) => void;
 }
 
-// add paper formats selection
+// Paper formats interfaces
 interface PaperFormat {
   id: number;
   name: string;
@@ -25,48 +32,15 @@ interface PaperFormat {
     orientation: 'PORTRAIT' | 'LANDSCAPE';
     labelSpacing: { x: number; y: number };
     labelCount: { labelX: number; labelY: number };
-    margin: {
-      top: number;
-      bottom: number;
-      left: number;
-      right: number;
-    };
+    margin: { top: number; bottom: number; left: number; right: number };
   };
+  roll?: { endless: boolean; widthMm: number };
 }
 
 interface PaperFormatsJson {
   LABELPAGE?: PaperFormat[];
   [key: string]: PaperFormat[] | undefined;
 }
-
-const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
-const [paperFormatsError, setPaperFormatsError] = useState<string | null>(null);
-
-useEffect(() => {
-  fetch('/paper-formats.json')
-    .then(r => {
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}`);
-      }
-      return r.json();
-    })
-    .then((data: PaperFormatsJson) => {
-      // Flatten all groups into a single list
-      const formats = Object.values(data)
-        .flat()
-        .filter(Boolean) as PaperFormat[];
-
-      setPaperFormats(formats);
-    })
-    .catch(err => {
-      console.error('Failed to load paper formats:', err);
-      setPaperFormatsError('Failed to load paper formats');
-    });
-}, []);
-
-
-// end add paper formats selection
-
 
 export function SettingsPanel({
   config,
@@ -75,9 +49,34 @@ export function SettingsPanel({
   onUpdateSenderAddress,
   onUpdateFavoriteProducts
 }: SettingsPanelProps) {
+
+  // --- PAPER FORMATS STATE AND EFFECT ---
+  const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
+  const [paperFormatsError, setPaperFormatsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/paper-formats.json')
+      .then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const json = await r.json();
+        console.log('Raw paper-formats.json loaded:', json);
+        return json as PaperFormatsJson;
+      })
+      .then((data: PaperFormatsJson) => {
+        const formats = Object.values(data).flat().filter(Boolean) as PaperFormat[];
+        console.log('Processed paper formats array:', formats);
+        setPaperFormats(formats);
+      })
+      .catch(err => {
+        console.error('Failed to load paper formats:', err);
+        setPaperFormatsError('Failed to load paper formats');
+      });
+  }, []);
+  // --- END PAPER FORMATS ---
+
   const domesticProducts = products.filter(p => p.domestic);
   const internationalProducts = products.filter(p => !p.domestic);
-  
+
   const toggleFavorite = (productCode: string) => {
     const current = config.favoriteProducts || [];
     if (current.includes(productCode)) {
@@ -93,152 +92,147 @@ export function SettingsPanel({
         <Settings className="w-4 h-4 text-primary" />
         <h2 className="font-semibold text-sm">Settings</h2>
       </div>
-      
+
       <Tabs defaultValue="sender" className="w-full">
         <TabsList className="w-full grid grid-cols-3 mb-4">
           <TabsTrigger value="sender" className="text-xs gap-1">
-            <User className="w-3 h-3" />
-            Sender
+            <User className="w-3 h-3" /> Sender
           </TabsTrigger>
           <TabsTrigger value="printer" className="text-xs gap-1">
-            <Printer className="w-3 h-3" />
-            Printer
+            <Printer className="w-3 h-3" /> Printer
           </TabsTrigger>
           <TabsTrigger value="products" className="text-xs gap-1">
-            <Package className="w-3 h-3" />
-            Products
+            <Package className="w-3 h-3" /> Products
           </TabsTrigger>
         </TabsList>
 
+        {/* ----- SENDER TAB ----- */}
         <TabsContent value="sender" className="space-y-3 mt-0">
           <div className="config-field">
             <Label className="config-label">Name</Label>
             <Input 
-              type="text" 
-              placeholder="Full Name" 
-              value={config.senderAddress.name} 
-              onChange={e => onUpdateSenderAddress({ name: e.target.value })} 
-              className="h-9 text-sm" 
+              type="text"
+              placeholder="Full Name"
+              value={config.senderAddress.name}
+              onChange={e => onUpdateSenderAddress({ name: e.target.value })}
+              className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
             <Label className="config-label">Company (optional)</Label>
-            <Input 
-              type="text" 
-              placeholder="Company Name" 
-              value={config.senderAddress.company || ''} 
-              onChange={e => onUpdateSenderAddress({ company: e.target.value })} 
-              className="h-9 text-sm" 
+            <Input
+              type="text"
+              placeholder="Company Name"
+              value={config.senderAddress.company || ''}
+              onChange={e => onUpdateSenderAddress({ company: e.target.value })}
+              className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
             <Label className="config-label">Street & Number</Label>
-            <Input 
-              type="text" 
-              placeholder="Musterstraße 123" 
-              value={config.senderAddress.street} 
-              onChange={e => onUpdateSenderAddress({ street: e.target.value })} 
-              className="h-9 text-sm" 
+            <Input
+              type="text"
+              placeholder="Musterstraße 123"
+              value={config.senderAddress.street}
+              onChange={e => onUpdateSenderAddress({ street: e.target.value })}
+              className="h-9 text-sm"
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="config-field">
               <Label className="config-label">Postal Code</Label>
-              <Input 
-                type="text" 
-                placeholder="12345" 
-                value={config.senderAddress.postalCode} 
-                onChange={e => onUpdateSenderAddress({ postalCode: e.target.value })} 
-                className="h-9 text-sm" 
+              <Input
+                type="text"
+                placeholder="12345"
+                value={config.senderAddress.postalCode}
+                onChange={e => onUpdateSenderAddress({ postalCode: e.target.value })}
+                className="h-9 text-sm"
               />
             </div>
             <div className="config-field col-span-2">
               <Label className="config-label">City</Label>
-              <Input 
-                type="text" 
-                placeholder="Berlin" 
-                value={config.senderAddress.city} 
-                onChange={e => onUpdateSenderAddress({ city: e.target.value })} 
-                className="h-9 text-sm" 
+              <Input
+                type="text"
+                placeholder="Berlin"
+                value={config.senderAddress.city}
+                onChange={e => onUpdateSenderAddress({ city: e.target.value })}
+                className="h-9 text-sm"
               />
             </div>
           </div>
           <div className="config-field">
             <Label className="config-label">Country</Label>
-            <Input 
-              type="text" 
-              placeholder="DE" 
-              value={config.senderAddress.country} 
-              onChange={e => onUpdateSenderAddress({ country: e.target.value })} 
-              className="h-9 text-sm" 
+            <Input
+              type="text"
+              placeholder="DE"
+              value={config.senderAddress.country}
+              onChange={e => onUpdateSenderAddress({ country: e.target.value })}
+              className="h-9 text-sm"
             />
           </div>
         </TabsContent>
 
+        {/* ----- PRINTER TAB ----- */}
         <TabsContent value="printer" className="space-y-3 mt-0">
-
-          // inserted for paper format selection
           <div className="config-field">
             <Label className="config-label">Paper Format</Label>
-              {paperFormatsError ? (
-                <p className="text-xs text-destructive">{paperFormatsError}</p>
-              ) : (
-                <Select
-                  value={config.printerConfig.paperFormatName || ''}
-                  onValueChange={value =>
-                    onUpdatePrinterConfig({ paperFormatName: value })
-                  }
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select paper format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paperFormats.map(format => (
-                      <SelectItem key={format.name} value={format.name}>
-                        {format.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            
-              {(() => {
-                const selected = paperFormats.find(
-                  f => f.name === config.printerConfig.paperFormatName
-                );
-            
-                if (!selected) return null;
-            
-                const isRoll = selected.roll?.endless;
-            
-                return (
-                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                    <div>{selected.description}</div>
-            
-                    {isRoll ? (
-                      <div>
-                        Endless roll · Width {selected.roll!.widthMm} mm
-                      </div>
-                    ) : (
-                      <div>
-                        Sheet {selected.pageLayout.size.x}×
-                        {selected.pageLayout.size.y} mm ·{' '}
-                        {selected.pageLayout.labelCount?.labelX ?? 1}×
-                        {selected.pageLayout.labelCount?.labelY ?? 1} labels
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+            {paperFormatsError ? (
+              <p className="text-xs text-destructive">{paperFormatsError}</p>
+            ) : (
+              <Select
+                value={config.printerConfig.paperFormatName || ''}
+                onValueChange={value =>
+                  onUpdatePrinterConfig({ paperFormatName: value })
+                }
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Select paper format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paperFormats.map(format => (
+                    <SelectItem key={format.name} value={format.name}>
+                      {format.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-            // end insertion for paper format selection
+            {(() => {
+              const selected = paperFormats.find(
+                f => f.name === config.printerConfig.paperFormatName
+              );
+              if (!selected) return null;
+
+              const isRoll = selected.roll?.endless;
+
+              return (
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  <div>{selected.description}</div>
+                  {isRoll ? (
+                    <div>
+                      Endless roll · Width {selected.roll!.widthMm} mm
+                    </div>
+                  ) : (
+                    <div>
+                      Sheet {selected.pageLayout.size.x}×
+                      {selected.pageLayout.size.y} mm ·{' '}
+                      {selected.pageLayout.labelCount?.labelX ?? 1}×
+                      {selected.pageLayout.labelCount?.labelY ?? 1} labels
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           <div className="config-field">
             <Label className="config-label">Orientation</Label>
-            <Select 
-              value={config.printerConfig.orientation} 
-              onValueChange={(value: 'portrait' | 'landscape') => onUpdatePrinterConfig({ orientation: value })}
+            <Select
+              value={config.printerConfig.orientation}
+              onValueChange={(value: 'portrait' | 'landscape') =>
+                onUpdatePrinterConfig({ orientation: value })
+              }
             >
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="Select orientation" />
@@ -249,42 +243,47 @@ export function SettingsPanel({
               </SelectContent>
             </Select>
           </div>
+
           <div className="config-field">
             <Label className="config-label">Printer Name</Label>
-            <Input 
-              type="text" 
-              placeholder="DYMO LabelWriter 450" 
-              value={config.printerConfig.printerName} 
-              onChange={e => onUpdatePrinterConfig({ printerName: e.target.value })} 
-              className="h-9 text-sm" 
+            <Input
+              type="text"
+              placeholder="DYMO LabelWriter 450"
+              value={config.printerConfig.printerName}
+              onChange={e => onUpdatePrinterConfig({ printerName: e.target.value })}
+              className="h-9 text-sm"
             />
           </div>
-          
+
           <div className="border-t border-border pt-3 mt-3">
-            <Label className="config-label mb-2 block">Label Cropping (minimize paper usage)</Label>
+            <Label className="config-label mb-2 block">
+              Label Cropping (minimize paper usage)
+            </Label>
             <div className="grid grid-cols-2 gap-3">
               <div className="config-field">
                 <Label className="config-label text-xs">Horizontal Margin (mm)</Label>
-                <Input 
-                  type="number" 
-                  min="0" 
-                  max="50"
-                  placeholder="5" 
-                  value={config.printerConfig.cropMarginHorizontal ?? 5} 
-                  onChange={e => onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })} 
-                  className="h-9 text-sm" 
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={config.printerConfig.cropMarginHorizontal ?? 5}
+                  onChange={e =>
+                    onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })
+                  }
+                  className="h-9 text-sm"
                 />
               </div>
               <div className="config-field">
                 <Label className="config-label text-xs">Vertical Margin (mm)</Label>
-                <Input 
-                  type="number" 
-                  min="0" 
-                  max="50"
-                  placeholder="5" 
-                  value={config.printerConfig.cropMarginVertical ?? 5} 
-                  onChange={e => onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })} 
-                  className="h-9 text-sm" 
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={config.printerConfig.cropMarginVertical ?? 5}
+                  onChange={e =>
+                    onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })
+                  }
+                  className="h-9 text-sm"
                 />
               </div>
             </div>
@@ -292,29 +291,28 @@ export function SettingsPanel({
               Crops whitespace from labels, keeping the specified margins around the content.
             </p>
           </div>
-          
+
           <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-            <strong>Note:</strong> Printer selection uses the browser's print dialog. 
-            The printer name here is for reference only.
+            <strong>Note:</strong> Printer selection uses the browser's print dialog. The printer name here is for reference only.
           </p>
         </TabsContent>
 
+        {/* ----- PRODUCTS TAB ----- */}
         <TabsContent value="products" className="space-y-4 mt-0">
           <p className="text-xs text-muted-foreground">
             Uncheck products to hide them from the main screen
           </p>
-          
+
           <div>
             <Label className="config-label mb-2 block">Domestic (DE)</Label>
             <div className="space-y-2">
               {domesticProducts.map(product => {
-                // Product is shown (checked) if NOT in the exclusion list
                 const isExcluded = (config.favoriteProducts || []).includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox 
-                      checked={!isExcluded} 
-                      onCheckedChange={() => toggleFavorite(product.code)} 
+                    <Checkbox
+                      checked={!isExcluded}
+                      onCheckedChange={() => toggleFavorite(product.code)}
                     />
                     <span className="text-sm">{product.name}</span>
                     <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
@@ -331,9 +329,9 @@ export function SettingsPanel({
                 const isExcluded = (config.favoriteProducts || []).includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox 
-                      checked={!isExcluded} 
-                      onCheckedChange={() => toggleFavorite(product.code)} 
+                    <Checkbox
+                      checked={!isExcluded}
+                      onCheckedChange={() => toggleFavorite(product.code)}
                     />
                     <span className="text-sm">{product.name}</span>
                     <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
