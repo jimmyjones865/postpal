@@ -1,151 +1,204 @@
 
-# Plan: Update Label Preview with Structured Address Fields
+
+# Plan: Implement CUPS IPP Direct Printing
 
 ## Overview
 
-Enhance the LabelPreview component to display structured address fields for both sender and recipient, matching the actual Deutsche Post label layout. The component will receive the parsed recipient address to properly display additionalName, addressLine2, and country.
+Implement direct printing to a CUPS server via the IPP protocol, with smart product defaults, print/download toggle, orientation control, and dynamic page sizing for endless roll paper.
 
-## Changes Required
+## Architecture
 
-### 1. Update LabelPreview Props
-
-**File**: `src/components/LabelPreview.tsx`
-
-Change the props to accept the parsed recipient address instead of (or in addition to) the raw string:
-
-| Current Prop | New Prop |
-|-------------|----------|
-| `recipientAddress: string` | `parsedRecipient: ParsedAddress` |
-
-Import `ParsedAddress` from `@/lib/address`.
-
-### 2. Update Sender Address Display
-
-The sender's `company` field is actually `additionalName` - it should be displayed as-is (not forced to uppercase). Format the sender as a single condensed line:
-
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend                                │
+├─────────────────────────────────────────────────────────────────┤
+│  AddressInput                                                   │
+│  ├─ Print/Download toggle (new)                                 │
+│  └─ Ctrl+Enter → auto-select product if none selected           │
+│                                                                 │
+│  Settings → Printer Tab                                         │
+│  ├─ CUPS Server URL (new field)                                 │
+│  └─ Enable Direct Print checkbox (new)                          │
+│                                                                 │
+│  Index.tsx                                                      │
+│  └─ handlePrint logic branches on print vs download             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         Backend                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  POST /api/print                                                │
+│  ├─ Receives: labelId, cupsUrl, printerName, orientation,       │
+│  │            paperFormat, cropMargins                          │
+│  ├─ Crops PDF (existing logic)                                  │
+│  ├─ Rotates if landscape orientation                            │
+│  ├─ Sets page size for roll paper (uses content height)         │
+│  └─ Sends to CUPS via IPP protocol                              │
+└─────────────────────────────────────────────────────────────────┘
 ```
-additionalName (if present), Name, Street, ZIP City, Country (if not DE)
-```
 
-### 3. Update Recipient Address Display
+## Detailed Changes
 
-Display recipient fields in this exact order:
-1. `additionalName` (if present) - e.g., company name, c/o
-2. `name` - recipient name
-3. `street` - street address
-4. `addressLine2` (if present) - apartment, floor, etc.
-5. `zip city` - postal code and city
-6. `country` - only if not "Deutschland" or "Germany"
+### 1. Update PrinterConfig Type
 
-### 4. Update Index.tsx to Pass Parsed Recipient
+**File**: `src/types/shipping.ts`
+
+Add new fields to `PrinterConfig`:
+- `cupsUrl: string` - CUPS server URL (e.g., `http://192.168.1.100:631`)
+- `enableDirectPrint: boolean` - Toggle for direct IPP vs download
+
+### 2. Update useConfig Hook
+
+**File**: `src/hooks/useConfig.ts`
+
+Add default values:
+- `cupsUrl: ''`
+- `enableDirectPrint: false`
+
+### 3. Add Print/Download Toggle to AddressInput
+
+**File**: `src/components/AddressInput.tsx`
+
+Add a toggle switch below the textarea with two options:
+- "Print" (printer icon) - sends to CUPS directly
+- "Download" (download icon) - downloads cropped PDF
+
+New props:
+- `printMode: 'print' | 'download'`
+- `onPrintModeChange: (mode) => void`
+
+### 4. Update Settings Panel
+
+**File**: `src/components/SettingsPanel.tsx`
+
+Add to Printer tab:
+- **CUPS Server URL** input field with placeholder `http://192.168.1.100:631`
+- **Enable Direct Print** checkbox
+- Helper text explaining the feature
+
+### 5. Add Default Product Selection Logic
 
 **File**: `src/pages/Index.tsx`
 
-Change the LabelPreview usage from:
-```tsx
-<LabelPreview 
-  senderAddress={config.senderAddress} 
-  recipientAddress={recipientAddress}  // string
-  selectedProduct={selectedProductData} 
-/>
+When Ctrl+Enter is pressed without a product selected:
+1. Check if recipient country is Germany (or empty/DE/Deutschland)
+2. Select domestic standard letter if Germany
+3. Select international standard letter if not Germany
+4. Look for products with `domestic: true/false` and `group: 'standard'`
+
+### 6. Add IPP Dependency
+
+**File**: `server/package.json`
+
+Add: `"ipp": "^3.0.0"`
+
+### 7. Create IPP Print Utility
+
+**File**: `server/lib/cups-printer.js` (new file)
+
+```javascript
+// Sends print job to CUPS via IPP protocol
+export async function sendToCups(pdfBuffer, cupsUrl, printerName, options) {
+  // - Builds IPP Print-Job request
+  // - Handles connection errors gracefully
+  // - Returns job ID on success
+}
 ```
 
-To:
-```tsx
-<LabelPreview 
-  senderAddress={config.senderAddress} 
-  parsedRecipient={parsedRecipient}  // ParsedAddress object
-  selectedProduct={selectedProductData} 
-/>
+### 8. Add PDF Rotation Function
+
+**File**: `server/lib/pdf-cropper.js`
+
+Add new export:
+```javascript
+export async function rotatePdf(pdfBuffer, degrees) {
+  // Uses pdf-lib to rotate page 90° for landscape
+  // Swaps MediaBox dimensions appropriately
+}
 ```
 
-## Technical Details
+### 9. Create Backend Print Endpoint
 
-### Country Display Logic
+**File**: `server/routes/api.js`
 
-The country should only be displayed if it's not Germany. Check for:
-- `"Deutschland"` (German spelling)
-- `"Germany"` (English spelling)
-- `"DE"` (ISO code for sender)
+New route: `POST /api/print`
 
-### Recipient Formatting Function
-
-```typescript
-const formatRecipientAddress = () => {
-  const lines: string[] = [];
-  
-  // 1. Additional name first (company, c/o, etc.)
-  if (parsedRecipient.additionalName) {
-    lines.push(parsedRecipient.additionalName);
-  }
-  
-  // 2. Name
-  if (parsedRecipient.name) {
-    lines.push(parsedRecipient.name);
-  }
-  
-  // 3. Street
-  if (parsedRecipient.street) {
-    lines.push(parsedRecipient.street);
-  }
-  
-  // 4. Address line 2 (apartment, floor, etc.)
-  if (parsedRecipient.addressLine2) {
-    lines.push(parsedRecipient.addressLine2);
-  }
-  
-  // 5. ZIP and City
-  if (parsedRecipient.zip || parsedRecipient.city) {
-    lines.push(`${parsedRecipient.zip} ${parsedRecipient.city}`.trim());
-  }
-  
-  // 6. Country (only if not Germany)
-  const country = parsedRecipient.country;
-  if (country && 
-      country !== 'Deutschland' && 
-      country !== 'Germany' && 
-      country !== 'DE') {
-    lines.push(country);
-  }
-  
-  return lines.join('\n');
-};
+Request body:
+```javascript
+{
+  labelId: string,
+  cupsUrl: string,
+  printerName: string,
+  orientation: 'portrait' | 'landscape',
+  paperFormat: { name: string, widthMm: number, isEndless: boolean },
+  cropH: number,
+  cropV: number
+}
 ```
 
-### Sender Formatting Update
+Logic:
+1. Load label PDF from storage
+2. Crop PDF using existing `cropPdfWithPadding`
+3. If `orientation === 'landscape'`: rotate page 90 degrees
+4. If `isEndless`: set page width to roll width, height to cropped content height
+5. Send to CUPS via IPP
 
-```typescript
-const formatSenderAddress = () => {
-  const parts: string[] = [];
+### 10. Update Frontend Print Flow
+
+**File**: `src/pages/Index.tsx`
+
+Modify `handlePrint`:
+- If `printMode === 'download'`: download the cropped PDF (existing flow)
+- If `printMode === 'print'` and `enableDirectPrint` and `cupsUrl`: call `/api/print` endpoint
+- Fallback: download if direct print not configured
+
+### 11. Update LabelHistory for Print Mode
+
+**File**: `src/components/LabelHistory.tsx`
+
+Update print button to use the new direct print API when direct printing is enabled.
+
+## Endless Roll Paper Logic
+
+For formats with "Endlos" in the name:
+
+1. **Width**: Fixed at the roll width (e.g., 88mm)
+2. **Height**: Calculated from cropped content height
+
+```javascript
+if (isEndless) {
+  const rollWidthPts = mmToPoints(paperFormat.widthMm);
+  const contentHeightPts = croppedPage.getHeight();
   
-  // additionalName (company) - displayed as-is, not uppercase
-  if (senderAddress.company) {
-    parts.push(senderAddress.company);
+  if (orientation === 'landscape') {
+    page.setRotation(degrees(90));
+    page.setMediaBox(0, 0, contentHeightPts, rollWidthPts);
+  } else {
+    page.setMediaBox(0, 0, rollWidthPts, contentHeightPts);
   }
-  
-  parts.push(senderAddress.name);
-  parts.push(senderAddress.street);
-  parts.push(`${senderAddress.postalCode} ${senderAddress.city}`);
-  
-  // Country only if not Germany
-  if (senderAddress.country && 
-      senderAddress.country !== 'DE' && 
-      senderAddress.country !== 'Deutschland' && 
-      senderAddress.country !== 'Germany') {
-    parts.push(senderAddress.country);
-  }
-  
-  return parts.filter(Boolean).join(', ');
-};
+}
 ```
 
-## Files Modified
+## Files to Modify/Create
 
-| File | Change |
-|------|--------|
-| `src/components/LabelPreview.tsx` | Update props to accept ParsedAddress, add recipient formatting with additionalName/addressLine2/country logic |
-| `src/pages/Index.tsx` | Pass `parsedRecipient` instead of `recipientAddress` string to LabelPreview |
+| File | Action | Description |
+|------|--------|-------------|
+| `src/types/shipping.ts` | Modify | Add `cupsUrl`, `enableDirectPrint` to PrinterConfig |
+| `src/hooks/useConfig.ts` | Modify | Add defaults for new config fields |
+| `src/components/AddressInput.tsx` | Modify | Add print/download toggle |
+| `src/components/SettingsPanel.tsx` | Modify | Add CUPS URL and direct print settings |
+| `src/pages/Index.tsx` | Modify | Default product selection, print mode handling |
+| `src/components/LabelHistory.tsx` | Modify | Use direct print when enabled |
+| `server/package.json` | Modify | Add `ipp` dependency |
+| `server/routes/api.js` | Modify | Add `/api/print` endpoint |
+| `server/lib/cups-printer.js` | Create | IPP printing utility |
+| `server/lib/pdf-cropper.js` | Modify | Add rotation function |
 
-## Visual Result
+## Error Handling
 
-The label preview will now show addresses in the correct order matching the actual Deutsche Post label format, with optional fields only appearing when they have values.
+- CUPS connection failures: Show toast with error message
+- Printer not found: Clear error suggesting to check printer name
+- PDF processing errors: Fallback to download with warning
+- Missing CUPS URL: Prompt user to configure in settings
+
