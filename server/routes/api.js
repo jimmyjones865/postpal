@@ -425,13 +425,26 @@ export function createApiRouter() {
       // Roll width comes from pageLayout.size.x in mm
       const rollWidthMm = paperFormat?.pageLayout?.size?.x;
       
+      // Track media dimensions for IPP
+      let mediaWidthMm, mediaHeightMm;
+      
       if (isEndless && rollWidthMm) {
         // Prepare for endless roll printing
         const isLandscape = orientation === 'landscape';
         try {
           const result = await prepareForEndlessRoll(pdfBuffer, rollWidthMm, isLandscape);
           pdfBuffer = result.buffer;
-          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, content ${Math.round(result.contentWidthMm)}x${Math.round(result.contentHeightMm)}mm, landscape=${isLandscape}`);
+          
+          // Set dimensions for IPP media-col attribute
+          if (isLandscape) {
+            mediaWidthMm = result.contentHeightMm;  // After rotation, height becomes width
+            mediaHeightMm = rollWidthMm;
+          } else {
+            mediaWidthMm = rollWidthMm;
+            mediaHeightMm = result.contentHeightMm;
+          }
+          
+          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, content ${Math.round(result.contentWidthMm)}x${Math.round(result.contentHeightMm)}mm, media=${mediaWidthMm?.toFixed(1)}x${mediaHeightMm?.toFixed(1)}mm, landscape=${isLandscape}`);
         } catch (rollErr) {
           console.error('[Print] Endless roll preparation failed:', rollErr.message);
         }
@@ -445,9 +458,11 @@ export function createApiRouter() {
         }
       }
       
-      // Send to CUPS
+      // Send to CUPS with explicit dimensions for endless roll
       const printResult = await sendToCups(pdfBuffer, cupsUrl, printerName, {
-        jobName: `Label ${label.id}`
+        jobName: `Label ${label.id}`,
+        mediaWidthMm,
+        mediaHeightMm
       });
       
       if (printResult.success) {
