@@ -13,6 +13,7 @@ const defaultConfig: AppConfig = {
   printerConfig: {
     paperFormat: 'a6',
     printerName: '',
+    paperFormatName: '',
     orientation: 'portrait',
     cropMarginHorizontal: 5,
     cropMarginVertical: 5,

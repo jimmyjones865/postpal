@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { emptyAddress, ParsedAddress, formatParsedAddress } from '@/lib/addressParser';
-import { useLibpostal } from '@/hooks/useLibpostal';
+import { emptyAddress, ParsedAddress, formatParsedAddress } from '@/lib/address';
+import { useAddressParser } from '@/hooks/useAddressParser';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useDebouncedCallback } from '@/hooks/useDebounce';
 
@@ -15,7 +15,7 @@ interface ParsedAddressEditorProps {
 export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChange }: ParsedAddressEditorProps) {
   const [parsed, setParsed] = useState<ParsedAddress>(emptyAddress);
   const lastRawRef = useRef('');
-  const { parseWithLibpostal, isLoading, isAvailable } = useLibpostal();
+  const { parseAddress, isLoading } = useAddressParser();
 
   // Debounced parse function
   const debouncedParse = useDebouncedCallback(async (address: string) => {
@@ -26,8 +26,8 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
       return;
     }
     
-    const result = await parseWithLibpostal(address);
-    console.log('Libpostal parse result:', result);
+    const result = await parseAddress(address);
+    console.log('Parse result:', result);
     if (result) {
       setParsed(result);
       onParsedChange?.(result);
@@ -64,13 +64,6 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
         </div>
       )}
       
-      {/* libpostal unavailable warning */}
-      {isAvailable === false && (
-        <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 text-xs">
-          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          <span>Address parsing service unavailable. Manual entry required.</span>
-        </div>
-      )}
       {/* Warning if both optional lines are filled */}
       {hasBothOptionalLines && (
         <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 text-xs">

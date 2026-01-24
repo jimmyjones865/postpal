@@ -14,7 +14,7 @@ import { WalletBalance } from '@/components/WalletBalance';
 import { TrackingNumber } from '@/components/TrackingNumber';
 import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel } from '@/lib/labelStorage';
-import { ParsedAddress, emptyAddress } from '@/lib/addressParser';
+import { ParsedAddress, emptyAddress } from '@/lib/address';
 import { getCountryCode } from '@/lib/countryCodes';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -24,7 +24,6 @@ const Index = () => {
     config,
     isLoaded,
     isConfigured,
-    updateApiCredentials,
     updatePrinterConfig,
     updateSenderAddress,
     updateFavoriteProducts
@@ -270,7 +269,7 @@ const Index = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <WalletBalance credentials={config.apiCredentials} onBalanceChange={setWalletBalance} />
+            <WalletBalance onBalanceChange={setWalletBalance} />
             {!isConfigured && (
               <div className="flex items-center gap-2 text-xs text-amber-500">
                 <AlertCircle className="w-4 h-4" />
