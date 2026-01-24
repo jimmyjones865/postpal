@@ -1,327 +1,405 @@
 
-# Plan: Dependency Cleanup, Code Refactoring, Dark Theme, and Sonner-Only Toasts
+
+# Plan: Fix PDF Cropping and Add Explicit Paper Settings
 
 ## Overview
-This plan addresses four main goals:
-1. Remove unused dependencies (including `lovable-tagger`)
-2. Delete unused UI component files
-3. Hardcode dark theme (remove `next-themes` dependency)
-4. Keep only Sonner for toast notifications (remove Radix toast system)
+
+This plan addresses:
+1. **PDF cropping failure** - Downgrade `pdfjs-dist` to v3.x for stable Node.js canvas support
+2. **Explicit paper settings** - Add `paperWidthMm`, `paperHeightMm`, and `endlessRoll` fields
+3. **Mandatory cropping for endless roll** - Fail with clear error if cropping fails
+4. **Unified orientation handling** - Portrait/landscape applies to all paper types
+5. **Print scaling** - Add `print-scaling: none` to CUPS to ensure 100% scale
 
 ---
 
-## Part 1: Dependency Removal
+## Part 1: Fix pdfjs-dist Compatibility
 
-### Dependencies to REMOVE
+### Problem
+The error `Image or Canvas expected` indicates `pdfjs-dist` v4.x has breaking changes for Node.js canvas rendering.
 
-| Package | Reason |
-|---------|--------|
-| `lovable-tagger` (dev) | Explicitly requested |
-| `next-themes` | Will hardcode dark theme |
-| `@radix-ui/react-toast` | Switching to Sonner-only |
-| `recharts` | Only used by unused chart.tsx |
-| `@hookform/resolvers` | Unused |
-| `react-hook-form` | Unused |
-| `zod` | Unused |
-| `input-otp` | Unused |
-| `embla-carousel-react` | Unused |
-| `react-resizable-panels` | Unused |
-| `vaul` | Unused |
-| `cmdk` | Unused |
-| `react-day-picker` | Unused |
-| `@radix-ui/react-accordion` | Unused |
-| `@radix-ui/react-alert-dialog` | Unused |
-| `@radix-ui/react-aspect-ratio` | Unused |
-| `@radix-ui/react-avatar` | Unused |
-| `@radix-ui/react-collapsible` | Unused |
-| `@radix-ui/react-context-menu` | Unused |
-| `@radix-ui/react-dialog` | Unused |
-| `@radix-ui/react-dropdown-menu` | Unused |
-| `@radix-ui/react-hover-card` | Unused |
-| `@radix-ui/react-menubar` | Unused |
-| `@radix-ui/react-navigation-menu` | Unused |
-| `@radix-ui/react-popover` | Unused |
-| `@radix-ui/react-progress` | Unused |
-| `@radix-ui/react-radio-group` | Unused |
-| `@radix-ui/react-separator` | Unused |
-| `@radix-ui/react-slider` | Unused |
-| `@radix-ui/react-switch` | Unused |
-| `@radix-ui/react-toggle` | Unused |
-| `@radix-ui/react-toggle-group` | Unused |
+### Solution
+Downgrade to `pdfjs-dist@3.11.174` and update the canvas factory.
 
-### Dependencies to KEEP
+### Changes
 
-| Package | Reason |
-|---------|--------|
-| `@radix-ui/react-checkbox` | Used in SettingsPanel |
-| `@radix-ui/react-label` | Used throughout |
-| `@radix-ui/react-scroll-area` | Used in LabelHistory |
-| `@radix-ui/react-select` | Used in SettingsPanel |
-| `@radix-ui/react-slot` | Core for Button |
-| `@radix-ui/react-tabs` | Used in Index.tsx |
-| `@radix-ui/react-tooltip` | Used in App.tsx |
-| `@tanstack/react-query` | Core state |
-| `react-router-dom` | Core routing |
-| `date-fns` | Date formatting |
-| `lucide-react` | Icons |
-| `sonner` | Toast notifications (keeping this only) |
-| `class-variance-authority`, `clsx`, `tailwind-merge` | Styling |
-| `tailwindcss-animate` | Animations |
-
----
-
-## Part 2: UI Component Files to DELETE
-
-```text
-src/components/ui/
-├── accordion.tsx         DELETE
-├── alert-dialog.tsx      DELETE
-├── alert.tsx             DELETE
-├── aspect-ratio.tsx      DELETE
-├── avatar.tsx            DELETE
-├── breadcrumb.tsx        DELETE
-├── calendar.tsx          DELETE
-├── carousel.tsx          DELETE
-├── chart.tsx             DELETE
-├── collapsible.tsx       DELETE
-├── command.tsx           DELETE
-├── context-menu.tsx      DELETE
-├── dialog.tsx            DELETE
-├── drawer.tsx            DELETE
-├── dropdown-menu.tsx     DELETE
-├── form.tsx              DELETE
-├── hover-card.tsx        DELETE
-├── input-otp.tsx         DELETE
-├── menubar.tsx           DELETE
-├── navigation-menu.tsx   DELETE
-├── pagination.tsx        DELETE
-├── popover.tsx           DELETE
-├── progress.tsx          DELETE
-├── radio-group.tsx       DELETE
-├── resizable.tsx         DELETE
-├── separator.tsx         DELETE
-├── sheet.tsx             DELETE
-├── sidebar.tsx           DELETE
-├── slider.tsx            DELETE
-├── switch.tsx            DELETE
-├── table.tsx             DELETE
-├── toggle-group.tsx      DELETE
-├── toggle.tsx            DELETE
-├── toast.tsx             DELETE (Radix toast - removing)
-├── toaster.tsx           DELETE (Radix toaster - removing)
-├── use-toast.ts          DELETE (duplicate re-export)
-```
-
-**Files to KEEP**:
-- badge.tsx, button.tsx, card.tsx, checkbox.tsx, input.tsx, label.tsx
-- scroll-area.tsx, select.tsx, skeleton.tsx, sonner.tsx, tabs.tsx
-- textarea.tsx, tooltip.tsx
-
----
-
-## Part 3: Hardcode Dark Theme in Sonner
-
-**File**: `src/components/ui/sonner.tsx`
-
-Remove `next-themes` dependency and hardcode dark theme:
-
-```typescript
-// BEFORE:
-import { useTheme } from "next-themes";
-const { theme = "system" } = useTheme();
-
-// AFTER:
-// Hardcode dark theme - no next-themes dependency needed
-theme="dark"
-```
-
-Updated file:
-
-```typescript
-import { Toaster as Sonner, toast } from "sonner";
-
-type ToasterProps = React.ComponentProps<typeof Sonner>;
-
-const Toaster = ({ ...props }: ToasterProps) => {
-  return (
-    <Sonner
-      theme="dark"
-      className="toaster group"
-      toastOptions={{
-        classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-        },
-      }}
-      {...props}
-    />
-  );
-};
-
-export { Toaster, toast };
-```
-
----
-
-## Part 4: Migrate to Sonner-Only Toasts
-
-### API Differences
-
-| Radix Toast (old) | Sonner (new) |
-|-------------------|--------------|
-| `toast({ title, description, variant: 'destructive' })` | `toast.error(description)` or `toast.error(title, { description })` |
-| `toast({ title, description })` | `toast.success(description)` or `toast(title, { description })` |
-
-### Files to Update
-
-**`src/pages/Index.tsx`**
-
-Change import:
-```typescript
-// BEFORE:
-import { useToast } from '@/hooks/use-toast';
-const { toast } = useToast();
-
-// AFTER:
-import { toast } from 'sonner';
-// Remove useToast hook call
-```
-
-Update all toast calls (15 instances):
-
-```typescript
-// BEFORE (destructive):
-toast({
-  title: 'Configuration Required',
-  description: 'Please complete the API and sender address configuration.',
-  variant: 'destructive'
-});
-
-// AFTER:
-toast.error('Configuration Required', {
-  description: 'Please complete the API and sender address configuration.'
-});
-
-// BEFORE (success):
-toast({
-  title: 'Label Printed',
-  description: `${product?.name} label sent to printer.`
-});
-
-// AFTER:
-toast.success('Label Printed', {
-  description: `${product?.name} label sent to printer.`
-});
-```
-
-**`src/App.tsx`**
-
-Remove Radix Toaster, keep only Sonner:
-
-```typescript
-// BEFORE:
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-...
-<Toaster />
-<Sonner />
-
-// AFTER:
-import { Toaster } from "@/components/ui/sonner";
-...
-<Toaster />
-```
-
-### Files to DELETE (Radix toast system)
-
-| File | Reason |
-|------|--------|
-| `src/hooks/use-toast.ts` | Full Radix toast implementation - no longer needed |
-| `src/components/ui/toast.tsx` | Radix toast components |
-| `src/components/ui/toaster.tsx` | Radix toaster component |
-| `src/components/ui/use-toast.ts` | Re-export file |
-
----
-
-## Part 5: Code Refactoring
-
-### 5.1 Remove lovable-tagger from vite.config.ts
-
-```typescript
-// BEFORE:
-import { componentTagger } from "lovable-tagger";
-plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-
-// AFTER:
-plugins: [react()],
-```
-
-### 5.2 Extract handlePrint logic (optional, for maintainability)
-
-Create `src/hooks/useLabelPurchase.ts` to move the ~250 line `handlePrint` function from Index.tsx.
-
----
-
-## Summary of All Changes
-
-### Files to MODIFY
-
-| File | Changes |
-|------|---------|
-| `package.json` | Remove 30+ unused dependencies |
-| `vite.config.ts` | Remove lovable-tagger |
-| `src/components/ui/sonner.tsx` | Remove next-themes, hardcode dark theme |
-| `src/App.tsx` | Remove Radix Toaster, keep only Sonner |
-| `src/pages/Index.tsx` | Migrate 15 toast calls from useToast to sonner |
-
-### Files to DELETE
-
-| Count | Files |
-|-------|-------|
-| 35 | Unused UI components in `src/components/ui/` |
-| 4 | Radix toast files: `toast.tsx`, `toaster.tsx`, `use-toast.ts` (x2) |
-
-### Files to CREATE
-
-| File | Purpose |
-|------|---------|
-| `src/hooks/useLabelPurchase.ts` | Extract print logic from Index.tsx (optional) |
-
-### Estimated Impact
-
-- **Dependencies reduced**: From 43 to ~18 packages
-- **Bundle size reduction**: ~200-300KB
-- **UI component files reduced**: From 49 to ~14 files
-- **Cleaner toast API**: Single system (Sonner) instead of two
-
----
-
-## Final package.json Dependencies
-
+**File: `server/package.json`**
 ```json
-{
-  "dependencies": {
-    "@radix-ui/react-checkbox": "^1.3.2",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-scroll-area": "^1.2.9",
-    "@radix-ui/react-select": "^2.2.5",
-    "@radix-ui/react-slot": "^1.2.3",
-    "@radix-ui/react-tabs": "^1.1.12",
-    "@radix-ui/react-tooltip": "^1.2.7",
-    "@tanstack/react-query": "^5.83.0",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
-    "lucide-react": "^0.462.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.1",
-    "sonner": "^1.7.4",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+"pdfjs-dist": "^3.11.174"   // Downgrade from ^4.0.379
+```
+
+**File: `server/lib/pdf-cropper.js`**
+
+1. Change import from `.mjs` to `.js`:
+```javascript
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js';
+```
+
+2. Add `_createCanvas` method to `NodeCanvasFactory` (required by v3.x for rendering embedded images like QR codes):
+```javascript
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext('2d');
+    return { canvas, context };
+  }
+
+  reset(canvasAndContext, width, height) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+
+  destroy(canvasAndContext) {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+
+  // Required for v3.x to render embedded images (QR codes, barcodes)
+  _createCanvas(width, height) {
+    return createCanvas(width, height);
   }
 }
 ```
+
+---
+
+## Part 2: Add Explicit Paper Settings
+
+### New Approach
+Add three explicit fields to `PrinterConfig`:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `paperWidthMm` | number | 62 | Paper width in mm |
+| `paperHeightMm` | number | 100 | Paper height in mm (ignored if endless) |
+| `endlessRoll` | boolean | true | If true, height is calculated from cropped content |
+
+The existing `orientation` setting controls rotation for ALL paper types:
+- **Portrait**: Label prints as-is
+- **Landscape**: Label rotates 90°
+
+### Dimension Logic
+
+```text
+After cropping, we have: croppedWidth, croppedHeight (in mm)
+
+If endlessRoll = true:
+  Portrait:   mediaWidth = paperWidthMm,  mediaHeight = croppedHeight
+  Landscape:  mediaWidth = paperWidthMm,  mediaHeight = croppedWidth (rotated)
+
+If endlessRoll = false:
+  Portrait:   mediaWidth = paperWidthMm,  mediaHeight = paperHeightMm
+  Landscape:  mediaWidth = paperHeightMm, mediaHeight = paperWidthMm (swapped)
+```
+
+### Files to Change
+
+**`src/types/shipping.ts`**
+Add new fields to `PrinterConfig`:
+```typescript
+export interface PrinterConfig {
+  paperFormat: string;
+  printerName: string;
+  paperFormatName: string;
+  orientation: 'portrait' | 'landscape';
+  cropMarginHorizontal: number;
+  cropMarginVertical: number;
+  disableCropping: boolean;
+  cupsUrl: string;
+  enableDirectPrint: boolean;
+  // New explicit paper settings
+  paperWidthMm: number;       // Paper width in mm
+  paperHeightMm: number;      // Paper height in mm (used when endlessRoll=false)
+  endlessRoll: boolean;       // Height from content (true) or fixed (false)
+}
+```
+
+**`src/hooks/useConfig.ts`**
+Add defaults:
+```typescript
+printerConfig: {
+  // ... existing fields ...
+  paperWidthMm: 62,      // Common Brother label width
+  paperHeightMm: 100,    // Default fixed height
+  endlessRoll: true,     // Most label printers use endless roll
+}
+```
+
+**`src/components/SettingsPanel.tsx`**
+Add new section in the Printer tab after Orientation:
+
+```text
+─── Paper Size ─────────────────────────
+
+Paper width (mm)
+┌─────────────────────────────────────┐
+│ 62                                  │
+└─────────────────────────────────────┘
+
+Paper height (mm)
+┌─────────────────────────────────────┐
+│ 100                                 │  ← disabled when endless
+└─────────────────────────────────────┘
+
+[✓] Endless roll (height from content)
+
+When using endless roll, height is calculated
+from the cropped label content automatically.
+Use Landscape to rotate labels 90° to fit
+narrow rolls.
+```
+
+---
+
+## Part 3: Update Backend Print Logic
+
+**`server/routes/api.js` - `/print` route**
+
+### Read explicit settings from request:
+```javascript
+const { 
+  labelId, cupsUrl, printerName, orientation, 
+  cropH, cropV, disableCropping,
+  // New explicit paper settings
+  paperWidthMm, paperHeightMm, endlessRoll
+} = req.body;
+```
+
+### Updated print flow:
+
+1. **Load PDF** from storage
+
+2. **Crop the PDF** and get dimensions:
+   ```javascript
+   let croppedDimensions = null;
+   
+   if (!disableCropping) {
+     try {
+       croppedDimensions = await getContentDimensions(pdfBuffer, cropMarginH, cropMarginV);
+       pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
+       console.log(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
+     } catch (cropErr) {
+       console.error('[Print] Crop failed:', cropErr.message);
+       
+       // For endless roll, cropping is mandatory
+       if (endlessRoll) {
+         return res.status(500).json({ 
+           error: 'PDF cropping failed',
+           details: 'Cropping is required for endless roll to determine paper height. ' + cropErr.message
+         });
+       }
+       // For fixed paper, continue with explicit dimensions
+     }
+   }
+   ```
+
+3. **Calculate media dimensions**:
+   ```javascript
+   let mediaWidthMm, mediaHeightMm;
+   const isLandscape = orientation === 'landscape';
+   
+   if (endlessRoll) {
+     // Height from cropped content
+     const contentWidth = croppedDimensions?.cropped?.widthMm || 62;
+     const contentHeight = croppedDimensions?.cropped?.heightMm || 40;
+     
+     if (isLandscape) {
+       // After 90° rotation: original width becomes the length
+       mediaWidthMm = paperWidthMm;
+       mediaHeightMm = contentWidth;
+     } else {
+       mediaWidthMm = paperWidthMm;
+       mediaHeightMm = contentHeight;
+     }
+   } else {
+     // Fixed paper size
+     if (isLandscape) {
+       // Swap for landscape
+       mediaWidthMm = paperHeightMm;
+       mediaHeightMm = paperWidthMm;
+     } else {
+       mediaWidthMm = paperWidthMm;
+       mediaHeightMm = paperHeightMm;
+     }
+   }
+   ```
+
+4. **Rotate if landscape**:
+   ```javascript
+   if (orientation === 'landscape') {
+     pdfBuffer = await rotatePdf(pdfBuffer, 90);
+   }
+   ```
+
+5. **Send to CUPS** with explicit dimensions
+
+### Remove old logic:
+- Remove `paperFormatName` parsing for endless roll detection
+- Remove `prepareForEndlessRoll()` function call (dimensions handled explicitly now)
+
+---
+
+## Part 4: Add Print Scaling to CUPS
+
+**`server/lib/cups-printer.js`**
+
+Add IPP attribute to prevent auto-fit scaling:
+```javascript
+const jobAttributes = {
+  'copies': copies,
+  'print-quality': 'normal',
+  'print-scaling': 'none',   // Prevent auto-fit - print at 100%
+};
+```
+
+---
+
+## Part 5: Update Frontend API Calls
+
+**`src/pages/Index.tsx`**
+
+Update the print API call to include new settings:
+```javascript
+body: JSON.stringify({
+  labelId: savedLabel.id,
+  cupsUrl: config.printerConfig.cupsUrl,
+  printerName: config.printerConfig.printerName,
+  orientation: config.printerConfig.orientation,
+  cropH: config.printerConfig.cropMarginHorizontal ?? 5,
+  cropV: config.printerConfig.cropMarginVertical ?? 5,
+  disableCropping: config.printerConfig.disableCropping || false,
+  // New explicit paper settings
+  paperWidthMm: config.printerConfig.paperWidthMm,
+  paperHeightMm: config.printerConfig.paperHeightMm,
+  endlessRoll: config.printerConfig.endlessRoll,
+})
+```
+
+**`src/components/LabelHistory.tsx`**
+
+Update `directPrintConfig` interface and usage to include the new fields.
+
+---
+
+## Summary of All File Changes
+
+| File | Changes |
+|------|---------|
+| `server/package.json` | Downgrade pdfjs-dist to ^3.11.174 |
+| `server/lib/pdf-cropper.js` | Change import to `.js`, add `_createCanvas` method |
+| `server/lib/cups-printer.js` | Add `print-scaling: none` attribute |
+| `server/routes/api.js` | Read explicit paper settings, calculate dimensions, make cropping mandatory for endless |
+| `src/types/shipping.ts` | Add `paperWidthMm`, `paperHeightMm`, `endlessRoll` to PrinterConfig |
+| `src/hooks/useConfig.ts` | Add defaults for new fields |
+| `src/components/SettingsPanel.tsx` | Add paper width/height inputs and endless roll toggle |
+| `src/pages/Index.tsx` | Pass new config fields in print API call |
+| `src/components/LabelHistory.tsx` | Pass new config fields in directPrintConfig |
+
+---
+
+## Technical Details
+
+### Print Flow Diagram
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Load PDF from storage                                        │
+└─────────────────────────────────────────────────────────────────┘
+                               ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Crop PDF and get dimensions                                  │
+│    croppedDimensions = { widthMm: 62, heightMm: 35 }           │
+│    If fails AND endlessRoll=true → HTTP 500 error              │
+└─────────────────────────────────────────────────────────────────┘
+                               ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. Calculate media dimensions                                   │
+│                                                                 │
+│    ENDLESS + PORTRAIT:                                          │
+│      mediaWidth = paperWidthMm (62)                             │
+│      mediaHeight = croppedHeight (35)                           │
+│                                                                 │
+│    ENDLESS + LANDSCAPE:                                         │
+│      mediaWidth = paperWidthMm (50)                             │
+│      mediaHeight = croppedWidth (62)  ← rotated                │
+│                                                                 │
+│    FIXED + PORTRAIT:                                            │
+│      mediaWidth = paperWidthMm (62)                             │
+│      mediaHeight = paperHeightMm (100)                          │
+│                                                                 │
+│    FIXED + LANDSCAPE:                                           │
+│      mediaWidth = paperHeightMm (100)                           │
+│      mediaHeight = paperWidthMm (62)  ← swapped                │
+└─────────────────────────────────────────────────────────────────┘
+                               ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. Rotate PDF 90° if landscape                                  │
+└─────────────────────────────────────────────────────────────────┘
+                               ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. Send to CUPS with:                                           │
+│    - media-col: { x-dimension, y-dimension }                   │
+│    - print-scaling: none                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Settings UI Layout
+
+```text
+Paper Format                          ← For Deutsche Post API (unchanged)
+┌─────────────────────────────────────┐
+│ [Dropdown: Select paper format]     │
+└─────────────────────────────────────┘
+
+Orientation                           ← Applies to all paper types
+┌─────────────────────────────────────┐
+│ [Portrait ▼]                        │
+└─────────────────────────────────────┘
+Use Landscape to rotate labels 90°.
+
+─── Paper Size ─────────────────────────
+
+Paper width (mm)
+┌─────────────────────────────────────┐
+│ 62                                  │
+└─────────────────────────────────────┘
+
+Paper height (mm)
+┌─────────────────────────────────────┐
+│ 100                                 │  ← grayed out when endless=true
+└─────────────────────────────────────┘
+
+[✓] Endless roll (height from content)
+
+Height is calculated automatically from
+the cropped label when using endless roll.
+```
+
+---
+
+## Expected Log Output (Fixed)
+
+```text
+[PDFCropper] Page 1: detected content at pixels (45,38)-(412,289) → PDF points (22,19)-(206,144)
+[PDFCropper] Page 1: content 184x125 pts → cropped 212x154 pts (5mm/5mm padding)
+[Print] PDF cropped to 62.1x35.2mm
+[Print] Endless roll portrait: width=62mm, height=35.2mm (from content)
+[CUPS] Sending print job to: http://10.0.0.50:631/printers/brotherbrief
+[CUPS] Job name: Label label_xxx, PDF size: 8234 bytes
+[CUPS] Setting media size: 62.0x35.2mm
+[CUPS] Print job submitted, ID: 42
+```
+
+---
+
+## Verification After Implementation
+
+1. **Cropping works**: No more "Image or Canvas expected" error - logs show pixel detection
+2. **Endless + portrait**: Height matches cropped content (~35mm, not 48mm or 100mm)
+3. **Endless + landscape**: Width = roll width, height = cropped width (rotated)
+4. **Fixed + portrait**: Uses explicit width/height from settings
+5. **Fixed + landscape**: Dimensions are swapped correctly
+6. **100% scale**: Physical printout matches PDF dimensions exactly
+
