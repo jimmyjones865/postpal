@@ -1,44 +1,27 @@
 import { PDFDocument } from 'pdf-lib';
-import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { createCanvas } from 'canvas';
 
 /**
  * PDF Cropper for Deutsche Post shipping labels
  * 
- * Detects all non-white content (text, images, vector paths) and crops the PDF
- * to that content area plus a configurable uniform white border.
+ * Uses pixel-based detection: renders each page to canvas and scans for
+ * non-white pixels to find the exact content bounding box.
  * 
  * Labels are always black and white - anything not white is printable content.
  */
 
 const mmToPoints = (mm) => (mm / 25.4) * 72;
 
-// ---------------- matrix helpers ----------------
-function multiplyMatrix(m1, m2) {
-  return [
-    m1[0] * m2[0] + m1[1] * m2[2],
-    m1[0] * m2[1] + m1[1] * m2[3],
-    m1[2] * m2[0] + m1[3] * m2[2],
-    m1[2] * m2[1] + m1[3] * m2[3],
-    m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
-    m1[4] * m2[1] + m1[5] * m2[3] + m2[5]
-  ];
-}
+// Render scale for pixel detection (2x provides good accuracy)
+const RENDER_SCALE = 2;
 
-function transformPoint(m, x, y) {
-  return [
-    m[0] * x + m[2] * y + m[4],
-    m[1] * x + m[3] * y + m[5]
-  ];
-}
+// White threshold (< 250 catches anti-aliased edges)
+const WHITE_THRESHOLD = 250;
 
-function expandBounds(bounds, x, y) {
-  bounds.minX = Math.min(bounds.minX, x);
-  bounds.minY = Math.min(bounds.minY, y);
-  bounds.maxX = Math.max(bounds.maxX, x);
-  bounds.maxY = Math.max(bounds.maxY, y);
-}
-
-// ---------------- content detection ----------------
+/**
+ * Detects content bounds by rendering PDF pages and scanning for non-white pixels.
+ */
 async function getContentBoundsPerPage(pdfBuffer) {
   const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
   const pdf = await getDocument({ data, disableFontFace: true }).promise;
@@ -47,159 +30,74 @@ async function getContentBoundsPerPage(pdfBuffer) {
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
-    const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-
-    // ---- TEXT ----
-    try {
-      const text = await page.getTextContent();
-      for (const item of text.items) {
-        if (!item.str || !item.str.trim()) continue;
-
-        const x = item.transform[4];
-        const y = item.transform[5];
-        const fontSize = Math.abs(item.transform[3]) || 12;
-
-        // Approximate text bounds
-        const ascent = fontSize * 0.8;
-        const descent = fontSize * 0.3;
-        const width = item.width || fontSize * item.str.length * 0.5;
-
-        expandBounds(bounds, x, y - descent);
-        expandBounds(bounds, x + width, y + ascent);
-      }
-    } catch (err) {
-      console.warn('[PDFCropper] Text extraction failed:', err.message);
-    }
-
-    // ---- GRAPHICS (Images + Vector paths) ----
-    try {
-      const ops = await page.getOperatorList();
-      let ctmStack = [[1, 0, 0, 1, 0, 0]];
-      let currentPath = [];
-
-      for (let i = 0; i < ops.fnArray.length; i++) {
-        const fn = ops.fnArray[i];
-        const args = ops.argsArray[i];
-        const ctm = ctmStack.at(-1);
-
-        switch (fn) {
-          case OPS.save:
-            ctmStack.push([...ctm]);
-            break;
-
-          case OPS.restore:
-            if (ctmStack.length > 1) ctmStack.pop();
-            break;
-
-          case OPS.transform:
-            ctmStack[ctmStack.length - 1] = multiplyMatrix(args, ctm);
-            break;
-
-          // ---- Images ----
-          case OPS.paintImageXObject:
-          case OPS.paintInlineImageXObject:
-          case OPS.paintImageMaskXObject: {
-            const sx = Math.hypot(ctm[0], ctm[1]);
-            const sy = Math.hypot(ctm[2], ctm[3]);
-            if (!sx || !sy) break;
-
-            // Image is drawn in a 1x1 unit square, transformed by CTM
-            const corners = [
-              transformPoint(ctm, 0, 0),
-              transformPoint(ctm, 1, 0),
-              transformPoint(ctm, 0, 1),
-              transformPoint(ctm, 1, 1)
-            ];
-
-            for (const [cx, cy] of corners) {
-              expandBounds(bounds, cx, cy);
-            }
-            break;
-          }
-
-          // ---- Path construction ----
-          case OPS.moveTo:
-            currentPath = [[args[0], args[1]]];
-            break;
-
-          case OPS.lineTo:
-            currentPath.push([args[0], args[1]]);
-            break;
-
-          case OPS.curveTo:
-            // Bezier curve: add control points and end point
-            currentPath.push([args[0], args[1]]);
-            currentPath.push([args[2], args[3]]);
-            currentPath.push([args[4], args[5]]);
-            break;
-
-          case OPS.curveTo2:
-            currentPath.push([args[0], args[1]]);
-            currentPath.push([args[2], args[3]]);
-            break;
-
-          case OPS.curveTo3:
-            currentPath.push([args[0], args[1]]);
-            currentPath.push([args[2], args[3]]);
-            break;
-
-          case OPS.rectangle:
-            // Rectangle: x, y, width, height
-            currentPath.push([args[0], args[1]]);
-            currentPath.push([args[0] + args[2], args[1]]);
-            currentPath.push([args[0] + args[2], args[1] + args[3]]);
-            currentPath.push([args[0], args[1] + args[3]]);
-            break;
-
-          case OPS.closePath:
-            // Path closed, points already recorded
-            break;
-
-          // ---- Path painting (stroke/fill = visible content) ----
-          case OPS.stroke:
-          case OPS.closeStroke:
-          case OPS.fill:
-          case OPS.eoFill:
-          case OPS.fillStroke:
-          case OPS.eoFillStroke:
-          case OPS.closeFillStroke:
-          case OPS.closeEOFillStroke:
-            // Transform and add all path points to bounds
-            for (const [px, py] of currentPath) {
-              const [tx, ty] = transformPoint(ctm, px, py);
-              expandBounds(bounds, tx, ty);
-            }
-            currentPath = [];
-            break;
-
-          case OPS.endPath:
-            // Path ended without painting (clipping path, etc.)
-            currentPath = [];
-            break;
+    const viewport = page.getViewport({ scale: RENDER_SCALE });
+    
+    // Create canvas and render page
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with white first
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, viewport.width, viewport.height);
+    
+    // Render PDF page to canvas
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    
+    // Get pixel data
+    const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
+    const pixels = imageData.data;
+    const width = viewport.width;
+    const height = viewport.height;
+    
+    // Scan for non-white pixels
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    let hasContent = false;
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const r = pixels[idx];
+        const g = pixels[idx + 1];
+        const b = pixels[idx + 2];
+        
+        // If not white (any channel below threshold)
+        if (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD) {
+          hasContent = true;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
         }
       }
-    } catch (err) {
-      console.warn('[PDFCropper] Graphics extraction failed:', err.message);
     }
-
+    
     // Fallback if no content detected
-    if (bounds.minX === Infinity) {
-      const viewport = page.getViewport({ scale: 1 });
-      bounds.minX = 0;
-      bounds.minY = 0;
-      bounds.maxX = viewport.width;
-      bounds.maxY = viewport.height;
+    if (!hasContent) {
       console.warn('[PDFCropper] No content detected on page', pageNum, '- using full page');
+      results.push({
+        minX: 0,
+        minY: 0,
+        maxX: viewport.width / RENDER_SCALE,
+        maxY: viewport.height / RENDER_SCALE
+      });
+    } else {
+      // Convert pixel coordinates back to PDF points
+      // Note: PDF Y-axis is inverted (origin at bottom-left)
+      results.push({
+        minX: minX / RENDER_SCALE,
+        minY: (height - maxY - 1) / RENDER_SCALE,
+        maxX: (maxX + 1) / RENDER_SCALE,
+        maxY: (height - minY) / RENDER_SCALE
+      });
+      
+      console.log(`[PDFCropper] Page ${pageNum}: detected content at pixels (${minX},${minY})-(${maxX},${maxY}) → PDF points (${Math.round(results[pageNum-1].minX)},${Math.round(results[pageNum-1].minY)})-(${Math.round(results[pageNum-1].maxX)},${Math.round(results[pageNum-1].maxY)})`);
     }
-
-    results.push(bounds);
   }
 
   await pdf.destroy();
   return results;
 }
 
-// ---------------- crop + uniform padding ----------------
 /**
  * Crops a PDF to its content bounds and adds a uniform white border.
  * 
