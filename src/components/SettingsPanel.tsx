@@ -251,6 +251,60 @@ export function SettingsPanel({
                 <SelectItem value="landscape">Landscape</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Use Landscape to rotate labels 90° for narrow rolls.
+            </p>
+          </div>
+
+          {/* Paper Size Section */}
+          <div className="border-t border-border pt-3 mt-3">
+            <Label className="config-label mb-2 block">
+              Paper Size
+            </Label>
+            
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="config-field">
+                <Label className="config-label text-xs">Paper width (mm)</Label>
+                <Input
+                  type="number"
+                  min={10}
+                  max={300}
+                  value={config.printerConfig.paperWidthMm ?? 62}
+                  onChange={e =>
+                    onUpdatePrinterConfig({ paperWidthMm: parseInt(e.target.value) || 62 })
+                  }
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="config-field">
+                <Label className="config-label text-xs">Paper height (mm)</Label>
+                <Input
+                  type="number"
+                  min={10}
+                  max={500}
+                  value={config.printerConfig.paperHeightMm ?? 100}
+                  onChange={e =>
+                    onUpdatePrinterConfig({ paperHeightMm: parseInt(e.target.value) || 100 })
+                  }
+                  disabled={config.printerConfig.endlessRoll}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+            
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={config.printerConfig.endlessRoll ?? true}
+                onCheckedChange={checked => 
+                  onUpdatePrinterConfig({ endlessRoll: checked === true })
+                }
+              />
+              <span className="text-sm">Endless roll (height from content)</span>
+            </label>
+            
+            <p className="text-xs text-muted-foreground mt-2">
+              When using endless roll, height is calculated automatically from the cropped label content.
+            </p>
           </div>
 
           {/* CUPS Direct Printing Section */}

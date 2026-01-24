@@ -1,5 +1,5 @@
 import { PDFDocument, degrees } from 'pdf-lib';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js';
 import { createCanvas } from 'canvas';
 
 /**
@@ -40,6 +40,11 @@ class NodeCanvasFactory {
     canvasAndContext.canvas.height = 0;
     canvasAndContext.canvas = null;
     canvasAndContext.context = null;
+  }
+
+  // Required for pdfjs-dist v3.x to render embedded images (QR codes, barcodes)
+  _createCanvas(width, height) {
+    return createCanvas(width, height);
   }
 }
 

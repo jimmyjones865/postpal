@@ -33,6 +33,10 @@ export interface PrinterConfig {
   disableCropping: boolean; // Skip PDF cropping entirely
   cupsUrl: string; // CUPS server URL (e.g., http://192.168.1.100:631)
   enableDirectPrint: boolean; // Enable direct IPP printing vs download
+  // Explicit paper settings
+  paperWidthMm: number;   // Paper width in mm
+  paperHeightMm: number;  // Paper height in mm (used when endlessRoll=false)
+  endlessRoll: boolean;   // Height from content (true) or fixed (false)
 }
 
 export interface ApiCredentials {

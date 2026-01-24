@@ -35,7 +35,8 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
   // Build job attributes
   const jobAttributes = {
     'copies': copies,
-    'print-quality': 'normal'
+    'print-quality': 'normal',
+    'print-scaling': 'none'  // Prevent auto-fit - print at 100%
   };
   
   // If explicit dimensions provided, tell CUPS the exact page size
