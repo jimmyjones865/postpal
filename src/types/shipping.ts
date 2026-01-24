@@ -30,6 +30,7 @@ export interface PrinterConfig {
   orientation: 'portrait' | 'landscape';
   cropMarginHorizontal: number; // in mm
   cropMarginVertical: number;   // in mm
+  disableCropping: boolean; // Skip PDF cropping entirely
   cupsUrl: string; // CUPS server URL (e.g., http://192.168.1.100:631)
   enableDirectPrint: boolean; // Enable direct IPP printing vs download
 }

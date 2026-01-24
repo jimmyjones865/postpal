@@ -18,6 +18,7 @@ interface LabelHistoryProps {
     orientation: 'portrait' | 'landscape';
     paperFormatName: string;
     enableDirectPrint: boolean;
+    disableCropping?: boolean;
   };
 }
 
@@ -42,6 +43,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
             paperFormatName: directPrintConfig.paperFormatName,
             cropH: printOptions?.cropH ?? 5,
             cropV: printOptions?.cropV ?? 5,
+            disableCropping: directPrintConfig.disableCropping || false,
           })
         });
         if (!response.ok) {

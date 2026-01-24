@@ -17,6 +17,7 @@ const defaultConfig: AppConfig = {
     orientation: 'portrait',
     cropMarginHorizontal: 5,
     cropMarginVertical: 5,
+    disableCropping: false,
     cupsUrl: '',
     enableDirectPrint: false,
   },

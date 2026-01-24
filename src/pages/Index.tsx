@@ -243,6 +243,7 @@ const Index = () => {
               paperFormatName: config.printerConfig.paperFormatName,
               cropH: config.printerConfig.cropMarginHorizontal ?? 5,
               cropV: config.printerConfig.cropMarginVertical ?? 5,
+              disableCropping: config.printerConfig.disableCropping || false,
             })
           });
           
@@ -442,7 +443,8 @@ const Index = () => {
                   printerName: config.printerConfig.printerName || '',
                   orientation: config.printerConfig.orientation,
                   paperFormatName: config.printerConfig.paperFormatName || '',
-                  enableDirectPrint: config.printerConfig.enableDirectPrint || false
+                  enableDirectPrint: config.printerConfig.enableDirectPrint || false,
+                  disableCropping: config.printerConfig.disableCropping || false
                 }}
               />
             </div>
