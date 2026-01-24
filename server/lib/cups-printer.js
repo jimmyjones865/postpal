@@ -39,9 +39,7 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
       'job-attributes-tag': {
         'copies': copies,
         // Use normal quality for faster printing
-        'print-quality': 'normal',
-        // Disable any scaling - print at 100% actual size
-        'print-scaling': 'none'
+        'print-quality': 'normal'
       },
       data: pdfBuffer
     };
