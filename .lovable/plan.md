@@ -1,206 +1,327 @@
 
-# Plan: Preview Cropped Dimensions + Robust EU Address Parsing
+# Plan: Dependency Cleanup, Code Refactoring, Dark Theme, and Sonner-Only Toasts
 
-This plan addresses two features:
-1. **Preview Cropped Dimensions** - Show expected label size before printing
-2. **Improve Address Parsing** - Make the parser robust for all EU countries without heavy libraries
-
----
-
-## Feature 1: Preview Cropped Dimensions
-
-### Problem
-Users cannot see the final label dimensions before printing. This is especially important for endless roll paper where the height varies based on content.
-
-### Solution
-Add a new API endpoint that calculates cropped dimensions without actually cropping, and display this info in the Settings panel and/or before printing.
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `server/routes/api.js` | Add `POST /api/labels/:id/dimensions` endpoint that calculates cropped size |
-| `server/lib/pdf-cropper.js` | Export a `getContentDimensions()` function that returns bounds without modifying PDF |
-| `src/components/SettingsPanel.tsx` | Add a "Preview Dimensions" button that fetches and displays the expected output size for a sample label |
-
-### API Endpoint
-
-```text
-POST /api/labels/:id/dimensions
-Body: { cropH: number, cropV: number, disableCropping: boolean }
-
-Response: {
-  original: { widthMm: number, heightMm: number },
-  cropped: { widthMm: number, heightMm: number } | null
-}
-```
-
-### UI Display
-Show dimensions like: "Cropped size: 88.0 x 42.5 mm" near the crop margin settings.
+## Overview
+This plan addresses four main goals:
+1. Remove unused dependencies (including `lovable-tagger`)
+2. Delete unused UI component files
+3. Hardcode dark theme (remove `next-themes` dependency)
+4. Keep only Sonner for toast notifications (remove Radix toast system)
 
 ---
 
-## Feature 2: Robust EU Address Parsing
+## Part 1: Dependency Removal
 
-### Current State
-The existing parser in `server/lib/european-address-parser.js` handles ~15 EU countries with regex patterns for postal codes. It works well for standard formats but has gaps:
-- Missing postal code patterns for some countries (Portugal, Greece, Swedish format, etc.)
-- No confidence scoring to handle ambiguous input
-- Limited handling of multi-line variations
+### Dependencies to REMOVE
 
-### Options Considered
+| Package | Reason |
+|---------|--------|
+| `lovable-tagger` (dev) | Explicitly requested |
+| `next-themes` | Will hardcode dark theme |
+| `@radix-ui/react-toast` | Switching to Sonner-only |
+| `recharts` | Only used by unused chart.tsx |
+| `@hookform/resolvers` | Unused |
+| `react-hook-form` | Unused |
+| `zod` | Unused |
+| `input-otp` | Unused |
+| `embla-carousel-react` | Unused |
+| `react-resizable-panels` | Unused |
+| `vaul` | Unused |
+| `cmdk` | Unused |
+| `react-day-picker` | Unused |
+| `@radix-ui/react-accordion` | Unused |
+| `@radix-ui/react-alert-dialog` | Unused |
+| `@radix-ui/react-aspect-ratio` | Unused |
+| `@radix-ui/react-avatar` | Unused |
+| `@radix-ui/react-collapsible` | Unused |
+| `@radix-ui/react-context-menu` | Unused |
+| `@radix-ui/react-dialog` | Unused |
+| `@radix-ui/react-dropdown-menu` | Unused |
+| `@radix-ui/react-hover-card` | Unused |
+| `@radix-ui/react-menubar` | Unused |
+| `@radix-ui/react-navigation-menu` | Unused |
+| `@radix-ui/react-popover` | Unused |
+| `@radix-ui/react-progress` | Unused |
+| `@radix-ui/react-radio-group` | Unused |
+| `@radix-ui/react-separator` | Unused |
+| `@radix-ui/react-slider` | Unused |
+| `@radix-ui/react-switch` | Unused |
+| `@radix-ui/react-toggle` | Unused |
+| `@radix-ui/react-toggle-group` | Unused |
 
-| Option | Size | Pros | Cons |
-|--------|------|------|------|
-| **libpostal** | ~2GB | Most accurate, ML-trained | Massive, complex deployment |
-| **Google Address API** | External | Very accurate | Costs money, requires API key |
-| **lib-address** | ~2.5KB | Metadata for 200+ countries | Format templates only, no parsing |
-| **Custom regex enhancement** | 0KB (existing) | No dependencies, full control | Requires manual maintenance |
-| **Hybrid: Enhanced regex + heuristics** | ~10KB | Good accuracy, lightweight | Some edge cases |
+### Dependencies to KEEP
 
-### Recommended Approach: Enhanced Regex Parser
+| Package | Reason |
+|---------|--------|
+| `@radix-ui/react-checkbox` | Used in SettingsPanel |
+| `@radix-ui/react-label` | Used throughout |
+| `@radix-ui/react-scroll-area` | Used in LabelHistory |
+| `@radix-ui/react-select` | Used in SettingsPanel |
+| `@radix-ui/react-slot` | Core for Button |
+| `@radix-ui/react-tabs` | Used in Index.tsx |
+| `@radix-ui/react-tooltip` | Used in App.tsx |
+| `@tanstack/react-query` | Core state |
+| `react-router-dom` | Core routing |
+| `date-fns` | Date formatting |
+| `lucide-react` | Icons |
+| `sonner` | Toast notifications (keeping this only) |
+| `class-variance-authority`, `clsx`, `tailwind-merge` | Styling |
+| `tailwindcss-animate` | Animations |
 
-Improve the existing parser with:
+---
 
-1. **Complete postal code patterns** for all 27 EU countries + EEA + common destinations
-2. **Country detection from postal code format** (e.g., Dutch 4-digit+2-letter is unmistakable)
-3. **Street suffix dictionaries** for more languages
-4. **Confidence scoring** to indicate parsing quality
-5. **Better multi-line handling** for varying input formats
-
-### Detailed Changes
-
-#### 1. Expanded Postal Code Patterns
-
-Add patterns for missing countries:
-
-| Country | Pattern | Example |
-|---------|---------|---------|
-| Portugal | `\d{4}-\d{3}` | 1000-001 Lisboa |
-| Greece | `\d{3}\s?\d{2}` | 106 82 Athens |
-| Sweden | `\d{3}\s?\d{2}` | 114 34 Stockholm |
-| Finland | `\d{5}` | 00100 Helsinki |
-| Czech | `\d{3}\s?\d{2}` | 110 00 Praha |
-| Slovakia | `\d{3}\s?\d{2}` | 811 01 Bratislava |
-| Hungary | `\d{4}` | 1051 Budapest |
-| Romania | `\d{6}` | 010011 Bucharest |
-| Bulgaria | `\d{4}` | 1000 Sofia |
-| Croatia | `\d{5}` | 10000 Zagreb |
-| Slovenia | `\d{4}` | 1000 Ljubljana |
-| Latvia | `LV-\d{4}` | LV-1050 Riga |
-| Lithuania | `LT-\d{5}` | LT-01100 Vilnius |
-| Estonia | `\d{5}` | 10111 Tallinn |
-| Cyprus | `\d{4}` | 1095 Nicosia |
-| Malta | `[A-Z]{3}\s?\d{4}` | VLT 1000 |
-| Luxembourg | `L-\d{4}` or `\d{4}` | L-1471 or 1471 |
-
-#### 2. Smarter Country Detection
+## Part 2: UI Component Files to DELETE
 
 ```text
-Algorithm:
-1. Check if last line is a known country name → use that
-2. If no explicit country, infer from postal code format:
-   - Dutch pattern (1234 AB) → Netherlands
-   - Polish pattern (00-000) → Poland
-   - Irish Eircode → Ireland
-   - UK postcode → UK
-   - Portuguese pattern (1234-567) → Portugal
-   - Latvian prefix (LV-) → Latvia
-   - Lithuanian prefix (LT-) → Lithuania
-3. Default to Germany if ambiguous 5-digit code
+src/components/ui/
+├── accordion.tsx         DELETE
+├── alert-dialog.tsx      DELETE
+├── alert.tsx             DELETE
+├── aspect-ratio.tsx      DELETE
+├── avatar.tsx            DELETE
+├── breadcrumb.tsx        DELETE
+├── calendar.tsx          DELETE
+├── carousel.tsx          DELETE
+├── chart.tsx             DELETE
+├── collapsible.tsx       DELETE
+├── command.tsx           DELETE
+├── context-menu.tsx      DELETE
+├── dialog.tsx            DELETE
+├── drawer.tsx            DELETE
+├── dropdown-menu.tsx     DELETE
+├── form.tsx              DELETE
+├── hover-card.tsx        DELETE
+├── input-otp.tsx         DELETE
+├── menubar.tsx           DELETE
+├── navigation-menu.tsx   DELETE
+├── pagination.tsx        DELETE
+├── popover.tsx           DELETE
+├── progress.tsx          DELETE
+├── radio-group.tsx       DELETE
+├── resizable.tsx         DELETE
+├── separator.tsx         DELETE
+├── sheet.tsx             DELETE
+├── sidebar.tsx           DELETE
+├── slider.tsx            DELETE
+├── switch.tsx            DELETE
+├── table.tsx             DELETE
+├── toggle-group.tsx      DELETE
+├── toggle.tsx            DELETE
+├── toast.tsx             DELETE (Radix toast - removing)
+├── toaster.tsx           DELETE (Radix toaster - removing)
+├── use-toast.ts          DELETE (duplicate re-export)
 ```
 
-#### 3. Expanded Street Detection
+**Files to KEEP**:
+- badge.tsx, button.tsx, card.tsx, checkbox.tsx, input.tsx, label.tsx
+- scroll-area.tsx, select.tsx, skeleton.tsx, sonner.tsx, tabs.tsx
+- textarea.tsx, tooltip.tsx
 
-Add suffixes for more languages:
+---
 
-```javascript
-const STREET_SUFFIXES = {
-  // German (existing)
-  de: ['straße', 'strasse', 'str', 'weg', 'platz', 'allee', 'gasse', 'ring', 'damm', 'ufer', 'chaussee'],
-  // French
-  fr: ['rue', 'avenue', 'boulevard', 'place', 'chemin', 'allée', 'impasse', 'passage', 'quai'],
-  // Spanish
-  es: ['calle', 'avenida', 'plaza', 'paseo', 'carrer', 'carrera', 'camino'],
-  // Italian
-  it: ['via', 'viale', 'piazza', 'corso', 'vicolo', 'largo', 'piazzale'],
-  // Portuguese
-  pt: ['rua', 'avenida', 'praça', 'travessa', 'largo', 'alameda'],
-  // Dutch (existing)
-  nl: ['straat', 'laan', 'weg', 'plein', 'gracht', 'kade', 'singel'],
-  // Polish (existing)
-  pl: ['ulica', 'ul', 'aleja', 'al', 'plac'],
-  // Czech/Slovak
-  cs: ['ulice', 'ul', 'náměstí', 'nám', 'třída', 'tř'],
-  // Hungarian
-  hu: ['utca', 'u', 'út', 'tér', 'körút', 'köz'],
-  // Romanian
-  ro: ['strada', 'str', 'bulevardul', 'bd', 'piața', 'calea'],
-  // Nordic
-  nordic: ['gatan', 'vägen', 'gade', 'vej', 'veien', 'gate', 'katu', 'tie'],
-  // Greek (transliterated)
-  gr: ['odos', 'leoforos', 'plateia'],
-  // English (existing)
-  en: ['street', 'road', 'avenue', 'lane', 'drive', 'way', 'court', 'close', 'crescent']
+## Part 3: Hardcode Dark Theme in Sonner
+
+**File**: `src/components/ui/sonner.tsx`
+
+Remove `next-themes` dependency and hardcode dark theme:
+
+```typescript
+// BEFORE:
+import { useTheme } from "next-themes";
+const { theme = "system" } = useTheme();
+
+// AFTER:
+// Hardcode dark theme - no next-themes dependency needed
+theme="dark"
+```
+
+Updated file:
+
+```typescript
+import { Toaster as Sonner, toast } from "sonner";
+
+type ToasterProps = React.ComponentProps<typeof Sonner>;
+
+const Toaster = ({ ...props }: ToasterProps) => {
+  return (
+    <Sonner
+      theme="dark"
+      className="toaster group"
+      toastOptions={{
+        classNames: {
+          toast:
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+          description: "group-[.toast]:text-muted-foreground",
+          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+        },
+      }}
+      {...props}
+    />
+  );
 };
+
+export { Toaster, toast };
 ```
 
-#### 4. Confidence Scoring
+---
 
-Return a confidence score (0-100) indicating parsing quality:
+## Part 4: Migrate to Sonner-Only Toasts
 
-```javascript
-// Add to parseAddress return object:
-{
-  ...fields,
-  confidence: 85,
-  warnings: ['Could not detect country, defaulting to Germany']
-}
+### API Differences
+
+| Radix Toast (old) | Sonner (new) |
+|-------------------|--------------|
+| `toast({ title, description, variant: 'destructive' })` | `toast.error(description)` or `toast.error(title, { description })` |
+| `toast({ title, description })` | `toast.success(description)` or `toast(title, { description })` |
+
+### Files to Update
+
+**`src/pages/Index.tsx`**
+
+Change import:
+```typescript
+// BEFORE:
+import { useToast } from '@/hooks/use-toast';
+const { toast } = useToast();
+
+// AFTER:
+import { toast } from 'sonner';
+// Remove useToast hook call
 ```
 
-Scoring factors:
-- Postal code matched known pattern: +30
-- Country explicitly provided: +20
-- Street suffix recognized: +20
-- Name line detected (at least 2 words): +15
-- ZIP+City on same line: +15
+Update all toast calls (15 instances):
 
-### Files to Modify
+```typescript
+// BEFORE (destructive):
+toast({
+  title: 'Configuration Required',
+  description: 'Please complete the API and sender address configuration.',
+  variant: 'destructive'
+});
+
+// AFTER:
+toast.error('Configuration Required', {
+  description: 'Please complete the API and sender address configuration.'
+});
+
+// BEFORE (success):
+toast({
+  title: 'Label Printed',
+  description: `${product?.name} label sent to printer.`
+});
+
+// AFTER:
+toast.success('Label Printed', {
+  description: `${product?.name} label sent to printer.`
+});
+```
+
+**`src/App.tsx`**
+
+Remove Radix Toaster, keep only Sonner:
+
+```typescript
+// BEFORE:
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+...
+<Toaster />
+<Sonner />
+
+// AFTER:
+import { Toaster } from "@/components/ui/sonner";
+...
+<Toaster />
+```
+
+### Files to DELETE (Radix toast system)
+
+| File | Reason |
+|------|--------|
+| `src/hooks/use-toast.ts` | Full Radix toast implementation - no longer needed |
+| `src/components/ui/toast.tsx` | Radix toast components |
+| `src/components/ui/toaster.tsx` | Radix toaster component |
+| `src/components/ui/use-toast.ts` | Re-export file |
+
+---
+
+## Part 5: Code Refactoring
+
+### 5.1 Remove lovable-tagger from vite.config.ts
+
+```typescript
+// BEFORE:
+import { componentTagger } from "lovable-tagger";
+plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+
+// AFTER:
+plugins: [react()],
+```
+
+### 5.2 Extract handlePrint logic (optional, for maintainability)
+
+Create `src/hooks/useLabelPurchase.ts` to move the ~250 line `handlePrint` function from Index.tsx.
+
+---
+
+## Summary of All Changes
+
+### Files to MODIFY
 
 | File | Changes |
 |------|---------|
-| `server/lib/european-address-parser.js` | Add postal patterns, street suffixes, confidence scoring, country inference |
-| `src/lib/address.ts` | Add `confidence?: number` and `warnings?: string[]` to ParsedAddress interface |
-| `src/components/ParsedAddressEditor.tsx` | Display confidence indicator and warnings |
+| `package.json` | Remove 30+ unused dependencies |
+| `vite.config.ts` | Remove lovable-tagger |
+| `src/components/ui/sonner.tsx` | Remove next-themes, hardcode dark theme |
+| `src/App.tsx` | Remove Radix Toaster, keep only Sonner |
+| `src/pages/Index.tsx` | Migrate 15 toast calls from useToast to sonner |
+
+### Files to DELETE
+
+| Count | Files |
+|-------|-------|
+| 35 | Unused UI components in `src/components/ui/` |
+| 4 | Radix toast files: `toast.tsx`, `toaster.tsx`, `use-toast.ts` (x2) |
+
+### Files to CREATE
+
+| File | Purpose |
+|------|---------|
+| `src/hooks/useLabelPurchase.ts` | Extract print logic from Index.tsx (optional) |
+
+### Estimated Impact
+
+- **Dependencies reduced**: From 43 to ~18 packages
+- **Bundle size reduction**: ~200-300KB
+- **UI component files reduced**: From 49 to ~14 files
+- **Cleaner toast API**: Single system (Sonner) instead of two
 
 ---
 
-## Technical Notes
+## Final package.json Dependencies
 
-### Why Not External Libraries?
-
-- **libpostal**: 2GB+ in size, requires C compilation, not practical for this use case
-- **Google Places API**: Costs money per request, requires API key management
-- **OpenCage/Nominatim**: Geocoding services, not address parsers - require full valid addresses
-
-### Accuracy Trade-offs
-
-The enhanced regex approach will handle ~95% of EU addresses correctly. Edge cases that may fail:
-- Addresses without postal codes
-- Unusual multi-line formats
-- Non-Latin scripts (Greek, Cyrillic) - will need transliteration
-
-### Maintenance
-
-The postal code patterns are standardized by each country's postal service and rarely change. The country name mapping already covers multiple languages and can be extended.
-
----
-
-## Implementation Order
-
-1. Add cropped dimensions preview endpoint and UI
-2. Expand postal code patterns for all EU countries
-3. Add street suffix dictionaries for major EU languages  
-4. Implement country inference from postal code format
-5. Add confidence scoring
-6. Display parsing confidence in UI
+```json
+{
+  "dependencies": {
+    "@radix-ui/react-checkbox": "^1.3.2",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-scroll-area": "^1.2.9",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "@tanstack/react-query": "^5.83.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.462.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}
+```
