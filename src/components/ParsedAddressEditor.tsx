@@ -54,6 +54,13 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
     onAddressChange(newRaw);
   };
 
+  // Confidence indicator color
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 80) return 'text-primary';
+    if (confidence >= 50) return 'text-muted-foreground';
+    return 'text-destructive';
+  };
+
   return (
     <div className="space-y-2">
       {/* Loading indicator */}
@@ -63,10 +70,34 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
           <span>Parsing address...</span>
         </div>
       )}
+
+      {/* Confidence + Warnings */}
+      {!isLoading && parsed.name && (
+        <div className="space-y-1">
+          {/* Confidence score */}
+          {parsed.confidence !== undefined && (
+            <div className={`flex items-center gap-2 text-xs ${getConfidenceColor(parsed.confidence)}`}>
+              <span className="font-medium">Confidence: {parsed.confidence}%</span>
+            </div>
+          )}
+          
+          {/* Warnings */}
+          {parsed.warnings && parsed.warnings.length > 0 && (
+            <div className="flex items-start gap-2 p-2 bg-muted border border-border rounded text-muted-foreground text-xs">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                {parsed.warnings.map((warning, i) => (
+                  <div key={i}>{warning}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Warning if both optional lines are filled */}
       {hasBothOptionalLines && (
-        <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-600 text-xs">
+        <div className="flex items-center gap-2 p-2 bg-muted border border-border rounded text-muted-foreground text-xs">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span>Only 4 address lines allowed. Remove either Company/c/o or Apt/Floor.</span>
         </div>

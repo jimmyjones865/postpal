@@ -240,6 +240,46 @@ export async function prepareForEndlessRoll(pdfBuffer, rollWidthMm, landscape = 
 }
 
 /**
+ * Gets content dimensions without modifying the PDF.
+ * Useful for previewing the expected output size before printing.
+ * 
+ * @param {Buffer} pdfBuffer - Original PDF buffer
+ * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
+ * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @returns {Promise<{original: {widthMm: number, heightMm: number}, cropped: {widthMm: number, heightMm: number}}>}
+ */
+export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
+  const bounds = await getContentBoundsPerPage(pdfBuffer);
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pages = pdfDoc.getPages();
+  
+  if (pages.length === 0 || bounds.length === 0) {
+    return { original: { widthMm: 0, heightMm: 0 }, cropped: { widthMm: 0, heightMm: 0 } };
+  }
+  
+  const page = pages[0];
+  const b = bounds[0];
+  const padX = mmToPoints(paddingHorizontalMm);
+  const padY = mmToPoints(paddingVerticalMm);
+  
+  const originalWidth = page.getWidth();
+  const originalHeight = page.getHeight();
+  const croppedWidth = (b.maxX - b.minX) + padX * 2;
+  const croppedHeight = (b.maxY - b.minY) + padY * 2;
+  
+  return {
+    original: {
+      widthMm: Math.round(pointsToMm(originalWidth) * 10) / 10,
+      heightMm: Math.round(pointsToMm(originalHeight) * 10) / 10
+    },
+    cropped: {
+      widthMm: Math.round(pointsToMm(croppedWidth) * 10) / 10,
+      heightMm: Math.round(pointsToMm(croppedHeight) * 10) / 10
+    }
+  };
+}
+
+/**
  * @deprecated Legacy name – use cropPdfWithPadding instead.
  */
 export async function cropPdfWhitespace(
