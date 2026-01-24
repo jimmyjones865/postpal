@@ -1,9 +1,9 @@
 services:
   app:
     build: .
-    container_name: postpal
+    container_name: postpaltest
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - labels-data:/data/labels
       - ./public/products.json:/app/public/products.json:ro
