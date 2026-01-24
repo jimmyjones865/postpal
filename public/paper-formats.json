@@ -1,0 +1,3201 @@
+{
+  "LABELPAGE": [
+    {
+      "id": 7,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 8748 CompactLine 105 x 74",
+      "description": "Herma 8748 CompactLine 105 x 74",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 148.0,
+          "y": 210.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 8,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4269 PREMIUM 99.1 x 67.7",
+      "description": "Herma 4269 PREMIUM 99.1 x 67.7",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3426 Etiketten 105 x 70",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 8.0,
+          "bottom": 8.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 10,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform J4794 Etiketten 99.1 x 63.5",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 1.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 21.0,
+          "bottom": 21.0,
+          "left": 5.0,
+          "right": 5.0
+        }
+      }
+    },
+    {
+      "id": 11,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform J8173 Etiketten 99.1 x 57",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 6.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform L7173 Etiketten 99.1 x 57",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 6.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 14,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4359 PREMIUM 97 x 67.7",
+      "description": "Herma 4359 PREMIUM 97 x 67.7",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 8.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 15,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4280 PREMIUM 97 x 67.7",
+      "description": "Herma 4280 PREMIUM 97 x 67.7",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 8.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 18,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4470 PREMIUM 105 x 74",
+      "description": "Herma 4470 PREMIUM 105 x 74",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 20,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4268 PREMIUM 99.1 x 57",
+      "description": "Herma 4268 PREMIUM 99.1 x 57",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 7.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 11.0,
+          "bottom": 6.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 21,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4626 PREMIUM 105 x 74",
+      "description": "Herma 4626 PREMIUM 105 x 74",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 22,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3483 Inkjet+Laser+Kopier-Etiketten",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 24,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform J8165 Etiketten 99.1 x 67.7",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 6.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 27,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4676 PREMIUM 105 x 148",
+      "description": "Herma 4676 PREMIUM 105 x 148",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 297.0,
+          "y": 210.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 31,
+      "isAddressPossible": false,
+      "isImagePossible": false,
+      "name": "Herma 4200 PREMIUM 48,3 x 33,8",
+      "description": "Herma 4200 PREMIUM 48,3 x 33,8",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 4,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 18.0,
+          "bottom": 8.0,
+          "left": 8.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 32,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 4390 PREMIUM 70 x 37",
+      "description": "Herma 4390 PREMIUM 70 x 37",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 3.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 3.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 12,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform L7165 Etiketten 99.1 x 67.7",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 23,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 4782 Etiketten 97 x 67.7",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 8.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 68,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 4361 PREMIUM 70 x 42",
+      "description": "Herma 4361 PREMIUM 70 x 42",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 207.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 3.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 80,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Etiketten, 2 Spalten - 5 Reihen",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 7.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 15.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 89,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 8746 CompactLine 210 x 148",
+      "description": "Herma 8746 CompactLine 210 x 148",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 148.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 70.0,
+          "bottom": 0.0,
+          "left": 100.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 91,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4667 PREMIUM 96 x 50.8",
+      "description": "Herma 4667 PREMIUM 96 x 50.8",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 25.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 102,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4452 PREMIUM 105 x 42",
+      "description": "Herma 4452 PREMIUM 105 x 42",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 2.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 112,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4653 PREMIUM 99.1 x 93.1",
+      "description": "Herma 4653 PREMIUM 99.1 x 93.1",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 3
+        },
+        "margin": {
+          "top": 10.0,
+          "bottom": 10.0,
+          "left": 7.0,
+          "right": 7.0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3660 Etiketten 97 x 67.7",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 8.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 49,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform 3652 Etiketten 70 x 42,3",
+      "description": "Zweckform 3652 Etiketten 70 x 42,3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 5.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 87,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4426 PREMIUM 105 x 70",
+      "description": "Herma 4426 PREMIUM 105 x 70",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 8.0,
+          "bottom": 8.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 92,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4669 PREMIUM 97 x 42.3",
+      "description": "Herma 4669 PREMIUM 97 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 22.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 93,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4623 PREMIUM 97 x 42.3",
+      "description": "Herma 4623 PREMIUM 97 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 22.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 94,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3425 Etiketten 105 x 57",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 7.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 11.0,
+          "bottom": 6.0,
+          "left": 4.0,
+          "right": 4.0
+        }
+      }
+    },
+    {
+      "id": 95,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3427 Etiketten 105 x 74",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 8.0,
+          "bottom": 8.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 96,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform L7169 Etiketten 99,1 x 139",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 297.0,
+          "y": 210.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 97,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3653 Etiketten 105 x 42.3",
+      "description": "Zweckform 3653 Etiketten 105 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 4.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 98,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4281 PREMIUM 105 x 50.8",
+      "description": "Herma 4281 PREMIUM 105 x 50.8",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 25.0,
+          "bottom": 25.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 99,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3424 Etiketten 105 x 48",
+      "description": "Zweckform 3424 Etiketten 105 x 48",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 6.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 4.0,
+          "bottom": 4.0,
+          "left": 1.0,
+          "right": 1.0
+        }
+      }
+    },
+    {
+      "id": 100,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform J8177 Etiketten 99.1 x 42.3",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 22.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 101,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4674 PREMIUM 105 x 42.3",
+      "description": "Herma 4674 PREMIUM 105 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 4.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 3.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 103,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4475 PREMIUM 105 x 41",
+      "description": "Herma 4475 PREMIUM 105 x 41",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 3.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 104,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4454 PREMIUM 105 x 144 ",
+      "description": "Herma 4454 PREMIUM 105 x 144 ",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 297.0,
+          "y": 210.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 52,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform 3474 Etiketten 70 x 37",
+      "description": "Zweckform 3474 Etiketten 70 x 37",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 2.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 2.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 63,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Etiketten, 2 Spalten - 5 Reihen",
+      "description": "Etiketten, 2 Spalten - 5 Reihen",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 40.0,
+          "y": 40.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 15.0,
+          "bottom": 15.0,
+          "left": 35.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 64,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Etiketten, 2 Spalten - 4 Reihen",
+      "description": "Etiketten, 2 Spalten - 4 Reihen",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 45.0,
+          "y": 40.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 20.0,
+          "bottom": 30.0,
+          "left": 35.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 65,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Etiketten, 2 Spalten - 6 Reihen",
+      "description": "Etiketten, 2 Spalten - 6 Reihen",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 40.0,
+          "y": 40.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 12.0,
+          "bottom": 12.0,
+          "left": 35.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 69,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform L7160 Etiketten 63,5 x 38,1",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 209.0,
+          "y": 296.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 2.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 17.0,
+          "bottom": 13.0,
+          "left": 6.0,
+          "right": 6.0
+        }
+      }
+    },
+    {
+      "id": 70,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 5053 PREMIUM 66 x 33,8",
+      "description": "Herma 5053 PREMIUM 66 x 33,8",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 2.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 15.0,
+          "bottom": 11.0,
+          "left": 6.0,
+          "right": 6.0
+        }
+      }
+    },
+    {
+      "id": 71,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform 3481 Etiketten 70 x 41",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 205.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 72,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform 3422 Etiketten 70 x 35",
+      "description": "Zweckform 3422 Etiketten 70 x 35",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 6.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 4.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 73,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 5054 PREMIUM 70 x 42,3",
+      "description": "Herma 5054 PREMIUM 70 x 42,3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 207.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 4.0,
+          "bottom": 4.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 74,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 4473 PREMIUM 70 x 41",
+      "description": "Herma 4473 PREMIUM 70 x 41",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 207.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 78,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 8747 CompactLine 105 x 148",
+      "description": "Herma 8747 CompactLine 105 x 148",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 148.0,
+          "y": 210.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 79,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Etiketten, 2 Spalten - 4 Reihen",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 15.0,
+          "bottom": 15.0,
+          "left": 7.0,
+          "right": 7.0
+        }
+      }
+    },
+    {
+      "id": 82,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4250 PREMIUM 99.1 x 139",
+      "description": "Herma 4250 PREMIUM 99.1 x 139",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 10.0,
+          "bottom": 10.0,
+          "left": 7.0,
+          "right": 7.0
+        }
+      }
+    },
+    {
+      "id": 84,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3477 Etiketten 105 x 41",
+      "description": "Zweckform 3477 Etiketten 105 x 41",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 3.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 86,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4457 PREMIUM 105 x 48",
+      "description": "Herma 4457 PREMIUM 105 x 48",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 4.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 4.0,
+          "bottom": 3.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 33,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Zweckform 3490 Etiketten 70 x 36",
+      "description": "Zweckform 3490 Etiketten 70 x 36",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 205.0,
+          "y": 296.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 3.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 2.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 136,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4628 PREMIUM 210 x 148",
+      "description": "Herma 4628 PREMIUM 210 x 148",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 40.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 70.0,
+          "bottom": 0.0,
+          "left": 100.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 39,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 4360 PREMIUM 70 x 36",
+      "description": "Herma 4360 PREMIUM 70 x 36",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 40,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Herma 8751 CompactLine 70 x 37",
+      "description": "Herma 8751 CompactLine 70 x 37",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 147.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 4
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 105,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 4781 Etiketten 97 x 42.3",
+      "description": "Zweckform 4781 Etiketten 97 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 7.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 25.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 106,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform J4722 Etiketten 96 x 50.8",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 25.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 107,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Etiketten, 2 Spalten - 6 Reihen",
+      "description": null,
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 9.0,
+          "bottom": 0.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 108,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Zweckform 3659 Etiketten 97 x 42.3",
+      "description": "Zweckform 3659 Etiketten 97 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 1.0,
+          "y": 2.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 23.0,
+          "bottom": 19.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 109,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4625 PREMIUM 105 x 42.3",
+      "description": "Herma 4625 PREMIUM 105 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 303.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 4.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 7
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 3.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 113,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 10017 Ablösbare Etiketten 99.1 x 42.3",
+      "description": "Herma 10017 Ablösbare Etiketten 99.1 x 42.3",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 6
+        },
+        "margin": {
+          "top": 22.0,
+          "bottom": 20.0,
+          "left": 5.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 114,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4472 PREMIUM 78.7 x 139.7",
+      "description": "Herma 4472 PREMIUM 78.7 x 139.7",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 2
+        },
+        "margin": {
+          "top": 13.0,
+          "bottom": 13.0,
+          "left": 19.0,
+          "right": 13.0
+        }
+      }
+    },
+    {
+      "id": 116,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 4425 PREMIUM 105 x 57",
+      "description": "Herma 4425 PREMIUM 105 x 57",
+      "pageType": "LABELPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 7.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 11.0,
+          "bottom": 6.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    }
+  ],
+  "ENVELOPE": [
+    {
+      "id": 16,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief B6 125 x 176",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 176.0,
+          "y": 125.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 50.0,
+          "bottom": 20.0,
+          "left": 66.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 17,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief C5 162 x 229",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 162.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 87.0,
+          "bottom": 20.0,
+          "left": 119.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 19,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief C65 114 x 229",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 114.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 39.0,
+          "bottom": 20.0,
+          "left": 119.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 28,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief DIN lang 220 x 110",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 220.0,
+          "y": 110.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 35.0,
+          "bottom": 20.0,
+          "left": 110.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief C4 229 x 324 (quer)",
+      "description": "Brief C4 229 x 324 (quer)",
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 324.0,
+          "y": 229.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 160.0,
+          "bottom": 30.0,
+          "left": 190.0,
+          "right": 30.0
+        }
+      }
+    },
+    {
+      "id": 56,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief C4 229 x 324 (hoch)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 324.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 254.0,
+          "left": 129.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief B5 176 x 250",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 250.0,
+          "y": 176.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 101.0,
+          "bottom": 20.0,
+          "left": 140.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 3,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief B4 250 x 353 (quer)",
+      "description": "Brief B4 250 x 353 (quer)",
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 353.0,
+          "y": 250.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 175.0,
+          "bottom": 20.0,
+          "left": 243.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief C6 114 x 162",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 162.0,
+          "y": 114.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 39.0,
+          "bottom": 20.0,
+          "left": 52.0,
+          "right": 20.0
+        }
+      }
+    },
+    {
+      "id": 53,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief C5 162 x 229",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 162.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 122.0,
+          "left": 159.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 54,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief B5 176 x 250",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 250.0,
+          "y": 176.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 136.0,
+          "left": 180.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 55,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief B6 125 x 176",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 176.0,
+          "y": 125.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 85.0,
+          "left": 106.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 57,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief B4 250 x 353 (quer)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 353.0,
+          "y": 250.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 210.0,
+          "left": 283.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 58,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief C65 114 x 229",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 114.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 74.0,
+          "left": 159.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 59,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief DIN Lang 110 x 220",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 220.0,
+          "y": 110.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 70.0,
+          "left": 150.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 60,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief B4 250 x 353 (hoch)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 250.0,
+          "y": 353.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 313.0,
+          "left": 180.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 61,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief C4 229 x 324 (quer)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 324.0,
+          "y": 229.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 189.0,
+          "left": 254.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 62,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brief C6 114 x 162",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 162.0,
+          "y": 114.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 74.0,
+          "left": 92.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 83,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief B4 250 x 353 (hoch)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 250.0,
+          "y": 353.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 50.0,
+          "bottom": 231.0,
+          "left": 45.0,
+          "right": 151.0
+        }
+      }
+    },
+    {
+      "id": 85,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brief C4 229 x 324 (hoch)",
+      "description": null,
+      "pageType": "ENVELOPE",
+      "pageLayout": {
+        "size": {
+          "x": 229.0,
+          "y": 324.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 50.0,
+          "bottom": 210.0,
+          "left": 30.0,
+          "right": 109.0
+        }
+      }
+    }
+  ],
+  "LABELPRINTER": [
+    {
+      "id": 25,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brother DK-22205 Endlos-Etikett 62mm",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 62.0,
+          "y": 100.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 29,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brother DK-11202 Versand-Etikett 62 x 100",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 62.0,
+          "y": 100.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 42,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Dymo 99012 weiss 89 x 36",
+      "description": "Dymo 99012 weiss 89 x 36",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 89.0,
+          "y": 36.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 10.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 44,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Seiko SLP-STAMP 2 65 x 36",
+      "description": "Seiko SLP-STAMP 2 65 x 36",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 36.0,
+          "y": 65.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 9.0,
+          "bottom": 9.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 88,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Herma 8690 PREMIUM A5 148.5 x 205",
+      "description": "Herma 8690 PREMIUM A5 148.5 x 205",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 148.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 70.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 90,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Dymo 99014, 101 x 54",
+      "description": "Dymo 99014, 101 x 54",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 54.0,
+          "y": 101.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 176,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Leitz ICON Endlos-Etikett 88 mm",
+      "description": "Leitz ICON Endlos-Etikett 88 mm",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 88.0,
+          "y": 48.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 2.0,
+          "left": 8.0,
+          "right": 4.0
+        }
+      }
+    },
+    {
+      "id": 156,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Leitz ICON Endlos-Etikett 88 mm",
+      "description": "Leitz ICON Endlos-Etikett 88 mm",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 88.0,
+          "y": 30.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 28.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 196,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Leitz ICON Endlos-Etikett 61 mm",
+      "description": "Leitz ICON Endlos-Etikett 61 mm",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 61.0,
+          "y": 48.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 2.0,
+          "right": 2.0
+        }
+      }
+    },
+    {
+      "id": 66,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brother DK-11208 90 x 38",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 90.0,
+          "y": 38.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 2.0,
+          "bottom": 2.0,
+          "left": 10.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 216,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brother DK-22225 Endlos-Etikett 38mm",
+      "description": "Brother DK-22225 Endlos-Etikett 38mm",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 66.0,
+          "y": 38.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 2.0,
+          "bottom": 2.0,
+          "left": 2.0,
+          "right": 2.0
+        }
+      }
+    },
+    {
+      "id": 67,
+      "isAddressPossible": false,
+      "isImagePossible": false,
+      "name": "Leitz ICON Endlos-Etikett 39 mm ",
+      "description": "Leitz ICON Endlos-Etikett 39 mm ",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 39.0,
+          "y": 34.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 1.0,
+          "bottom": 1.0,
+          "left": 1.0,
+          "right": 1.0
+        }
+      }
+    },
+    {
+      "id": 76,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brother DK-22212 Endlos-Etikett 62mm",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 62.0,
+          "y": 100.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 77,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Seiko SLP-SRL 54 x 101 ",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 62.0,
+          "y": 100.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 5.0,
+          "bottom": 5.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    },
+    {
+      "id": 81,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "Brother DK-22243 Endlos-Etikett 102mm",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 70.0,
+          "y": 100.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 37,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Brother DK-22205 Endlos-Etikett 62mm",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 61.0,
+          "y": 37.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 2.0,
+          "bottom": 2.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 41,
+      "isAddressPossible": false,
+      "isImagePossible": false,
+      "name": "Seiko SLP-STAMP 1 42 x 36",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 35.0,
+          "y": 42.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 0.0,
+          "bottom": 0.0,
+          "left": 0.0,
+          "right": 0.0
+        }
+      }
+    },
+    {
+      "id": 115,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Dymo 99013 transparent 89 x 36",
+      "description": null,
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 89.0,
+          "y": 36.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 6.0,
+          "bottom": 2.0,
+          "left": 10.0,
+          "right": 10.0
+        }
+      }
+    },
+    {
+      "id": 236,
+      "isAddressPossible": false,
+      "isImagePossible": true,
+      "name": "Reiner jetStamp 1025",
+      "description": "Elektrostempel Direktdruck",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 84.0,
+          "y": 25.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 12.0,
+          "bottom": 2.0,
+          "left": 24.0,
+          "right": 8.0
+        }
+      }
+    },
+    {
+      "id": 296,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "PDF ohne Rand 89 x 43",
+      "description": "PDF ohne Rand 89 x 43",
+      "pageType": "LABELPRINTER",
+      "pageLayout": {
+        "size": {
+          "x": 43.0,
+          "y": 89.0
+        },
+        "orientation": "LANDSCAPE",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 4.0,
+          "bottom": 3.0,
+          "left": 3.0,
+          "right": 3.0
+        }
+      }
+    }
+  ],
+  "REGULARPAGE": [
+    {
+      "id": 26,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "DIN A4 Normalpapier (Einlegeblatt)",
+      "description": null,
+      "pageType": "REGULARPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 1,
+          "labelY": 1
+        },
+        "margin": {
+          "top": 42.0,
+          "bottom": 200.0,
+          "left": 20.0,
+          "right": 100.0
+        }
+      }
+    },
+    {
+      "id": 1,
+      "isAddressPossible": true,
+      "isImagePossible": false,
+      "name": "DIN A4 Normalpapier",
+      "description": null,
+      "pageType": "REGULARPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 2,
+          "labelY": 5
+        },
+        "margin": {
+          "top": 31.0,
+          "bottom": 31.0,
+          "left": 15.0,
+          "right": 15.0
+        }
+      }
+    },
+    {
+      "id": 51,
+      "isAddressPossible": false,
+      "isImagePossible": false,
+      "name": "DIN A4 Normalpapier",
+      "description": "DIN A4 Normalpapier",
+      "pageType": "REGULARPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 3,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 16.0,
+          "bottom": 0.0,
+          "left": 7.0,
+          "right": 7.0
+        }
+      }
+    },
+    {
+      "id": 35,
+      "isAddressPossible": false,
+      "isImagePossible": false,
+      "name": "DIN A4 Normalpapier",
+      "description": "DIN A4 Normalpapier",
+      "pageType": "REGULARPAGE",
+      "pageLayout": {
+        "size": {
+          "x": 210.0,
+          "y": 297.0
+        },
+        "orientation": "PORTRAIT",
+        "labelSpacing": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "labelCount": {
+          "labelX": 4,
+          "labelY": 8
+        },
+        "margin": {
+          "top": 8.0,
+          "bottom": 8.0,
+          "left": 25.0,
+          "right": 25.0
+        }
+      }
+    }
+  ],
+  "MISC": []
+}
