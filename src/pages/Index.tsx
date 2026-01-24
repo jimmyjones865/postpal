@@ -325,9 +325,9 @@ const Index = () => {
 
               {/* Preview */}
               <div className="space-y-0">
-                <LabelPreview 
+              <LabelPreview 
                   senderAddress={config.senderAddress} 
-                  recipientAddress={recipientAddress} 
+                  parsedRecipient={parsedRecipient} 
                   selectedProduct={selectedProductData} 
                 />
                 <TrackingNumber 
