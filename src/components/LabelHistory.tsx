@@ -12,16 +12,47 @@ interface LabelHistoryProps {
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
   printOptions?: PrintOptions;
+  directPrintConfig?: {
+    cupsUrl: string;
+    printerName: string;
+    orientation: 'portrait' | 'landscape';
+    paperFormatName: string;
+    enableDirectPrint: boolean;
+    disableCropping?: boolean;
+  };
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
     setPrintingId(label.id);
     try {
-      await printLabel(label.id, printOptions);
+      if (directPrintConfig?.enableDirectPrint && directPrintConfig.cupsUrl) {
+        // Direct print via CUPS
+        const API_BASE = '/api';
+        const response = await fetch(`${API_BASE}/print`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            labelId: label.id,
+            cupsUrl: directPrintConfig.cupsUrl,
+            printerName: directPrintConfig.printerName,
+            orientation: directPrintConfig.orientation,
+            paperFormatName: directPrintConfig.paperFormatName,
+            cropH: printOptions?.cropH ?? 5,
+            cropV: printOptions?.cropV ?? 5,
+            disableCropping: directPrintConfig.disableCropping || false,
+          })
+        });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Print failed');
+        }
+      } else {
+        await printLabel(label.id, printOptions);
+      }
     } finally {
       setPrintingId(null);
     }

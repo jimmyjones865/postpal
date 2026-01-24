@@ -9,6 +9,8 @@ export interface ParsedAddress {
   zip: string;            // Postal code
   city: string;           // City name
   country: string;        // Country
+  confidence?: number;    // 0-100 parsing confidence score
+  warnings?: string[];    // Parsing warnings/issues
 }
 
 export function emptyAddress(): ParsedAddress {

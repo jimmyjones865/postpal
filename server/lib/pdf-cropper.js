@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, degrees } from 'pdf-lib';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createCanvas } from 'canvas';
 
@@ -12,6 +12,7 @@ import { createCanvas } from 'canvas';
  */
 
 const mmToPoints = (mm) => (mm / 25.4) * 72;
+const pointsToMm = (pts) => (pts / 72) * 25.4;
 
 // Render scale for pixel detection (2x provides good accuracy)
 const RENDER_SCALE = 2;
@@ -20,11 +21,35 @@ const RENDER_SCALE = 2;
 const WHITE_THRESHOLD = 250;
 
 /**
+ * Custom CanvasFactory for pdfjs-dist in Node.js environment
+ */
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext('2d');
+    return { canvas, context };
+  }
+
+  reset(canvasAndContext, width, height) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+
+  destroy(canvasAndContext) {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+}
+
+/**
  * Detects content bounds by rendering PDF pages and scanning for non-white pixels.
  */
 async function getContentBoundsPerPage(pdfBuffer) {
   const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
-  const pdf = await getDocument({ data, disableFontFace: true }).promise;
+  const canvasFactory = new NodeCanvasFactory();
+  const pdf = await getDocument({ data, disableFontFace: true, canvasFactory }).promise;
 
   const results = [];
 
@@ -140,6 +165,118 @@ export async function cropPdfWithPadding(
   }
 
   return Buffer.from(await pdfDoc.save());
+}
+
+/**
+ * Rotates PDF pages by a specified angle.
+ * 
+ * @param {Buffer} pdfBuffer - Original PDF buffer
+ * @param {number} angle - Rotation angle in degrees (90, 180, 270)
+ * @returns {Promise<Buffer>} - Rotated PDF buffer
+ */
+export async function rotatePdf(pdfBuffer, angle = 90) {
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pages = pdfDoc.getPages();
+  
+  for (const page of pages) {
+    const currentRotation = page.getRotation().angle;
+    page.setRotation(degrees(currentRotation + angle));
+  }
+  
+  return Buffer.from(await pdfDoc.save());
+}
+
+/**
+ * Prepares a PDF for endless roll printing by setting page dimensions.
+ * 
+ * @param {Buffer} pdfBuffer - Original PDF buffer (should be cropped first)
+ * @param {number} rollWidthMm - Width of the roll paper in mm
+ * @param {boolean} landscape - If true, rotate 90° (swap dimensions)
+ * @returns {Promise<{buffer: Buffer, contentWidthMm: number, contentHeightMm: number}>}
+ */
+export async function prepareForEndlessRoll(pdfBuffer, rollWidthMm, landscape = false) {
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pages = pdfDoc.getPages();
+  
+  const results = [];
+  
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+    const contentWidthPts = width;
+    const contentHeightPts = height;
+    
+    const rollWidthPts = mmToPoints(rollWidthMm);
+    
+    if (landscape) {
+      // Rotate page 90° and swap dimensions
+      // Roll width becomes the height, content flows along the roll length
+      page.setRotation(degrees(90));
+      
+      // After rotation, the new visible dimensions are swapped
+      // We want: roll width = visible height, content width = visible width
+      page.setMediaBox(0, 0, contentHeightPts, rollWidthPts);
+      page.setCropBox(0, 0, contentHeightPts, rollWidthPts);
+      page.setTrimBox(0, 0, contentHeightPts, rollWidthPts);
+    } else {
+      // Portrait: Roll width is the page width, content height is the page height
+      page.setMediaBox(0, 0, rollWidthPts, contentHeightPts);
+      page.setCropBox(0, 0, rollWidthPts, contentHeightPts);
+      page.setTrimBox(0, 0, rollWidthPts, contentHeightPts);
+    }
+    
+    results.push({
+      originalWidth: pointsToMm(contentWidthPts),
+      originalHeight: pointsToMm(contentHeightPts)
+    });
+  }
+  
+  const buffer = Buffer.from(await pdfDoc.save());
+  
+  return {
+    buffer,
+    contentWidthMm: results[0]?.originalWidth || 0,
+    contentHeightMm: results[0]?.originalHeight || 0
+  };
+}
+
+/**
+ * Gets content dimensions without modifying the PDF.
+ * Useful for previewing the expected output size before printing.
+ * 
+ * @param {Buffer} pdfBuffer - Original PDF buffer
+ * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
+ * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @returns {Promise<{original: {widthMm: number, heightMm: number}, cropped: {widthMm: number, heightMm: number}}>}
+ */
+export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
+  const bounds = await getContentBoundsPerPage(pdfBuffer);
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pages = pdfDoc.getPages();
+  
+  if (pages.length === 0 || bounds.length === 0) {
+    return { original: { widthMm: 0, heightMm: 0 }, cropped: { widthMm: 0, heightMm: 0 } };
+  }
+  
+  const page = pages[0];
+  const b = bounds[0];
+  const padX = mmToPoints(paddingHorizontalMm);
+  const padY = mmToPoints(paddingVerticalMm);
+  
+  const originalWidth = page.getWidth();
+  const originalHeight = page.getHeight();
+  const croppedWidth = (b.maxX - b.minX) + padX * 2;
+  const croppedHeight = (b.maxY - b.minY) + padY * 2;
+  
+  return {
+    original: {
+      widthMm: Math.round(pointsToMm(originalWidth) * 10) / 10,
+      heightMm: Math.round(pointsToMm(originalHeight) * 10) / 10
+    },
+    cropped: {
+      widthMm: Math.round(pointsToMm(croppedWidth) * 10) / 10,
+      heightMm: Math.round(pointsToMm(croppedHeight) * 10) / 10
+    }
+  };
 }
 
 /**

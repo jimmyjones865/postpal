@@ -3,7 +3,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
-import { cropPdfWhitespace } from '../lib/pdf-cropper.js';
+import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, prepareForEndlessRoll, getContentDimensions } from '../lib/pdf-cropper.js';
+import { sendToCups } from '../lib/cups-printer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -385,6 +386,135 @@ export function createApiRouter() {
     } catch (err) {
       console.error('[Labels] Delete error:', err);
       res.status(500).json({ error: 'Failed to delete label' });
+    }
+  });
+
+  /* Direct printing via CUPS IPP */
+  router.post('/print', async (req, res) => {
+    try {
+      const { labelId, cupsUrl, printerName, orientation, paperFormatName, cropH, cropV, disableCropping } = req.body;
+      
+      if (!labelId || !cupsUrl || !printerName) {
+        return res.status(400).json({ error: 'Missing required fields: labelId, cupsUrl, printerName' });
+      }
+      
+      // Load the label
+      const metadata = await loadMetadata();
+      const label = metadata.labels.find(l => l.id === labelId);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+      
+      // Read original PDF
+      let pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
+      
+      // Crop the PDF (unless disabled)
+      if (!disableCropping) {
+        const cropMarginH = parseFloat(cropH) || 5;
+        const cropMarginV = parseFloat(cropV) || 5;
+        
+        try {
+          pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
+          console.log('[Print] PDF cropped');
+        } catch (cropErr) {
+          console.error('[Print] Crop failed, using original:', cropErr.message);
+        }
+      } else {
+        console.log('[Print] Cropping disabled, using original PDF');
+      }
+      
+      // Check if paper format is endless roll (detected by "Endlos" in name)
+      const paperFormat = paperFormats.find(f => f.name === paperFormatName);
+      const isEndless = paperFormat?.name?.toLowerCase().includes('endlos');
+      // Roll width comes from pageLayout.size.x in mm
+      const rollWidthMm = paperFormat?.pageLayout?.size?.x;
+      
+      // Track media dimensions for IPP
+      let mediaWidthMm, mediaHeightMm;
+      
+      if (isEndless && rollWidthMm) {
+        // Prepare for endless roll printing
+        const isLandscape = orientation === 'landscape';
+        try {
+          const result = await prepareForEndlessRoll(pdfBuffer, rollWidthMm, isLandscape);
+          pdfBuffer = result.buffer;
+          
+          // Set dimensions for IPP media-col attribute
+          if (isLandscape) {
+            mediaWidthMm = result.contentHeightMm;  // After rotation, height becomes width
+            mediaHeightMm = rollWidthMm;
+          } else {
+            mediaWidthMm = rollWidthMm;
+            mediaHeightMm = result.contentHeightMm;
+          }
+          
+          console.log(`[Print] Prepared for endless roll: ${rollWidthMm}mm width, content ${Math.round(result.contentWidthMm)}x${Math.round(result.contentHeightMm)}mm, media=${mediaWidthMm?.toFixed(1)}x${mediaHeightMm?.toFixed(1)}mm, landscape=${isLandscape}`);
+        } catch (rollErr) {
+          console.error('[Print] Endless roll preparation failed:', rollErr.message);
+        }
+      } else if (orientation === 'landscape') {
+        // Just rotate for landscape orientation
+        try {
+          pdfBuffer = await rotatePdf(pdfBuffer, 90);
+          console.log('[Print] PDF rotated 90° for landscape');
+        } catch (rotateErr) {
+          console.error('[Print] Rotation failed:', rotateErr.message);
+        }
+      }
+      
+      // Send to CUPS with explicit dimensions for endless roll
+      const printResult = await sendToCups(pdfBuffer, cupsUrl, printerName, {
+        jobName: `Label ${label.id}`,
+        mediaWidthMm,
+        mediaHeightMm
+      });
+      
+      if (printResult.success) {
+        console.log(`[Print] Job sent to ${printerName}, job ID: ${printResult.jobId}`);
+        res.json({ 
+          success: true, 
+          jobId: printResult.jobId,
+          message: `Print job sent to ${printerName}`
+        });
+      } else {
+        console.error('[Print] Print failed:', printResult.error);
+        res.status(500).json({ 
+          success: false, 
+          error: printResult.error || 'Failed to send print job'
+        });
+      }
+    } catch (err) {
+      console.error('[Print] Error:', err);
+      res.status(500).json({ error: err.message || 'Print failed' });
+    }
+  });
+
+  /* Preview cropped dimensions */
+  router.post('/labels/:id/dimensions', async (req, res) => {
+    try {
+      const { cropH, cropV, disableCropping } = req.body;
+      
+      const metadata = await loadMetadata();
+      const label = metadata.labels.find(l => l.id === req.params.id);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+      
+      const pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
+      
+      const dimensions = await getContentDimensions(
+        pdfBuffer,
+        parseFloat(cropH) || 5,
+        parseFloat(cropV) || 5
+      );
+      
+      res.json({
+        original: dimensions.original,
+        cropped: disableCropping ? null : dimensions.cropped
+      });
+    } catch (err) {
+      console.error('[Dimensions] Error:', err);
+      res.status(500).json({ error: 'Failed to calculate dimensions' });
     }
   });
 
