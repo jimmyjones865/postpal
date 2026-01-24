@@ -18,7 +18,12 @@ import ipp from 'ipp';
  * @returns {Promise<{success: boolean, jobId?: number, error?: string}>}
  */
 export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) {
-  const { jobName = 'Shipping Label', copies = 1 } = options;
+  const { 
+    jobName = 'Shipping Label', 
+    copies = 1,
+    mediaWidthMm,
+    mediaHeightMm
+  } = options;
   
   // Normalize URL - ensure no trailing slash
   const baseUrl = cupsUrl.replace(/\/$/, '');
@@ -26,6 +31,23 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
   
   console.log(`[CUPS] Sending print job to: ${printerUri}`);
   console.log(`[CUPS] Job name: ${jobName}, PDF size: ${pdfBuffer.length} bytes`);
+  
+  // Build job attributes
+  const jobAttributes = {
+    'copies': copies,
+    'print-quality': 'normal'
+  };
+  
+  // If explicit dimensions provided, tell CUPS the exact page size
+  if (mediaWidthMm && mediaHeightMm) {
+    jobAttributes['media-col'] = {
+      'media-size': {
+        'x-dimension': Math.round(mediaWidthMm * 100),  // hundredths of mm
+        'y-dimension': Math.round(mediaHeightMm * 100)
+      }
+    };
+    console.log(`[CUPS] Setting media size: ${mediaWidthMm.toFixed(1)}x${mediaHeightMm.toFixed(1)}mm`);
+  }
   
   return new Promise((resolve) => {
     const printer = ipp.Printer(printerUri);
@@ -36,11 +58,7 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
         'job-name': jobName,
         'document-format': 'application/pdf'
       },
-      'job-attributes-tag': {
-        'copies': copies,
-        // Use normal quality for faster printing
-        'print-quality': 'normal'
-      },
+      'job-attributes-tag': jobAttributes,
       data: pdfBuffer
     };
     
