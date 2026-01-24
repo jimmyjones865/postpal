@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
-import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, prepareForEndlessRoll } from '../lib/pdf-cropper.js';
+import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, prepareForEndlessRoll, getContentDimensions } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -486,6 +486,35 @@ export function createApiRouter() {
     } catch (err) {
       console.error('[Print] Error:', err);
       res.status(500).json({ error: err.message || 'Print failed' });
+    }
+  });
+
+  /* Preview cropped dimensions */
+  router.post('/labels/:id/dimensions', async (req, res) => {
+    try {
+      const { cropH, cropV, disableCropping } = req.body;
+      
+      const metadata = await loadMetadata();
+      const label = metadata.labels.find(l => l.id === req.params.id);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+      
+      const pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
+      
+      const dimensions = await getContentDimensions(
+        pdfBuffer,
+        parseFloat(cropH) || 5,
+        parseFloat(cropV) || 5
+      );
+      
+      res.json({
+        original: dimensions.original,
+        cropped: disableCropping ? null : dimensions.cropped
+      });
+    } catch (err) {
+      console.error('[Dimensions] Error:', err);
+      res.status(500).json({ error: 'Failed to calculate dimensions' });
     }
   });
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Settings, User, Printer, Package } from 'lucide-react';
+import { Settings, User, Printer, Package, Ruler, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppConfig, ShippingProduct } from '@/types/shipping';
+import { DimensionsPreview } from './DimensionsPreview';
 
 interface SettingsPanelProps {
   config: AppConfig;
@@ -345,6 +347,12 @@ export function SettingsPanel({
                 <p className="text-xs text-muted-foreground mt-2">
                   Crops whitespace from labels, keeping the specified margins around the content.
                 </p>
+                
+                <DimensionsPreview 
+                  cropH={config.printerConfig.cropMarginHorizontal ?? 5}
+                  cropV={config.printerConfig.cropMarginVertical ?? 5}
+                  disableCropping={config.printerConfig.disableCropping || false}
+                />
               </>
             )}
           </div>
