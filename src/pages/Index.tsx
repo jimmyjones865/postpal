@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Printer, AlertCircle, History, Mail, Settings } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
 import { useLabelHistory } from '@/hooks/useLabelHistory';
@@ -19,7 +19,6 @@ import { getCountryCode } from '@/lib/countryCodes';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
-  const { toast } = useToast();
   const {
     config,
     isLoaded,
@@ -59,10 +58,8 @@ const Index = () => {
 
   const handlePrint = async () => {
     if (!isConfigured) {
-      toast({
-        title: 'Configuration Required',
-        description: 'Please complete the API and sender address configuration.',
-        variant: 'destructive'
+      toast.error('Configuration Required', {
+        description: 'Please complete the API and sender address configuration.'
       });
       return;
     }
@@ -82,10 +79,8 @@ const Index = () => {
         productToUse = defaultProduct.code;
         setSelectedProduct(productToUse);
       } else {
-        toast({
-          title: 'Product Required',
-          description: 'Please select a shipping product.',
-          variant: 'destructive'
+        toast.error('Product Required', {
+          description: 'Please select a shipping product.'
         });
         return;
       }
@@ -95,28 +90,22 @@ const Index = () => {
     // walletBalance is in cents from API, product.cost is in EUR
     const productCostInCents = product ? Math.round(product.cost * 100) : 0;
     if (product && walletBalance !== null && walletBalance < productCostInCents) {
-      toast({
-        title: 'Insufficient Balance',
-        description: `Wallet balance (${(walletBalance / 100).toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`,
-        variant: 'destructive'
+      toast.error('Insufficient Balance', {
+        description: `Wallet balance (${(walletBalance / 100).toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`
       });
       return;
     }
     
     if (!recipientAddress.trim()) {
-      toast({
-        title: 'Address Required',
-        description: 'Please enter a recipient address.',
-        variant: 'destructive'
+      toast.error('Address Required', {
+        description: 'Please enter a recipient address.'
       });
       return;
     }
     
     if (!validation.isValid) {
-      toast({
-        title: 'Address Invalid',
-        description: 'Please fix the address validation errors before printing.',
-        variant: 'destructive'
+      toast.error('Address Invalid', {
+        description: 'Please fix the address validation errors before printing.'
       });
       return;
     }
@@ -170,10 +159,8 @@ const Index = () => {
       // Check for errors - the API should return success: true only on HTTP 200
       if (!purchaseResponse.ok || !purchaseData.success) {
         console.error('Label purchase failed:', purchaseData);
-        toast({
-          title: 'Purchase Failed',
-          description: purchaseData.error || purchaseData.details || 'Failed to purchase label from Deutsche Post.',
-          variant: 'destructive'
+        toast.error('Purchase Failed', {
+          description: purchaseData.error || purchaseData.details || 'Failed to purchase label from Deutsche Post.'
         });
         return;
       }
@@ -253,16 +240,13 @@ const Index = () => {
             throw new Error(printResult.error || 'Print failed');
           }
           
-          toast({
-            title: 'Label Printed',
+          toast.success('Label Printed', {
             description: `${product?.name} label sent to printer.`
           });
         } catch (printError) {
           console.error('Direct print failed:', printError);
-          toast({
-            title: 'Print Failed',
-            description: printError instanceof Error ? printError.message : 'Failed to send to printer. Label saved for retry.',
-            variant: 'destructive'
+          toast.error('Print Failed', {
+            description: printError instanceof Error ? printError.message : 'Failed to send to printer. Label saved for retry.'
           });
         }
       } else if (printMode === 'download' && savedLabel) {
@@ -281,20 +265,17 @@ const Index = () => {
             a.click();
             URL.revokeObjectURL(url);
           }
-          toast({
-            title: 'Label Downloaded',
+          toast.success('Label Downloaded', {
             description: `${product?.name} label saved.`
           });
         } catch (downloadError) {
           console.warn('Download failed:', downloadError);
-          toast({
-            title: 'Label Purchased',
+          toast.success('Label Purchased', {
             description: `${product?.name} label saved. Download from history.`
           });
         }
       } else {
-        toast({
-          title: 'Label Purchased & Saved',
+        toast.success('Label Purchased & Saved', {
           description: `${product?.name} label ready.`
         });
       }
@@ -306,10 +287,8 @@ const Index = () => {
       setTrackingNumber(null);
     } catch (error) {
       console.error('Label purchase error:', error);
-      toast({
-        title: 'Purchase Failed',
-        description: error instanceof Error ? error.message : 'Failed to purchase label. Please try again.',
-        variant: 'destructive'
+      toast.error('Purchase Failed', {
+        description: error instanceof Error ? error.message : 'Failed to purchase label. Please try again.'
       });
     } finally {
       setIsPrinting(false);
@@ -451,12 +430,12 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="settings">
-            <SettingsPanel 
-              config={config} 
-              products={products} 
-              onUpdatePrinterConfig={updatePrinterConfig} 
-              onUpdateSenderAddress={updateSenderAddress} 
-              onUpdateFavoriteProducts={updateFavoriteProducts} 
+            <SettingsPanel
+              config={config}
+              products={products}
+              onUpdatePrinterConfig={updatePrinterConfig}
+              onUpdateSenderAddress={updateSenderAddress}
+              onUpdateFavoriteProducts={updateFavoriteProducts}
             />
           </TabsContent>
         </Tabs>
