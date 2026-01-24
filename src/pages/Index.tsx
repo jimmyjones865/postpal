@@ -6,7 +6,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useLabelHistory } from '@/hooks/useLabelHistory';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
-import { AddressInput } from '@/components/AddressInput';
+import { AddressInput, PrintMode } from '@/components/AddressInput';
 import { LabelPreview } from '@/components/LabelPreview';
 import { LabelHistory } from '@/components/LabelHistory';
 import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
@@ -44,6 +44,7 @@ const Index = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
+  const [printMode, setPrintMode] = useState<PrintMode>('print');
   
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
@@ -66,7 +67,31 @@ const Index = () => {
       return;
     }
 
-    const product = products.find(p => p.code === selectedProduct);
+    // Auto-select product if none selected (default to standard letter based on country)
+    let productToUse = selectedProduct;
+    if (!productToUse) {
+      const recipientCountry = getCountryCode(parsedRecipient.country) || '';
+      const isDomestic = !recipientCountry || recipientCountry === 'DE' || recipientCountry === 'DEU';
+      
+      // Find first standard letter product (domestic or international)
+      const defaultProduct = products.find(p => 
+        p.group === 'standard' && p.domestic === isDomestic
+      );
+      
+      if (defaultProduct) {
+        productToUse = defaultProduct.code;
+        setSelectedProduct(productToUse);
+      } else {
+        toast({
+          title: 'Product Required',
+          description: 'Please select a shipping product.',
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
+    const product = products.find(p => p.code === productToUse);
     // walletBalance is in cents from API, product.cost is in EUR
     const productCostInCents = product ? Math.round(product.cost * 100) : 0;
     if (product && walletBalance !== null && walletBalance < productCostInCents) {
@@ -91,15 +116,6 @@ const Index = () => {
       toast({
         title: 'Address Invalid',
         description: 'Please fix the address validation errors before printing.',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    if (!selectedProduct) {
-      toast({
-        title: 'Product Required',
-        description: 'Please select a shipping product.',
         variant: 'destructive'
       });
       return;
@@ -143,11 +159,9 @@ const Index = () => {
             country: senderCountryCode
           },
           receiver,
-          productCode: selectedProduct,
+          productCode: productToUse,
           priceInCents: productCostInCents,
-
           paperFormatName: config.printerConfig.paperFormatName,
-
         })
       });
       
@@ -177,6 +191,7 @@ const Index = () => {
       }
 
       // Save the label to storage (original, uncropped PDF)
+      let savedLabel;
       try {
         // If we have a PDF URL, fetch it via our proxy (WITHOUT cropping) and convert to base64
         let pdfBase64 = '';
@@ -202,38 +217,92 @@ const Index = () => {
           }
         }
         
-        const savedLabel = await saveLabel({
+        savedLabel = await saveLabel({
           pdfBase64,
           recipientAddress,
-          productCode: selectedProduct,
-          productName: product?.name || selectedProduct
+          productCode: productToUse!,
+          productName: product?.name || productToUse!
         });
         addLabel(savedLabel);
-        
-        // Reset form after successful purchase
-        setSelectedProduct(null);
-        setRecipientAddress('');
-        setParsedRecipient(emptyAddress());
-        setTrackingNumber(null);
-        
-        toast({
-          title: 'Label Purchased & Saved',
-          description: `${product?.name} label ready to print.`
-        });
       } catch (saveError) {
         console.warn('Could not save label to storage:', saveError);
-        
-        // Still reset form even if storage failed
-        setSelectedProduct(null);
-        setRecipientAddress('');
-        setParsedRecipient(emptyAddress());
-        setTrackingNumber(null);
-        
+      }
+
+      // Handle print mode
+      if (printMode === 'print' && config.printerConfig.enableDirectPrint && config.printerConfig.cupsUrl && savedLabel) {
+        // Direct print via CUPS
+        try {
+          const printResponse = await fetch(`${API_BASE}/print`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              labelId: savedLabel.id,
+              cupsUrl: config.printerConfig.cupsUrl,
+              printerName: config.printerConfig.printerName,
+              orientation: config.printerConfig.orientation,
+              paperFormatName: config.printerConfig.paperFormatName,
+              cropH: config.printerConfig.cropMarginHorizontal ?? 5,
+              cropV: config.printerConfig.cropMarginVertical ?? 5,
+            })
+          });
+          
+          const printResult = await printResponse.json();
+          
+          if (!printResponse.ok || !printResult.success) {
+            throw new Error(printResult.error || 'Print failed');
+          }
+          
+          toast({
+            title: 'Label Printed',
+            description: `${product?.name} label sent to printer.`
+          });
+        } catch (printError) {
+          console.error('Direct print failed:', printError);
+          toast({
+            title: 'Print Failed',
+            description: printError instanceof Error ? printError.message : 'Failed to send to printer. Label saved for retry.',
+            variant: 'destructive'
+          });
+        }
+      } else if (printMode === 'download' && savedLabel) {
+        // Download the cropped PDF
+        try {
+          const cropH = config.printerConfig.cropMarginHorizontal ?? 5;
+          const cropV = config.printerConfig.cropMarginVertical ?? 5;
+          const pdfUrl = `${API_BASE}/labels/${savedLabel.id}/pdf?print=1&cropH=${cropH}&cropV=${cropV}`;
+          const pdfResponse = await fetch(pdfUrl);
+          if (pdfResponse.ok) {
+            const blob = await pdfResponse.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `label-${savedLabel.id}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+          toast({
+            title: 'Label Downloaded',
+            description: `${product?.name} label saved.`
+          });
+        } catch (downloadError) {
+          console.warn('Download failed:', downloadError);
+          toast({
+            title: 'Label Purchased',
+            description: `${product?.name} label saved. Download from history.`
+          });
+        }
+      } else {
         toast({
-          title: 'Label Purchased',
-          description: `${product?.name} label purchased. (Local storage unavailable)`
+          title: 'Label Purchased & Saved',
+          description: `${product?.name} label ready.`
         });
       }
+      
+      // Reset form after successful purchase
+      setSelectedProduct(null);
+      setRecipientAddress('');
+      setParsedRecipient(emptyAddress());
+      setTrackingNumber(null);
     } catch (error) {
       console.error('Label purchase error:', error);
       toast({
@@ -309,7 +378,9 @@ const Index = () => {
                   onChange={setRecipientAddress} 
                   onPrint={handlePrint} 
                   isPrinting={isPrinting} 
-                  canPrint={canPrint} 
+                  canPrint={canPrint}
+                  printMode={printMode}
+                  onPrintModeChange={setPrintMode}
                 />
               </div>
 
@@ -365,6 +436,13 @@ const Index = () => {
                 printOptions={{
                   cropH: config.printerConfig.cropMarginHorizontal ?? 5,
                   cropV: config.printerConfig.cropMarginVertical ?? 5
+                }}
+                directPrintConfig={{
+                  cupsUrl: config.printerConfig.cupsUrl || '',
+                  printerName: config.printerConfig.printerName || '',
+                  orientation: config.printerConfig.orientation,
+                  paperFormatName: config.printerConfig.paperFormatName || '',
+                  enableDirectPrint: config.printerConfig.enableDirectPrint || false
                 }}
               />
             </div>
