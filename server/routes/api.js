@@ -392,7 +392,7 @@ export function createApiRouter() {
   /* Direct printing via CUPS IPP */
   router.post('/print', async (req, res) => {
     try {
-      const { labelId, cupsUrl, printerName, orientation, paperFormatName, cropH, cropV } = req.body;
+      const { labelId, cupsUrl, printerName, orientation, paperFormatName, cropH, cropV, disableCropping } = req.body;
       
       if (!labelId || !cupsUrl || !printerName) {
         return res.status(400).json({ error: 'Missing required fields: labelId, cupsUrl, printerName' });
@@ -408,15 +408,19 @@ export function createApiRouter() {
       // Read original PDF
       let pdfBuffer = await fs.readFile(path.join(PDF_STORAGE_PATH, label.filename));
       
-      // Crop the PDF
-      const cropMarginH = parseFloat(cropH) || 5;
-      const cropMarginV = parseFloat(cropV) || 5;
-      
-      try {
-        pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
-        console.log('[Print] PDF cropped');
-      } catch (cropErr) {
-        console.error('[Print] Crop failed, using original:', cropErr.message);
+      // Crop the PDF (unless disabled)
+      if (!disableCropping) {
+        const cropMarginH = parseFloat(cropH) || 5;
+        const cropMarginV = parseFloat(cropV) || 5;
+        
+        try {
+          pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
+          console.log('[Print] PDF cropped');
+        } catch (cropErr) {
+          console.error('[Print] Crop failed, using original:', cropErr.message);
+        }
+      } else {
+        console.log('[Print] Cropping disabled, using original PDF');
       }
       
       // Check if paper format is endless roll (detected by "Endlos" in name)

@@ -301,37 +301,52 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">
               Label Cropping (minimize paper usage)
             </Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="config-field">
-                <Label className="config-label text-xs">Horizontal Margin (mm)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={config.printerConfig.cropMarginHorizontal ?? 5}
-                  onChange={e =>
-                    onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })
-                  }
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="config-field">
-                <Label className="config-label text-xs">Vertical Margin (mm)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={config.printerConfig.cropMarginVertical ?? 5}
-                  onChange={e =>
-                    onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })
-                  }
-                  className="h-9 text-sm"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Crops whitespace from labels, keeping the specified margins around the content.
-            </p>
+            
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <Checkbox
+                checked={config.printerConfig.disableCropping || false}
+                onCheckedChange={checked => 
+                  onUpdatePrinterConfig({ disableCropping: checked === true })
+                }
+              />
+              <span className="text-sm">Disable cropping (use original PDF)</span>
+            </label>
+            
+            {!config.printerConfig.disableCropping && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="config-field">
+                    <Label className="config-label text-xs">Horizontal Margin (mm)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginHorizontal ?? 5}
+                      onChange={e =>
+                        onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })
+                      }
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <Label className="config-label text-xs">Vertical Margin (mm)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginVertical ?? 5}
+                      onChange={e =>
+                        onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })
+                      }
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Crops whitespace from labels, keeping the specified margins around the content.
+                </p>
+              </>
+            )}
           </div>
         </TabsContent>
 
