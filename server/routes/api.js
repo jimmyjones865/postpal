@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
    Paper formats (loaded once)
    ============================================================ */
 
-const paperFormatsPath = path.join(__dirname, '../../public/paper-formats.json');
+const paperFormatsPath = path.join(process.cwd(), 'public/paper-formats.json');
 
 let paperFormatsJson = {};
 try {
