@@ -284,24 +284,3 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
   };
 }
 
-/**
- * @deprecated Legacy name – use cropPdfWithPadding instead.
- */
-export async function cropPdfWhitespace(
-  pdfBuffer,
-  marginHorizontalMm = 5,
-  marginVerticalMm = 5
-) {
-  return cropPdfWithPadding(pdfBuffer, marginHorizontalMm, marginVerticalMm);
-}
-
-/**
- * @deprecated Legacy alias – use cropPdfWithPadding instead.
- */
-export async function smartCropPdf(
-  pdfBuffer,
-  paddingHorizontalMm = 5,
-  paddingVerticalMm = 5
-) {
-  return cropPdfWithPadding(pdfBuffer, paddingHorizontalMm, paddingVerticalMm);
-}

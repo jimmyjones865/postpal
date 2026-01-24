@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseAddress } from '../lib/european-address-parser.js';
-import { cropPdfWhitespace, cropPdfWithPadding, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
+import { cropPdfWithPadding, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -356,7 +356,7 @@ export function createApiRouter() {
 
       if (print === '1') {
         try {
-          pdfBuffer = await cropPdfWhitespace(pdfBuffer, parseFloat(cropH) || 5, parseFloat(cropV) || 5);
+          pdfBuffer = await cropPdfWithPadding(pdfBuffer, parseFloat(cropH) || 5, parseFloat(cropV) || 5);
           console.log('[Labels] PDF cropped for printing');
         } catch (err) {
           console.error('[Labels] Crop failed, sending original:', err.message);
