@@ -21,11 +21,35 @@ const RENDER_SCALE = 2;
 const WHITE_THRESHOLD = 250;
 
 /**
+ * Custom CanvasFactory for pdfjs-dist in Node.js environment
+ */
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext('2d');
+    return { canvas, context };
+  }
+
+  reset(canvasAndContext, width, height) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+
+  destroy(canvasAndContext) {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+}
+
+/**
  * Detects content bounds by rendering PDF pages and scanning for non-white pixels.
  */
 async function getContentBoundsPerPage(pdfBuffer) {
   const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
-  const pdf = await getDocument({ data, disableFontFace: true }).promise;
+  const canvasFactory = new NodeCanvasFactory();
+  const pdf = await getDocument({ data, disableFontFace: true, canvasFactory }).promise;
 
   const results = [];
 
