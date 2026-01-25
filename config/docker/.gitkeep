@@ -1,2 +1,0 @@
-# Docker deployment configuration
-DOCKER_CONFIG_DIR=config/docker
