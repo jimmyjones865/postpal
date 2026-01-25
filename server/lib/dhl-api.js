@@ -3,6 +3,8 @@
  * Handles authentication, token caching, and label purchases.
  */
 
+import { logger } from './logger.js';
+
 const DHL_API_BASE = 'https://api-eu.dhl.com/post/de/shipping/im/v1';
 
 /**
@@ -39,8 +41,8 @@ export function createDhlClient() {
       password: portokassePassword
     });
 
-    console.log('[DHL] Authenticating...');
-    console.log('[DHL] Body params (masked):', body.toString()
+    logger.info('[DHL] Authenticating...');
+    logger.debug('[DHL] Body params (masked):', body.toString()
       .replace(/password=[^&]+/, 'password=***')
       .replace(/client_secret=[^&]+/, 'client_secret=***'));
 
@@ -54,14 +56,14 @@ export function createDhlClient() {
     });
 
     const text = await response.text();
-    console.log('[DHL] Auth response:', response.status, text);
+    logger.debug('[DHL] Auth response:', response.status, text);
 
     if (!response.ok) {
       throw new Error(`Authentication failed: ${response.status} - ${text}`);
     }
 
     const data = JSON.parse(text);
-    console.log('[DHL] Token received, balance:', data.walletBallance ?? data.walletBalance);
+    logger.info('[DHL] Token received, balance:', data.walletBallance ?? data.walletBalance);
     return data;
   }
 
@@ -136,7 +138,7 @@ export function createDhlClient() {
    * @returns {Object} Purchase response
    */
   async function purchaseLabel(accessToken, payload) {
-    console.log('[DHL] Purchasing label:', JSON.stringify(payload, null, 2));
+    logger.debug('[DHL] Purchasing label:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true`, {
       method: 'POST',
@@ -148,7 +150,7 @@ export function createDhlClient() {
     });
 
     const responseText = await response.text();
-    console.log(`[DHL] Purchase response status=${response.status}, body=${responseText}`);
+    logger.debug(`[DHL] Purchase response status=${response.status}, body=${responseText}`);
 
     if (!response.ok) {
       return { 

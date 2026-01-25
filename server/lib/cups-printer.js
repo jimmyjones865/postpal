@@ -1,4 +1,5 @@
 import ipp from 'ipp';
+import { logger } from './logger.js';
 
 /**
  * CUPS Printer utility for direct IPP printing
@@ -29,8 +30,8 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
   const baseUrl = cupsUrl.replace(/\/$/, '');
   const printerUri = `${baseUrl}/printers/${printerName}`;
   
-  console.log(`[CUPS] Sending print job to: ${printerUri}`);
-  console.log(`[CUPS] Job name: ${jobName}, PDF size: ${pdfBuffer.length} bytes`);
+  logger.info(`[CUPS] Sending print job to: ${printerUri}`);
+  logger.debug(`[CUPS] Job name: ${jobName}, PDF size: ${pdfBuffer.length} bytes`);
   
   // Build job attributes
   const jobAttributes = {
@@ -46,7 +47,7 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
         'y-dimension': Math.round(mediaHeightMm * 100)
       }
     };
-    console.log(`[CUPS] Setting media size: ${mediaWidthMm.toFixed(1)}x${mediaHeightMm.toFixed(1)}mm`);
+    logger.debug(`[CUPS] Setting media size: ${mediaWidthMm.toFixed(1)}x${mediaHeightMm.toFixed(1)}mm`);
   }
   
   return new Promise((resolve) => {
@@ -64,7 +65,7 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
     
     printer.execute('Print-Job', msg, (err, res) => {
       if (err) {
-        console.error('[CUPS] Print error:', err.message);
+        logger.error('[CUPS] Print error:', err.message);
         resolve({
           success: false,
           error: err.message || 'Failed to communicate with printer'
@@ -74,19 +75,19 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
       
       // Check IPP response status
       const statusCode = res.statusCode;
-      console.log('[CUPS] Response status:', statusCode, res['status-message']);
+      logger.debug('[CUPS] Response status:', statusCode, res['status-message']);
       
       // IPP success codes are 0x0000-0x00FF
       if (statusCode !== undefined && statusCode <= 0x00FF) {
         const jobId = res['job-attributes-tag']?.['job-id'];
-        console.log('[CUPS] Print job submitted, ID:', jobId);
+        logger.info('[CUPS] Print job submitted, ID:', jobId);
         resolve({
           success: true,
           jobId: jobId
         });
       } else {
         const errorMsg = res['status-message'] || `IPP error: ${statusCode}`;
-        console.error('[CUPS] Print failed:', errorMsg);
+        logger.error('[CUPS] Print failed:', errorMsg);
         resolve({
           success: false,
           error: errorMsg
@@ -112,7 +113,7 @@ export async function getPrinterStatus(cupsUrl, printerName) {
     
     printer.execute('Get-Printer-Attributes', null, (err, res) => {
       if (err) {
-        console.error('[CUPS] Status check error:', err.message);
+        logger.error('[CUPS] Status check error:', err.message);
         resolve({
           online: false,
           error: err.message

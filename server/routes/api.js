@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from '../lib/logger.js';
 import { parseAddress } from '../lib/european-address-parser.js';
 import { createLabelStorage } from '../lib/label-storage.js';
 import { createDhlClient } from '../lib/dhl-api.js';
@@ -19,7 +20,7 @@ try {
   const raw = await fs.readFile(paperFormatsPath, 'utf-8');
   paperFormatsJson = JSON.parse(raw);
 } catch (err) {
-  console.error('Failed to load paper formats JSON:', err);
+  logger.error('Failed to load paper formats JSON:', err);
 }
 
 const paperFormats = Object.values(paperFormatsJson).flat().filter(Boolean);
@@ -106,13 +107,13 @@ export function createApiRouter() {
         return res.status(400).json({ error: 'Missing address field' });
       }
 
-      console.log('[ParseAddress] Input:', address);
+      logger.debug('[ParseAddress] Input:', address);
       const result = parseAddress(address);
-      console.log('[ParseAddress] Parsed:', JSON.stringify(result));
+      logger.debug('[ParseAddress] Parsed:', JSON.stringify(result));
 
       res.json(result);
     } catch (err) {
-      console.error('[ParseAddress] Error:', err);
+      logger.error('[ParseAddress] Error:', err);
       res.status(500).json({ error: 'Failed to parse address' });
     }
   });
@@ -130,7 +131,7 @@ export function createApiRouter() {
         return res.status(403).json({ error: 'Only DHL URLs allowed' });
       }
 
-      console.log('[ProxyPDF] Fetching:', url);
+      logger.debug('[ProxyPDF] Fetching:', url);
       const response = await fetch(url);
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch PDF' });
@@ -141,7 +142,7 @@ export function createApiRouter() {
       res.setHeader('Content-Disposition', 'inline; filename="label.pdf"');
       res.send(buffer);
     } catch (err) {
-      console.error('[ProxyPDF] Error:', err);
+      logger.error('[ProxyPDF] Error:', err);
       res.status(500).json({ error: 'Failed to proxy PDF' });
     }
   });
