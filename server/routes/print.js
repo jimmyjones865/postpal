@@ -1,5 +1,5 @@
 import express from 'express';
-import { cropPdfWithPadding, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
+import { cropPdfWithPaddingAndDimensions, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
 /**
@@ -41,16 +41,25 @@ export function createPrintRouter(storage) {
       const cropMarginV = parseFloat(cropV) || 5;
       const isLandscape = orientation === 'landscape';
       
-      // Get cropped dimensions and crop PDF
+      // Crop PDF and get dimensions in a single operation (avoids duplicate pixel scanning)
       let croppedDimensions = null;
+      let cropFailed = false;
       
       if (!disableCropping) {
         try {
-          croppedDimensions = await getContentDimensions(pdfBuffer, cropMarginH, cropMarginV);
-          pdfBuffer = await cropPdfWithPadding(pdfBuffer, cropMarginH, cropMarginV);
-          console.log(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
+          const cropResult = await cropPdfWithPaddingAndDimensions(pdfBuffer, cropMarginH, cropMarginV);
+          pdfBuffer = cropResult.buffer;
+          croppedDimensions = cropResult.dimensions;
+          cropFailed = cropResult.fallback;
+          
+          if (cropResult.fallback) {
+            console.log(`[Print] Content detection failed, keeping original size: ${croppedDimensions.original.widthMm}x${croppedDimensions.original.heightMm}mm`);
+          } else {
+            console.log(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
+          }
         } catch (cropErr) {
           console.error('[Print] Crop failed:', cropErr.message);
+          cropFailed = true;
           
           // For endless roll, cropping is mandatory to determine height
           if (endlessRoll) {
@@ -69,8 +78,22 @@ export function createPrintRouter(storage) {
       let mediaWidthMm, mediaHeightMm;
       
       if (endlessRoll) {
-        const contentWidth = croppedDimensions?.cropped?.widthMm || paperWidthMm || 62;
-        const contentHeight = croppedDimensions?.cropped?.heightMm || 40;
+        // For endless roll, we need cropped dimensions - if detection failed, use original or explicit
+        let contentWidth, contentHeight;
+        
+        if (croppedDimensions?.cropped) {
+          contentWidth = croppedDimensions.cropped.widthMm;
+          contentHeight = croppedDimensions.cropped.heightMm;
+        } else if (croppedDimensions?.original && !cropFailed) {
+          // Use original dimensions if available and crop wasn't explicitly disabled
+          contentWidth = croppedDimensions.original.widthMm;
+          contentHeight = croppedDimensions.original.heightMm;
+        } else {
+          // Fallback to explicit paper dimensions or defaults
+          contentWidth = paperWidthMm || 62;
+          contentHeight = paperHeightMm || 100;
+          console.log(`[Print] Using fallback dimensions: ${contentWidth}x${contentHeight}mm`);
+        }
         
         if (isLandscape) {
           mediaWidthMm = paperWidthMm || 62;

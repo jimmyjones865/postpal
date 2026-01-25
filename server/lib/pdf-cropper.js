@@ -162,14 +162,21 @@ async function getContentBoundsPerPage(pdfBuffer) {
 
     const { minX, minY, maxX, maxY, hasContent } = scan;
     
-    // Fallback if no content detected
+    // Actual page dimensions in PDF points (for fallback)
+    const actualPageWidthPts = viewport.width / RENDER_SCALE;
+    const actualPageHeightPts = viewport.height / RENDER_SCALE;
+    
+    console.log(`[PDFCropper] Page ${pageNum}: canvas ${width}x${height}px, found ${scan.totalInk} ink pixels`);
+    
+    // Fallback if no content detected - use actual page bounds and flag it
     if (!hasContent) {
-      console.warn('[PDFCropper] No content detected on page', pageNum, '- using full page');
+      console.warn(`[PDFCropper] No content detected on page ${pageNum} - using full page (${Math.round(actualPageWidthPts)}x${Math.round(actualPageHeightPts)} pts)`);
       results.push({
         minX: 0,
         minY: 0,
-        maxX: viewport.width / RENDER_SCALE,
-        maxY: viewport.height / RENDER_SCALE
+        maxX: actualPageWidthPts,
+        maxY: actualPageHeightPts,
+        fallback: true
       });
     } else {
       // Sanity-check: ignore absurdly small detections (often caused by a single line/pixel)
@@ -180,14 +187,17 @@ async function getContentBoundsPerPage(pdfBuffer) {
       const detectedHeightMm = pointsToMm(detectedHeightPts);
 
       if (detectedWidthMm < MIN_CONTENT_MM || detectedHeightMm < MIN_CONTENT_MM) {
+        const actualPageWidthPts2 = viewport.width / RENDER_SCALE;
+        const actualPageHeightPts2 = viewport.height / RENDER_SCALE;
         console.warn(
           `[PDFCropper] Suspiciously small content bounds on page ${pageNum} (${detectedWidthMm.toFixed(1)}x${detectedHeightMm.toFixed(1)}mm). Falling back to full page.`
         );
         results.push({
           minX: 0,
           minY: 0,
-          maxX: viewport.width / RENDER_SCALE,
-          maxY: viewport.height / RENDER_SCALE
+          maxX: actualPageWidthPts2,
+          maxY: actualPageHeightPts2,
+          fallback: true
         });
         continue;
       }
@@ -233,6 +243,12 @@ export async function cropPdfWithPadding(
 
   for (let i = 0; i < pages.length; i++) {
     const b = bounds[i];
+
+    // If detection failed, don't apply cropping - keep original page size
+    if (b.fallback) {
+      console.log(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
+      continue;
+    }
 
     // Calculate new page dimensions: content + uniform padding on all sides
     const newMinX = b.minX - padX;
@@ -332,7 +348,7 @@ export async function prepareForEndlessRoll(pdfBuffer, rollWidthMm, landscape = 
  * @param {Buffer} pdfBuffer - Original PDF buffer
  * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
  * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
- * @returns {Promise<{original: {widthMm: number, heightMm: number}, cropped: {widthMm: number, heightMm: number}}>}
+ * @returns {Promise<{original: {widthMm: number, heightMm: number}, cropped: {widthMm: number, heightMm: number} | null}>}
  */
 export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
   const bounds = await getContentBoundsPerPage(pdfBuffer);
@@ -340,7 +356,7 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
   const pages = pdfDoc.getPages();
   
   if (pages.length === 0 || bounds.length === 0) {
-    return { original: { widthMm: 0, heightMm: 0 }, cropped: { widthMm: 0, heightMm: 0 } };
+    return { original: { widthMm: 0, heightMm: 0 }, cropped: null };
   }
   
   const page = pages[0];
@@ -350,6 +366,18 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
   
   const originalWidth = page.getWidth();
   const originalHeight = page.getHeight();
+  
+  // If detection failed, return null for cropped dimensions
+  if (b.fallback) {
+    return {
+      original: {
+        widthMm: Math.round(pointsToMm(originalWidth) * 10) / 10,
+        heightMm: Math.round(pointsToMm(originalHeight) * 10) / 10
+      },
+      cropped: null
+    };
+  }
+  
   const croppedWidth = (b.maxX - b.minX) + padX * 2;
   const croppedHeight = (b.maxY - b.minY) + padY * 2;
   
@@ -362,6 +390,84 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
       widthMm: Math.round(pointsToMm(croppedWidth) * 10) / 10,
       heightMm: Math.round(pointsToMm(croppedHeight) * 10) / 10
     }
+  };
+}
+
+/**
+ * Crops a PDF and returns both the cropped buffer AND dimensions in a single call.
+ * This avoids duplicate pixel scanning operations.
+ * 
+ * @param {Buffer} pdfBuffer - Original PDF buffer (NOT modified)
+ * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
+ * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @returns {Promise<{buffer: Buffer, dimensions: {original: {...}, cropped: {...} | null}, fallback: boolean}>}
+ */
+export async function cropPdfWithPaddingAndDimensions(
+  pdfBuffer,
+  paddingHorizontalMm = 5,
+  paddingVerticalMm = 5
+) {
+  const bounds = await getContentBoundsPerPage(pdfBuffer);
+  
+  const pdfDoc = await PDFDocument.load(pdfBuffer);
+  const pages = pdfDoc.getPages();
+
+  const padX = mmToPoints(paddingHorizontalMm);
+  const padY = mmToPoints(paddingVerticalMm);
+  
+  // Get original dimensions from first page
+  const originalWidth = pages[0].getWidth();
+  const originalHeight = pages[0].getHeight();
+  
+  const b = bounds[0];
+  const hasFallback = b.fallback === true;
+  
+  let croppedWidthPts, croppedHeightPts;
+  
+  for (let i = 0; i < pages.length; i++) {
+    const pageBounds = bounds[i];
+
+    // If detection failed, don't apply cropping - keep original page size
+    if (pageBounds.fallback) {
+      console.log(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
+      continue;
+    }
+
+    // Calculate new page dimensions: content + uniform padding on all sides
+    const newMinX = pageBounds.minX - padX;
+    const newMinY = pageBounds.minY - padY;
+    const newWidth = (pageBounds.maxX - pageBounds.minX) + padX * 2;
+    const newHeight = (pageBounds.maxY - pageBounds.minY) + padY * 2;
+    
+    // Store first page cropped dimensions
+    if (i === 0) {
+      croppedWidthPts = newWidth;
+      croppedHeightPts = newHeight;
+    }
+
+    console.log(`[PDFCropper] Page ${i + 1}: content ${Math.round(pageBounds.maxX - pageBounds.minX)}x${Math.round(pageBounds.maxY - pageBounds.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (${paddingHorizontalMm}mm/${paddingVerticalMm}mm padding)`);
+
+    // Set all box types to ensure consistent cropping across viewers/printers
+    pages[i].setMediaBox(newMinX, newMinY, newWidth, newHeight);
+    pages[i].setCropBox(newMinX, newMinY, newWidth, newHeight);
+    pages[i].setTrimBox(newMinX, newMinY, newWidth, newHeight);
+    pages[i].setBleedBox(newMinX, newMinY, newWidth, newHeight);
+    pages[i].setArtBox(newMinX, newMinY, newWidth, newHeight);
+  }
+
+  return {
+    buffer: Buffer.from(await pdfDoc.save()),
+    dimensions: {
+      original: {
+        widthMm: Math.round(pointsToMm(originalWidth) * 10) / 10,
+        heightMm: Math.round(pointsToMm(originalHeight) * 10) / 10
+      },
+      cropped: hasFallback ? null : {
+        widthMm: Math.round(pointsToMm(croppedWidthPts) * 10) / 10,
+        heightMm: Math.round(pointsToMm(croppedHeightPts) * 10) / 10
+      }
+    },
+    fallback: hasFallback
   };
 }
 
