@@ -1,95 +1,67 @@
 
-## What’s actually causing the “60 ink pixels” result
+# Project Cleanup Plan
 
-In `server/lib/pdf-cropper.js`, the scan loop uses:
+## Summary
 
-- `width = viewport.width` and `height = viewport.height` (both **floating point**, e.g. `498.896`)
-- pixel indexing: `idx = (y * width + x) * 4`
-
-When `y > 0`, `y * width` becomes a float, so `idx` becomes a float.  
-Accessing `pixels[idx]` with a float index returns `undefined`, so almost no pixels are ever counted as “ink”.
-
-The only row that still works is `y = 0` (because `0 * width` is `0`, producing integer indices). That perfectly explains why you see a small non-zero number like **60**: you’re effectively scanning only the first row of the canvas.
-
-So the main fix is: **always scan using integer canvas dimensions** and compute indices using those integers.
+Remove unused configuration files and dependencies left over from previous architecture iterations. The project has evolved to use a single consolidated Node.js container, making the old Nginx and Bun-related files obsolete.
 
 ---
 
-## Implementation changes
+## Files to Delete
 
-### 1) Fix pixel scanning to use integer canvas dimensions (core fix)
-**File:** `server/lib/pdf-cropper.js`
-
-**Change approach:**
-- Keep using `viewport = page.getViewport({ scale: RENDER_SCALE })` for rendering.
-- Create an integer-backed canvas size:
-  - `const canvasWidth = Math.ceil(viewport.width)`
-  - `const canvasHeight = Math.ceil(viewport.height)`
-- Use `canvasWidth/canvasHeight` everywhere for:
-  - `createCanvas()`
-  - `fillRect()`
-  - `getImageData()`
-  - scan loops
-  - typed array sizes (`rowInk`, `colInk`)
-  - index calculation `idx = (y * canvasWidth + x) * 4`
-
-**Why `Math.ceil` and not `Math.floor`:**
-- Avoids clipping the rendered content at the right/bottom edge when viewport size is fractional.
-
-**Also update the log** to show both viewport and integer canvas dimensions so future debugging is straightforward.
-
-Expected result: ink pixel counts should jump from ~60 to many thousands for a real label.
+| File | Reason |
+|------|--------|
+| `config/nginx.conf` | Not used - the consolidated Dockerfile uses Express to serve static files directly, not Nginx |
+| `config/docker/.gitkeep` | Empty placeholder for an unused directory |
+| `server/entrypoint.sh` | Not referenced in Dockerfile - CMD uses `node index.js` directly |
+| `bun.lockb` | Binary Bun lockfile - project uses npm (package-lock.json exists) |
+| `bun.lock` | Text Bun lockfile - same reason, npm is the package manager |
+| `.lovable/plan.md` | Old plan file from the previous fix, no longer needed |
 
 ---
 
-### 2) Fix endless-roll fallback height to use original PDF height (your chosen behavior)
-Right now `server/routes/print.js` still falls back to `paperHeightMm || 100` in the endless-roll branch, which is why you see:
+## Directory to Remove
 
-`[Print] Using fallback dimensions: 88x100mm`
-
-**File:** `server/routes/print.js`
-
-**Change approach:**
-- In the endless roll sizing logic, prefer:
-  1) `croppedDimensions.cropped` if available
-  2) otherwise `croppedDimensions.original` (even when detection failed / fallback happened)
-  3) only then fall back to explicit/default
-
-Concretely: remove the `&& !cropFailed` guard so original dimensions are used when detection fails.
-
-This ensures:
-- if content detection fails, you still print using the original PDF height (not 100mm).
-- matches your stated preference for crop-fail behavior.
+| Directory | Reason |
+|-----------|--------|
+| `config/` | Will be empty after removing nginx.conf and docker/.gitkeep |
 
 ---
 
-### 3) (Optional but recommended) Add a “scan sanity” retry when ink exists but bounds fail
-After the integer-dimension fix, this may not be needed, but it’s a good robustness improvement:
+## Files to Update
 
-**File:** `server/lib/pdf-cropper.js`
+### `.gitignore`
+Add Bun lockfiles to prevent them from reappearing if someone accidentally runs `bun install`:
 
-If `totalInk > 0` but `hasContent` is false due to row/column thresholds, do one more pass with `rowThreshold=1` / `colThreshold=1` to recover sparse content (thin lines, faint barcodes).
+```diff
++ # Bun lockfiles (project uses npm)
++ bun.lockb
++ bun.lock
+```
 
-This is a safety net and shouldn’t affect normal labels.
+### `.dockerignore`
+Add Bun lockfiles and config directory to keep Docker builds clean:
+
+```diff
++ bun.lockb
++ bun.lock
++ config/
+```
 
 ---
 
-## Validation steps (how we’ll confirm it’s fixed)
+## Optional: README.md Improvement
 
-1) Re-run the exact “Print from history” case with the provided label.
-2) Confirm backend logs show something like:
-   - `canvas <int>x<int> ... found <large number> ink pixels`
-3) Confirm that for endless roll:
-   - `mediaHeightMm` uses the detected cropped height
-   - or, if detection fails, uses `croppedDimensions.original.heightMm` (not 100mm)
+The current README says "DO NOT USE THIS" at the top which is a bit odd. Could update it to be more useful, but this is low priority.
 
 ---
 
-## Files to update
+## Summary of Changes
 
-1) `server/lib/pdf-cropper.js`
-   - Use integer canvas sizes and integer indexing for scan loops
-   - (Optional) add minimal retry for sparse ink
-2) `server/routes/print.js`
-   - endless roll fallback: use original PDF height whenever cropping detection fails
+| Action | Count |
+|--------|-------|
+| Files deleted | 6 |
+| Directories deleted | 1 |
+| Files updated | 2 |
 
+This cleanup removes approximately 850 lines of unused configuration and lockfile data from the repository.
