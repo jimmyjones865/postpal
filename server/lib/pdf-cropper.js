@@ -93,25 +93,31 @@ async function getContentBoundsPerPage(pdfBuffer) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: RENDER_SCALE });
     
+    // Use integer dimensions for canvas to avoid float index issues
+    const canvasWidth = Math.ceil(viewport.width);
+    const canvasHeight = Math.ceil(viewport.height);
+    
     // Create canvas and render page
-    const canvas = createCanvas(viewport.width, viewport.height);
+    const canvas = createCanvas(canvasWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
     
     // Fill with white first
     ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, viewport.width, viewport.height);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     
     // Render PDF page to canvas
     await page.render({ canvasContext: ctx, viewport }).promise;
     
     // Get pixel data
-    const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
+    const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
     const pixels = imageData.data;
-    const width = viewport.width;
-    const height = viewport.height;
+    const width = canvasWidth;
+    const height = canvasHeight;
+    
+    console.log(`[PDFCropper] Page ${pageNum}: viewport ${viewport.width.toFixed(2)}x${viewport.height.toFixed(2)} → canvas ${width}x${height}px`);
     
     // Scan for non-white pixels.
-    // We keep per-row/per-column counts so we can ignore isolated “noise” pixels.
+    // We keep per-row/per-column counts so we can ignore isolated "noise" pixels.
     const scanForBounds = (whiteThreshold, rowThreshold, colThreshold) => {
       const rowInk = new Uint32Array(height);
       const colInk = new Uint32Array(width);
@@ -171,6 +177,8 @@ async function getContentBoundsPerPage(pdfBuffer) {
     const colThreshold1 = Math.max(MIN_INK_PIXELS_PER_COL, Math.floor(height * 0.002));
     let scan = scanForBounds(WHITE_THRESHOLD, rowThreshold1, colThreshold1);
 
+    console.log(`[PDFCropper] Page ${pageNum}: found ${scan.totalInk} ink pixels`);
+
     // If we detected something absurdly small, do a second pass with a more tolerant threshold.
     if (scan.hasContent) {
       const detectedWidthPts = (scan.maxX - scan.minX + 1) / RENDER_SCALE;
@@ -182,7 +190,14 @@ async function getContentBoundsPerPage(pdfBuffer) {
         const rowThreshold2 = Math.max(5, Math.floor(width * 0.001));
         const colThreshold2 = Math.max(5, Math.floor(height * 0.001));
         scan = scanForBounds(254, rowThreshold2, colThreshold2);
+        console.log(`[PDFCropper] Page ${pageNum}: retry scan found ${scan.totalInk} ink pixels`);
       }
+    }
+    
+    // Safety net: if ink exists but bounds weren't found due to thresholds, retry with minimal thresholds
+    if (scan.totalInk > 0 && !scan.hasContent) {
+      console.log(`[PDFCropper] Page ${pageNum}: ink detected but bounds failed, retrying with minimal thresholds`);
+      scan = scanForBounds(WHITE_THRESHOLD, 1, 1);
     }
 
     const { minX, minY, maxX, maxY, hasContent } = scan;
@@ -190,8 +205,6 @@ async function getContentBoundsPerPage(pdfBuffer) {
     // Actual page dimensions in PDF points (for fallback)
     const actualPageWidthPts = viewport.width / RENDER_SCALE;
     const actualPageHeightPts = viewport.height / RENDER_SCALE;
-    
-    console.log(`[PDFCropper] Page ${pageNum}: canvas ${width}x${height}px, found ${scan.totalInk} ink pixels`);
     
     // Fallback if no content detected - use actual page bounds and flag it
     if (!hasContent) {
