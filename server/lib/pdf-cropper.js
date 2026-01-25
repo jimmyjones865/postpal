@@ -1,5 +1,6 @@
 import { PDFDocument, degrees } from 'pdf-lib';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js';
+import pkg from 'pdfjs-dist/legacy/build/pdf.js';
+const { getDocument } = pkg;
 import { createCanvas } from 'canvas';
 
 /**
