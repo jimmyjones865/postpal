@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy } from 'lucide-react';
+import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
@@ -7,6 +7,7 @@ import { DirectPrintConfig, PrintOptions } from '@/lib/printConfig';
 import { printLabelDirect, buildPrintParams } from '@/services/labelService';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface LabelHistoryProps {
   labels: StoredLabel[];
@@ -21,6 +22,7 @@ interface LabelHistoryProps {
 export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
     setPrintingId(label.id);
@@ -63,10 +65,12 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     a.click();
   };
 
-  const handleCopyId = async (id: string) => {
+  const handleCopyId = async (id: string, labelId: string) => {
     try {
       await navigator.clipboard.writeText(id);
+      setCopiedId(labelId);
       toast.success('Copied to clipboard');
+      setTimeout(() => setCopiedId(null), 300);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -138,16 +142,33 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                     {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
                   </div>
                   {(label.trackId || label.voucherId) && (
-                    <button 
-                      onClick={() => handleCopyId(label.trackId || label.voucherId!)}
-                      className="font-mono truncate hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[100px]"
-                      title="Click to copy ID"
-                    >
-                      <span className="truncate">
-                        {label.trackId || label.voucherId}
-                      </span>
-                      <Copy className="w-3 h-3 flex-shrink-0" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => handleCopyId(label.trackId || label.voucherId!, label.id)}
+                        className={cn(
+                          "font-mono truncate hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[100px]",
+                          copiedId === label.id && "animate-flash"
+                        )}
+                        title="Click to copy ID"
+                      >
+                        <span className="truncate">
+                          {label.trackId || label.voucherId}
+                        </span>
+                        <Copy className="w-3 h-3 flex-shrink-0" />
+                      </button>
+                      {label.trackId && (
+                        <a
+                          href={`https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary"
+                          title="Track shipment"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
                 
