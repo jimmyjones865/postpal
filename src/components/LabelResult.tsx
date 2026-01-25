@@ -72,9 +72,9 @@ export function LabelResult({
   const formattedAddress = formatRecipientForDisplay(parsedRecipient);
   const hasAddress = formattedAddress.trim().length > 0;
   
-  // PDF embed URL (only when purchased)
+  // PDF embed URL (only when purchased) - with params to hide toolbar
   const pdfUrl = purchasedLabelId 
-    ? `${API_BASE}/labels/${purchasedLabelId}/pdf` 
+    ? `${API_BASE}/labels/${purchasedLabelId}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit` 
     : null;
   
   // Display ID (trackId preferred, else voucherId)
