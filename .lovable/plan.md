@@ -1,69 +1,95 @@
 
-# Plan: Fix PDF.js Worker Path Resolution
+## What’s actually causing the “60 ink pixels” result
 
-## Problem
+In `server/lib/pdf-cropper.js`, the scan loop uses:
 
-The path resolution for `pdfjs-dist` resources is incorrect in the Docker container:
+- `width = viewport.width` and `height = viewport.height` (both **floating point**, e.g. `498.896`)
+- pixel indexing: `idx = (y * width + x) * 4`
 
-**In Development (server/ directory):**
-- File: `server/lib/pdf-cropper.js`
-- `__dirname` = `.../server/lib`
-- `../../node_modules` = `.../node_modules` (works if running from project root)
+When `y > 0`, `y * width` becomes a float, so `idx` becomes a float.  
+Accessing `pixels[idx]` with a float index returns `undefined`, so almost no pixels are ever counted as “ink”.
 
-**In Docker Container:**
-- File copied to: `/app/lib/pdf-cropper.js`
-- `__dirname` = `/app/lib`
-- `../../node_modules` = `/node_modules` (WRONG - doesn't exist!)
-- Actual location: `/app/node_modules`
+The only row that still works is `y = 0` (because `0 * width` is `0`, producing integer indices). That perfectly explains why you see a small non-zero number like **60**: you’re effectively scanning only the first row of the canvas.
 
-## Solution
-
-Use `../node_modules` instead of `../../node_modules` to match the Docker container structure where `server/` contents are copied directly to `/app/`.
+So the main fix is: **always scan using integer canvas dimensions** and compute indices using those integers.
 
 ---
 
-## Changes
+## Implementation changes
 
-### File: `server/lib/pdf-cropper.js`
+### 1) Fix pixel scanning to use integer canvas dimensions (core fix)
+**File:** `server/lib/pdf-cropper.js`
 
-Update the three path.resolve() calls from `../../node_modules` to `../node_modules`:
+**Change approach:**
+- Keep using `viewport = page.getViewport({ scale: RENDER_SCALE })` for rendering.
+- Create an integer-backed canvas size:
+  - `const canvasWidth = Math.ceil(viewport.width)`
+  - `const canvasHeight = Math.ceil(viewport.height)`
+- Use `canvasWidth/canvasHeight` everywhere for:
+  - `createCanvas()`
+  - `fillRect()`
+  - `getImageData()`
+  - scan loops
+  - typed array sizes (`rowInk`, `colInk`)
+  - index calculation `idx = (y * canvasWidth + x) * 4`
 
-```javascript
-// Before (lines 13-21):
-GlobalWorkerOptions.workerSrc = path.resolve(
-  __dirname,
-  '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.js'
-);
-const CMAP_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/cmaps/');
-const STANDARD_FONT_DATA_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/standard_fonts/');
+**Why `Math.ceil` and not `Math.floor`:**
+- Avoids clipping the rendered content at the right/bottom edge when viewport size is fractional.
 
-// After:
-GlobalWorkerOptions.workerSrc = path.resolve(
-  __dirname,
-  '../node_modules/pdfjs-dist/legacy/build/pdf.worker.js'
-);
-const CMAP_URL = path.resolve(__dirname, '../node_modules/pdfjs-dist/cmaps/');
-const STANDARD_FONT_DATA_URL = path.resolve(__dirname, '../node_modules/pdfjs-dist/standard_fonts/');
-```
+**Also update the log** to show both viewport and integer canvas dimensions so future debugging is straightforward.
 
----
-
-## Why This Works
-
-In the Docker container:
-- `__dirname` = `/app/lib`
-- `../node_modules` = `/app/node_modules` (correct!)
-
-The server's `node_modules` is installed at `/app/node_modules` via `npm install` in the Dockerfile (line 15), and the lib folder is at `/app/lib` (from copying `server/` to `/app/`).
+Expected result: ink pixel counts should jump from ~60 to many thousands for a real label.
 
 ---
 
-## Technical Details
+### 2) Fix endless-roll fallback height to use original PDF height (your chosen behavior)
+Right now `server/routes/print.js` still falls back to `paperHeightMm || 100` in the endless-roll branch, which is why you see:
 
-| Path Component | Docker Value |
-|----------------|--------------|
-| WORKDIR | `/app` |
-| `pdf-cropper.js` location | `/app/lib/pdf-cropper.js` |
-| `__dirname` | `/app/lib` |
-| `../node_modules` | `/app/node_modules` |
-| pdfjs-dist worker | `/app/node_modules/pdfjs-dist/legacy/build/pdf.worker.js` |
+`[Print] Using fallback dimensions: 88x100mm`
+
+**File:** `server/routes/print.js`
+
+**Change approach:**
+- In the endless roll sizing logic, prefer:
+  1) `croppedDimensions.cropped` if available
+  2) otherwise `croppedDimensions.original` (even when detection failed / fallback happened)
+  3) only then fall back to explicit/default
+
+Concretely: remove the `&& !cropFailed` guard so original dimensions are used when detection fails.
+
+This ensures:
+- if content detection fails, you still print using the original PDF height (not 100mm).
+- matches your stated preference for crop-fail behavior.
+
+---
+
+### 3) (Optional but recommended) Add a “scan sanity” retry when ink exists but bounds fail
+After the integer-dimension fix, this may not be needed, but it’s a good robustness improvement:
+
+**File:** `server/lib/pdf-cropper.js`
+
+If `totalInk > 0` but `hasContent` is false due to row/column thresholds, do one more pass with `rowThreshold=1` / `colThreshold=1` to recover sparse content (thin lines, faint barcodes).
+
+This is a safety net and shouldn’t affect normal labels.
+
+---
+
+## Validation steps (how we’ll confirm it’s fixed)
+
+1) Re-run the exact “Print from history” case with the provided label.
+2) Confirm backend logs show something like:
+   - `canvas <int>x<int> ... found <large number> ink pixels`
+3) Confirm that for endless roll:
+   - `mediaHeightMm` uses the detected cropped height
+   - or, if detection fails, uses `croppedDimensions.original.heightMm` (not 100mm)
+
+---
+
+## Files to update
+
+1) `server/lib/pdf-cropper.js`
+   - Use integer canvas sizes and integer indexing for scan loops
+   - (Optional) add minimal retry for sparse ink
+2) `server/routes/print.js`
+   - endless roll fallback: use original PDF height whenever cropping detection fails
+
