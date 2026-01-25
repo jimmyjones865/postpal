@@ -3,6 +3,7 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './lib/logger.js';
 
 // Import API routes (modular for potential future split)
 import { createApiRouter } from './routes/api.js';
@@ -30,6 +31,6 @@ app.get('*', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Serving static files from: ${STATIC_PATH}`);
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Serving static files from: ${STATIC_PATH}`);
 });

@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from './logger.js';
 
 const METADATA_FILENAME = 'labels.json';
 
@@ -48,14 +49,14 @@ export function createLabelStorage(storagePath) {
       try {
         const tempPath = metadataFile + '.tmp';
         const tempData = await fs.readFile(tempPath, 'utf-8');
-        console.warn('[Storage] Recovered metadata from temp file');
+        logger.warn('[Storage] Recovered metadata from temp file');
         const metadata = JSON.parse(tempData);
         // Save recovered data properly
         await atomicWriteJson(metadataFile, metadata);
         return metadata;
       } catch (recoveryErr) {
-        console.error('[Storage] Failed to read metadata:', err);
-        console.error('[Storage] Recovery also failed:', recoveryErr.message);
+        logger.error('[Storage] Failed to read metadata:', err);
+        logger.error('[Storage] Recovery also failed:', recoveryErr.message);
         throw err;
       }
     }
@@ -124,7 +125,7 @@ export function createLabelStorage(storagePath) {
     metadata.labels.unshift(labelInfo);
     await saveMetadata(metadata);
     
-    console.log(`[Storage] Saved label: ${filename}`);
+    logger.info(`[Storage] Saved label: ${filename}`);
     return labelInfo;
   }
 
@@ -151,9 +152,9 @@ export function createLabelStorage(storagePath) {
     // Then try to delete file (non-critical if fails)
     try {
       await fs.unlink(path.join(storagePath, filename));
-      console.log(`[Storage] Deleted label file: ${filename}`);
+      logger.info(`[Storage] Deleted label file: ${filename}`);
     } catch (err) {
-      console.warn(`[Storage] Could not delete file ${filename}:`, err.message);
+      logger.warn(`[Storage] Could not delete file ${filename}:`, err.message);
     }
     
     return true;
@@ -216,7 +217,7 @@ export function createLabelStorage(storagePath) {
    * @returns {Object} Cleanup stats { deleted, kept }
    */
   async function cleanupOldLabels(retentionDays) {
-    console.log(`[Cleanup] Running for labels older than ${retentionDays} days...`);
+    logger.info(`[Cleanup] Running for labels older than ${retentionDays} days...`);
     
     const metadata = await loadMetadata();
     const maxAge = retentionDays * 24 * 60 * 60 * 1000;
@@ -242,13 +243,13 @@ export function createLabelStorage(storagePath) {
     for (const label of toDelete) {
       try {
         await fs.unlink(path.join(storagePath, label.filename));
-        console.log(`[Cleanup] Deleted: ${label.filename}`);
+        logger.info(`[Cleanup] Deleted: ${label.filename}`);
       } catch (err) {
-        console.warn(`[Cleanup] Could not delete ${label.filename}:`, err.message);
+        logger.warn(`[Cleanup] Could not delete ${label.filename}:`, err.message);
       }
     }
     
-    console.log(`[Cleanup] Complete. Deleted ${toDelete.length}, kept ${toKeep.length}.`);
+    logger.info(`[Cleanup] Complete. Deleted ${toDelete.length}, kept ${toKeep.length}.`);
     return { deleted: toDelete.length, kept: toKeep.length };
   }
 

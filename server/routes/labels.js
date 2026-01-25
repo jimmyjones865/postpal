@@ -1,4 +1,5 @@
 import express from 'express';
+import { logger } from '../lib/logger.js';
 import { cropPdfWithPadding } from '../lib/pdf-cropper.js';
 
 /**
@@ -34,7 +35,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
 
       res.json({ success: true, label: labelInfo });
     } catch (err) {
-      console.error('[Labels] Save error:', err);
+      logger.error('[Labels] Save error:', err);
       res.status(500).json({ error: 'Failed to save label' });
     }
   });
@@ -47,7 +48,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       const labels = await storage.getAllLabels();
       res.json(labels);
     } catch (err) {
-      console.error('[Labels] Get error:', err);
+      logger.error('[Labels] Get error:', err);
       res.status(500).json({ error: 'Failed to get labels' });
     }
   });
@@ -74,9 +75,9 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
             parseFloat(cropH) || 5, 
             parseFloat(cropV) || 5
           );
-          console.log('[Labels] PDF cropped for printing');
+          logger.info('[Labels] PDF cropped for printing');
         } catch (err) {
-          console.error('[Labels] Crop failed, sending original:', err.message);
+          logger.error('[Labels] Crop failed, sending original:', err.message);
         }
       }
 
@@ -84,7 +85,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       res.setHeader('Content-Disposition', `inline; filename="${label.filename}"`);
       res.send(pdfBuffer);
     } catch (err) {
-      console.error('[Labels] PDF error:', err);
+      logger.error('[Labels] PDF error:', err);
       res.status(500).json({ error: 'Failed to get PDF' });
     }
   });
@@ -100,7 +101,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       }
       res.json({ success: true });
     } catch (err) {
-      console.error('[Labels] Delete error:', err);
+      logger.error('[Labels] Delete error:', err);
       res.status(500).json({ error: 'Failed to delete label' });
     }
   });
@@ -140,7 +141,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
 
       res.json(result);
     } catch (err) {
-      console.error('[Labels] Purchase error:', err);
+      logger.error('[Labels] Purchase error:', err);
       res.status(500).json({ error: err.message || 'Failed to purchase label' });
     }
   });

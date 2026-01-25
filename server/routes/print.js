@@ -1,4 +1,5 @@
 import express from 'express';
+import { logger } from '../lib/logger.js';
 import { cropPdfWithPaddingAndDimensions, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
@@ -53,12 +54,12 @@ export function createPrintRouter(storage) {
           cropFailed = cropResult.fallback;
           
           if (cropResult.fallback) {
-            console.log(`[Print] Content detection failed, keeping original size: ${croppedDimensions.original.widthMm}x${croppedDimensions.original.heightMm}mm`);
+            logger.info(`[Print] Content detection failed, keeping original size: ${croppedDimensions.original.widthMm}x${croppedDimensions.original.heightMm}mm`);
           } else {
-            console.log(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
+            logger.info(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
           }
         } catch (cropErr) {
-          console.error('[Print] Crop failed:', cropErr.message);
+          logger.error('[Print] Crop failed:', cropErr.message);
           cropFailed = true;
           
           // For endless roll, cropping is mandatory to determine height
@@ -68,10 +69,10 @@ export function createPrintRouter(storage) {
               details: 'Cropping is required for endless roll to determine paper height. ' + cropErr.message
             });
           }
-          console.log('[Print] Using explicit paper dimensions (crop failed)');
+          logger.info('[Print] Using explicit paper dimensions (crop failed)');
         }
       } else {
-        console.log('[Print] Cropping disabled, using explicit paper dimensions');
+        logger.info('[Print] Cropping disabled, using explicit paper dimensions');
       }
       
       // Calculate media dimensions
@@ -88,12 +89,12 @@ export function createPrintRouter(storage) {
           // Use original PDF dimensions when detection failed (preferred fallback for endless roll)
           contentWidth = croppedDimensions.original.widthMm;
           contentHeight = croppedDimensions.original.heightMm;
-          console.log(`[Print] Using original PDF dimensions: ${contentWidth}x${contentHeight}mm`);
+          logger.info(`[Print] Using original PDF dimensions: ${contentWidth}x${contentHeight}mm`);
         } else {
           // Final fallback to explicit paper dimensions or defaults
           contentWidth = paperWidthMm || 62;
           contentHeight = paperHeightMm || 100;
-          console.log(`[Print] Using fallback dimensions: ${contentWidth}x${contentHeight}mm`);
+          logger.info(`[Print] Using fallback dimensions: ${contentWidth}x${contentHeight}mm`);
         }
         
         if (isLandscape) {
@@ -104,7 +105,7 @@ export function createPrintRouter(storage) {
           mediaHeightMm = contentHeight;
         }
         
-        console.log(`[Print] Endless roll ${isLandscape ? 'landscape' : 'portrait'}: width=${mediaWidthMm}mm, height=${mediaHeightMm.toFixed(1)}mm`);
+        logger.info(`[Print] Endless roll ${isLandscape ? 'landscape' : 'portrait'}: width=${mediaWidthMm}mm, height=${mediaHeightMm.toFixed(1)}mm`);
       } else {
         const fixedWidth = paperWidthMm || 62;
         const fixedHeight = paperHeightMm || 100;
@@ -117,16 +118,16 @@ export function createPrintRouter(storage) {
           mediaHeightMm = fixedHeight;
         }
         
-        console.log(`[Print] Fixed paper ${isLandscape ? 'landscape' : 'portrait'}: ${mediaWidthMm}x${mediaHeightMm}mm`);
+        logger.info(`[Print] Fixed paper ${isLandscape ? 'landscape' : 'portrait'}: ${mediaWidthMm}x${mediaHeightMm}mm`);
       }
       
       // Rotate PDF if landscape
       if (isLandscape) {
         try {
           pdfBuffer = await rotatePdf(pdfBuffer, 90);
-          console.log('[Print] PDF rotated 90° for landscape');
+          logger.info('[Print] PDF rotated 90° for landscape');
         } catch (rotateErr) {
-          console.error('[Print] Rotation failed:', rotateErr.message);
+          logger.error('[Print] Rotation failed:', rotateErr.message);
         }
       }
       
@@ -138,7 +139,7 @@ export function createPrintRouter(storage) {
       });
       
       if (printResult.success) {
-        console.log(`[Print] Job sent to ${printerName}, job ID: ${printResult.jobId}`);
+        logger.info(`[Print] Job sent to ${printerName}, job ID: ${printResult.jobId}`);
         res.json({ 
           success: true, 
           jobId: printResult.jobId,
@@ -146,14 +147,14 @@ export function createPrintRouter(storage) {
           mediaDimensions: { widthMm: mediaWidthMm, heightMm: mediaHeightMm }
         });
       } else {
-        console.error('[Print] Print failed:', printResult.error);
+        logger.error('[Print] Print failed:', printResult.error);
         res.status(500).json({ 
           success: false, 
           error: printResult.error || 'Failed to send print job'
         });
       }
     } catch (err) {
-      console.error('[Print] Error:', err);
+      logger.error('[Print] Error:', err);
       res.status(500).json({ error: err.message || 'Print failed' });
     }
   });
@@ -183,7 +184,7 @@ export function createPrintRouter(storage) {
         cropped: disableCropping ? null : dimensions.cropped
       });
     } catch (err) {
-      console.error('[Dimensions] Error:', err);
+      logger.error('[Dimensions] Error:', err);
       res.status(500).json({ error: 'Failed to calculate dimensions' });
     }
   });

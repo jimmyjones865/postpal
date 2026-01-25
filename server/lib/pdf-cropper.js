@@ -4,6 +4,7 @@ const { getDocument, GlobalWorkerOptions } = pkg;
 import { createCanvas } from 'canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -114,7 +115,7 @@ async function getContentBoundsPerPage(pdfBuffer) {
     const width = canvasWidth;
     const height = canvasHeight;
     
-    console.log(`[PDFCropper] Page ${pageNum}: viewport ${viewport.width.toFixed(2)}x${viewport.height.toFixed(2)} → canvas ${width}x${height}px`);
+    logger.debug(`[PDFCropper] Page ${pageNum}: viewport ${viewport.width.toFixed(2)}x${viewport.height.toFixed(2)} → canvas ${width}x${height}px`);
     
     // Scan for non-white pixels.
     // We keep per-row/per-column counts so we can ignore isolated "noise" pixels.
@@ -177,7 +178,7 @@ async function getContentBoundsPerPage(pdfBuffer) {
     const colThreshold1 = Math.max(MIN_INK_PIXELS_PER_COL, Math.floor(height * 0.002));
     let scan = scanForBounds(WHITE_THRESHOLD, rowThreshold1, colThreshold1);
 
-    console.log(`[PDFCropper] Page ${pageNum}: found ${scan.totalInk} ink pixels`);
+    logger.debug(`[PDFCropper] Page ${pageNum}: found ${scan.totalInk} ink pixels`);
 
     // If we detected something absurdly small, do a second pass with a more tolerant threshold.
     if (scan.hasContent) {
@@ -190,13 +191,13 @@ async function getContentBoundsPerPage(pdfBuffer) {
         const rowThreshold2 = Math.max(5, Math.floor(width * 0.001));
         const colThreshold2 = Math.max(5, Math.floor(height * 0.001));
         scan = scanForBounds(254, rowThreshold2, colThreshold2);
-        console.log(`[PDFCropper] Page ${pageNum}: retry scan found ${scan.totalInk} ink pixels`);
+        logger.debug(`[PDFCropper] Page ${pageNum}: retry scan found ${scan.totalInk} ink pixels`);
       }
     }
     
     // Safety net: if ink exists but bounds weren't found due to thresholds, retry with minimal thresholds
     if (scan.totalInk > 0 && !scan.hasContent) {
-      console.log(`[PDFCropper] Page ${pageNum}: ink detected but bounds failed, retrying with minimal thresholds`);
+      logger.debug(`[PDFCropper] Page ${pageNum}: ink detected but bounds failed, retrying with minimal thresholds`);
       scan = scanForBounds(WHITE_THRESHOLD, 1, 1);
     }
 
@@ -208,7 +209,7 @@ async function getContentBoundsPerPage(pdfBuffer) {
     
     // Fallback if no content detected - use actual page bounds and flag it
     if (!hasContent) {
-      console.warn(`[PDFCropper] No content detected on page ${pageNum} - using full page (${Math.round(actualPageWidthPts)}x${Math.round(actualPageHeightPts)} pts)`);
+      logger.warn(`[PDFCropper] No content detected on page ${pageNum} - using full page (${Math.round(actualPageWidthPts)}x${Math.round(actualPageHeightPts)} pts)`);
       results.push({
         minX: 0,
         minY: 0,
@@ -227,7 +228,7 @@ async function getContentBoundsPerPage(pdfBuffer) {
       if (detectedWidthMm < MIN_CONTENT_MM || detectedHeightMm < MIN_CONTENT_MM) {
         const actualPageWidthPts2 = viewport.width / RENDER_SCALE;
         const actualPageHeightPts2 = viewport.height / RENDER_SCALE;
-        console.warn(
+        logger.warn(
           `[PDFCropper] Suspiciously small content bounds on page ${pageNum} (${detectedWidthMm.toFixed(1)}x${detectedHeightMm.toFixed(1)}mm). Falling back to full page.`
         );
         results.push({
@@ -249,7 +250,7 @@ async function getContentBoundsPerPage(pdfBuffer) {
         maxY: (height - minY) / RENDER_SCALE
       });
       
-      console.log(`[PDFCropper] Page ${pageNum}: detected content at pixels (${minX},${minY})-(${maxX},${maxY}) → PDF points (${Math.round(results[pageNum-1].minX)},${Math.round(results[pageNum-1].minY)})-(${Math.round(results[pageNum-1].maxX)},${Math.round(results[pageNum-1].maxY)})`);
+      logger.debug(`[PDFCropper] Page ${pageNum}: detected content at pixels (${minX},${minY})-(${maxX},${maxY}) → PDF points (${Math.round(results[pageNum-1].minX)},${Math.round(results[pageNum-1].minY)})-(${Math.round(results[pageNum-1].maxX)},${Math.round(results[pageNum-1].maxY)})`);
     }
   }
 
@@ -284,7 +285,7 @@ export async function cropPdfWithPadding(
 
     // If detection failed, don't apply cropping - keep original page size
     if (b.fallback) {
-      console.log(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
+      logger.info(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
       continue;
     }
 
@@ -294,7 +295,7 @@ export async function cropPdfWithPadding(
     const newWidth = (b.maxX - b.minX) + padX * 2;
     const newHeight = (b.maxY - b.minY) + padY * 2;
 
-    console.log(`[PDFCropper] Page ${i + 1}: content ${Math.round(b.maxX - b.minX)}x${Math.round(b.maxY - b.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (${paddingHorizontalMm}mm/${paddingVerticalMm}mm padding)`);
+    logger.debug(`[PDFCropper] Page ${i + 1}: content ${Math.round(b.maxX - b.minX)}x${Math.round(b.maxY - b.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (${paddingHorizontalMm}mm/${paddingVerticalMm}mm padding)`);
 
     // Set all box types to ensure consistent cropping across viewers/printers
     pages[i].setMediaBox(newMinX, newMinY, newWidth, newHeight);
@@ -467,7 +468,7 @@ export async function cropPdfWithPaddingAndDimensions(
 
     // If detection failed, don't apply cropping - keep original page size
     if (pageBounds.fallback) {
-      console.log(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
+      logger.info(`[PDFCropper] Page ${i + 1}: detection failed, keeping original size`);
       continue;
     }
 
@@ -483,7 +484,7 @@ export async function cropPdfWithPaddingAndDimensions(
       croppedHeightPts = newHeight;
     }
 
-    console.log(`[PDFCropper] Page ${i + 1}: content ${Math.round(pageBounds.maxX - pageBounds.minX)}x${Math.round(pageBounds.maxY - pageBounds.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (${paddingHorizontalMm}mm/${paddingVerticalMm}mm padding)`);
+    logger.debug(`[PDFCropper] Page ${i + 1}: content ${Math.round(pageBounds.maxX - pageBounds.minX)}x${Math.round(pageBounds.maxY - pageBounds.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts`);
 
     // Set all box types to ensure consistent cropping across viewers/printers
     pages[i].setMediaBox(newMinX, newMinY, newWidth, newHeight);
@@ -493,8 +494,10 @@ export async function cropPdfWithPaddingAndDimensions(
     pages[i].setArtBox(newMinX, newMinY, newWidth, newHeight);
   }
 
+  const buffer = Buffer.from(await pdfDoc.save());
+  
   return {
-    buffer: Buffer.from(await pdfDoc.save()),
+    buffer,
     dimensions: {
       original: {
         widthMm: Math.round(pointsToMm(originalWidth) * 10) / 10,
@@ -508,4 +511,3 @@ export async function cropPdfWithPaddingAndDimensions(
     fallback: hasFallback
   };
 }
-

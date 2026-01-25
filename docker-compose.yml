@@ -10,6 +10,7 @@ services:
     environment:
       # Server configuration
       - PORT=3000
+      - LOG_LEVEL=info                # debug | info | warn | none
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
       - STATIC_PATH=/app/public
