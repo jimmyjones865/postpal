@@ -16,6 +16,8 @@ import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel } from '@/lib/labelStorage';
 import { ParsedAddress, emptyAddress } from '@/lib/address';
 import { getCountryCode } from '@/lib/countryCodes';
+import { buildDirectPrintConfig, buildPrintOptions } from '@/lib/printConfig';
+import { purchaseLabel, fetchPdfAsBase64, printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
@@ -112,8 +114,6 @@ const Index = () => {
     
     setIsPrinting(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || '/api';
-      
       // Build receiver object from parsed address
       const receiver = {
         name: parsedRecipient.name,
@@ -122,42 +122,30 @@ const Index = () => {
         addressLine2: parsedRecipient.addressLine2 || undefined,
         postalCode: parsedRecipient.zip,
         city: parsedRecipient.city,
-        country: getCountryCode(parsedRecipient.country)
+        country: getCountryCode(parsedRecipient.country) || ''
       };
       
       // Convert sender country to ISO code
       const senderCountryCode = getCountryCode(config.senderAddress.country) || config.senderAddress.country;
       
-      // Call the purchase API
-      const purchaseResponse = await fetch(`${API_BASE}/labels/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          credentials: {
-            portokasseLogin: config.apiCredentials.portokasseLogin,
-            portokassePassword: config.apiCredentials.portokassePassword,
-            apiKey: config.apiCredentials.apiKey,
-            apiSecret: config.apiCredentials.apiSecret
-          },
-          sender: {
-            name: config.senderAddress.name,
-            additionalName: config.senderAddress.company || undefined,
-            addressLine1: config.senderAddress.street,
-            postalCode: config.senderAddress.postalCode,
-            city: config.senderAddress.city,
-            country: senderCountryCode
-          },
-          receiver,
-          productCode: productToUse,
-          priceInCents: productCostInCents,
-          paperFormatName: config.printerConfig.paperFormatName,
-        })
+      // Call the purchase API via service
+      const purchaseData = await purchaseLabel({
+        sender: {
+          name: config.senderAddress.name,
+          additionalName: config.senderAddress.company || undefined,
+          addressLine1: config.senderAddress.street,
+          postalCode: config.senderAddress.postalCode,
+          city: config.senderAddress.city,
+          country: senderCountryCode
+        },
+        receiver,
+        productCode: productToUse!,
+        priceInCents: productCostInCents,
+        paperFormatName: config.printerConfig.paperFormatName
       });
       
-      const purchaseData = await purchaseResponse.json();
-      
-      // Check for errors - the API should return success: true only on HTTP 200
-      if (!purchaseResponse.ok || !purchaseData.success) {
+      // Check for errors
+      if (!purchaseData.success) {
         console.error('Label purchase failed:', purchaseData);
         toast.error('Purchase Failed', {
           description: purchaseData.error || purchaseData.details || 'Failed to purchase label from Deutsche Post.'
@@ -184,21 +172,7 @@ const Index = () => {
         let pdfBase64 = '';
         if (purchaseData.pdfUrl) {
           try {
-            // Fetch original PDF without cropping for storage
-            const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(purchaseData.pdfUrl)}`;
-            const pdfResponse = await fetch(proxyUrl);
-            if (!pdfResponse.ok) {
-              throw new Error(`PDF fetch failed: ${pdfResponse.status}`);
-            }
-            const pdfBlob = await pdfResponse.blob();
-            pdfBase64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const base64 = (reader.result as string).split(',')[1];
-                resolve(base64);
-              };
-              reader.readAsDataURL(pdfBlob);
-            });
+            pdfBase64 = await fetchPdfAsBase64(purchaseData.pdfUrl);
           } catch (pdfError) {
             console.warn('Could not fetch PDF:', pdfError);
           }
@@ -216,32 +190,19 @@ const Index = () => {
       }
 
       // Handle print mode
-      if (printMode === 'print' && config.printerConfig.enableDirectPrint && config.printerConfig.cupsUrl && savedLabel) {
+      const printOptions = buildPrintOptions(config.printerConfig);
+      const directPrintConfig = buildDirectPrintConfig(config.printerConfig);
+      
+      if (printMode === 'print' && directPrintConfig.enableDirectPrint && directPrintConfig.cupsUrl && savedLabel) {
         // Direct print via CUPS
         try {
-          const printResponse = await fetch(`${API_BASE}/print`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              labelId: savedLabel.id,
-              cupsUrl: config.printerConfig.cupsUrl,
-              printerName: config.printerConfig.printerName,
-              orientation: config.printerConfig.orientation,
-              cropH: config.printerConfig.cropMarginHorizontal ?? 5,
-              cropV: config.printerConfig.cropMarginVertical ?? 5,
-              disableCropping: config.printerConfig.disableCropping || false,
-              // Explicit paper settings
-              paperWidthMm: config.printerConfig.paperWidthMm ?? 62,
-              paperHeightMm: config.printerConfig.paperHeightMm ?? 100,
-              endlessRoll: config.printerConfig.endlessRoll ?? true,
-            })
-          });
-          
-          const printResult = await printResponse.json();
-          
-          if (!printResponse.ok || !printResult.success) {
-            throw new Error(printResult.error || 'Print failed');
-          }
+          const printParams = buildPrintParams(
+            savedLabel.id,
+            directPrintConfig,
+            printOptions.cropH,
+            printOptions.cropV
+          );
+          await printLabelDirect(printParams);
           
           toast.success('Label Printed', {
             description: `${product?.name} label sent to printer.`
@@ -255,19 +216,7 @@ const Index = () => {
       } else if (printMode === 'download' && savedLabel) {
         // Download the cropped PDF
         try {
-          const cropH = config.printerConfig.cropMarginHorizontal ?? 5;
-          const cropV = config.printerConfig.cropMarginVertical ?? 5;
-          const pdfUrl = `${API_BASE}/labels/${savedLabel.id}/pdf?print=1&cropH=${cropH}&cropV=${cropV}`;
-          const pdfResponse = await fetch(pdfUrl);
-          if (pdfResponse.ok) {
-            const blob = await pdfResponse.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `label-${savedLabel.id}.pdf`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
+          await downloadLabel(savedLabel.id, printOptions.cropH, printOptions.cropV);
           toast.success('Label Downloaded', {
             description: `${product?.name} label saved.`
           });
@@ -416,21 +365,8 @@ const Index = () => {
                 error={labelsError} 
                 onRefresh={refreshLabels} 
                 onDelete={removeLabel}
-                printOptions={{
-                  cropH: config.printerConfig.cropMarginHorizontal ?? 5,
-                  cropV: config.printerConfig.cropMarginVertical ?? 5
-                }}
-                directPrintConfig={{
-                  cupsUrl: config.printerConfig.cupsUrl || '',
-                  printerName: config.printerConfig.printerName || '',
-                  orientation: config.printerConfig.orientation,
-                  paperFormatName: config.printerConfig.paperFormatName || '',
-                  enableDirectPrint: config.printerConfig.enableDirectPrint || false,
-                  disableCropping: config.printerConfig.disableCropping || false,
-                  paperWidthMm: config.printerConfig.paperWidthMm ?? 62,
-                  paperHeightMm: config.printerConfig.paperHeightMm ?? 100,
-                  endlessRoll: config.printerConfig.endlessRoll ?? true,
-                }}
+                printOptions={buildPrintOptions(config.printerConfig)}
+                directPrintConfig={buildDirectPrintConfig(config.printerConfig)}
               />
             </div>
           </TabsContent>
