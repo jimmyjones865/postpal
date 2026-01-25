@@ -21,6 +21,11 @@ const RENDER_SCALE = 2;
 // White threshold (< 250 catches anti-aliased edges)
 const WHITE_THRESHOLD = 250;
 
+// Guardrails against false detections (e.g. a single noisy pixel row)
+const MIN_CONTENT_MM = 20; // anything smaller is almost certainly wrong for shipping labels
+const MIN_INK_PIXELS_PER_ROW = 10;
+const MIN_INK_PIXELS_PER_COL = 10;
+
 /**
  * Custom CanvasFactory for pdfjs-dist in Node.js environment
  */
@@ -80,27 +85,82 @@ async function getContentBoundsPerPage(pdfBuffer) {
     const width = viewport.width;
     const height = viewport.height;
     
-    // Scan for non-white pixels
-    let minX = width, minY = height, maxX = 0, maxY = 0;
-    let hasContent = false;
-    
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
-        const r = pixels[idx];
-        const g = pixels[idx + 1];
-        const b = pixels[idx + 2];
-        
-        // If not white (any channel below threshold)
-        if (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD) {
-          hasContent = true;
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
+    // Scan for non-white pixels.
+    // We keep per-row/per-column counts so we can ignore isolated “noise” pixels.
+    const scanForBounds = (whiteThreshold, rowThreshold, colThreshold) => {
+      const rowInk = new Uint32Array(height);
+      const colInk = new Uint32Array(width);
+      let totalInk = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+          const r = pixels[idx];
+          const g = pixels[idx + 1];
+          const b = pixels[idx + 2];
+
+          // If not white (any channel below threshold)
+          if (r < whiteThreshold || g < whiteThreshold || b < whiteThreshold) {
+            totalInk++;
+            rowInk[y]++;
+            colInk[x]++;
+          }
         }
       }
+
+      let minX = width, minY = height, maxX = -1, maxY = -1;
+
+      for (let y = 0; y < height; y++) {
+        if (rowInk[y] >= rowThreshold) {
+          minY = y;
+          break;
+        }
+      }
+      for (let y = height - 1; y >= 0; y--) {
+        if (rowInk[y] >= rowThreshold) {
+          maxY = y;
+          break;
+        }
+      }
+      for (let x = 0; x < width; x++) {
+        if (colInk[x] >= colThreshold) {
+          minX = x;
+          break;
+        }
+      }
+      for (let x = width - 1; x >= 0; x--) {
+        if (colInk[x] >= colThreshold) {
+          maxX = x;
+          break;
+        }
+      }
+
+      const hasContent = totalInk > 0 && maxX >= 0 && maxY >= 0 && minX < width && minY < height;
+
+      return { totalInk, minX, minY, maxX, maxY, hasContent };
+    };
+
+    // Determine content bounds using per-row/per-col thresholds to ignore noise.
+    // Dynamic thresholds prevent sensitivity differences for different page sizes.
+    const rowThreshold1 = Math.max(MIN_INK_PIXELS_PER_ROW, Math.floor(width * 0.002));
+    const colThreshold1 = Math.max(MIN_INK_PIXELS_PER_COL, Math.floor(height * 0.002));
+    let scan = scanForBounds(WHITE_THRESHOLD, rowThreshold1, colThreshold1);
+
+    // If we detected something absurdly small, do a second pass with a more tolerant threshold.
+    if (scan.hasContent) {
+      const detectedWidthPts = (scan.maxX - scan.minX + 1) / RENDER_SCALE;
+      const detectedHeightPts = (scan.maxY - scan.minY + 1) / RENDER_SCALE;
+      const detectedWidthMm = pointsToMm(detectedWidthPts);
+      const detectedHeightMm = pointsToMm(detectedHeightPts);
+
+      if (detectedWidthMm < MIN_CONTENT_MM || detectedHeightMm < MIN_CONTENT_MM) {
+        const rowThreshold2 = Math.max(5, Math.floor(width * 0.001));
+        const colThreshold2 = Math.max(5, Math.floor(height * 0.001));
+        scan = scanForBounds(254, rowThreshold2, colThreshold2);
+      }
     }
+
+    const { minX, minY, maxX, maxY, hasContent } = scan;
     
     // Fallback if no content detected
     if (!hasContent) {
@@ -112,6 +172,26 @@ async function getContentBoundsPerPage(pdfBuffer) {
         maxY: viewport.height / RENDER_SCALE
       });
     } else {
+      // Sanity-check: ignore absurdly small detections (often caused by a single line/pixel)
+      const detectedWidthPts = (maxX - minX + 1) / RENDER_SCALE;
+      const detectedHeightPts = (maxY - minY + 1) / RENDER_SCALE;
+
+      const detectedWidthMm = pointsToMm(detectedWidthPts);
+      const detectedHeightMm = pointsToMm(detectedHeightPts);
+
+      if (detectedWidthMm < MIN_CONTENT_MM || detectedHeightMm < MIN_CONTENT_MM) {
+        console.warn(
+          `[PDFCropper] Suspiciously small content bounds on page ${pageNum} (${detectedWidthMm.toFixed(1)}x${detectedHeightMm.toFixed(1)}mm). Falling back to full page.`
+        );
+        results.push({
+          minX: 0,
+          minY: 0,
+          maxX: viewport.width / RENDER_SCALE,
+          maxY: viewport.height / RENDER_SCALE
+        });
+        continue;
+      }
+
       // Convert pixel coordinates back to PDF points
       // Note: PDF Y-axis is inverted (origin at bottom-left)
       results.push({
