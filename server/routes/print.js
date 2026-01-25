@@ -19,7 +19,8 @@ export function createPrintRouter(storage) {
     try {
       const { 
         labelId, cupsUrl, printerName, orientation, 
-        cropH, cropV, disableCropping,
+        cropTop, cropRight, cropBottom, cropLeft,
+        disableCropping,
         paperWidthMm, paperHeightMm, endlessRoll
       } = req.body;
       
@@ -38,8 +39,11 @@ export function createPrintRouter(storage) {
       // Read original PDF
       let pdfBuffer = await storage.getLabelPdf(labelId);
       
-      const cropMarginH = parseFloat(cropH) || 5;
-      const cropMarginV = parseFloat(cropV) || 5;
+      // Parse 4-direction crop margins (default to 5mm each)
+      const marginTop = parseFloat(cropTop) || 5;
+      const marginRight = parseFloat(cropRight) || 5;
+      const marginBottom = parseFloat(cropBottom) || 5;
+      const marginLeft = parseFloat(cropLeft) || 5;
       const isLandscape = orientation === 'landscape';
       
       // Crop PDF and get dimensions in a single operation (avoids duplicate pixel scanning)
@@ -48,7 +52,10 @@ export function createPrintRouter(storage) {
       
       if (!disableCropping) {
         try {
-          const cropResult = await cropPdfWithPaddingAndDimensions(pdfBuffer, cropMarginH, cropMarginV);
+          const cropResult = await cropPdfWithPaddingAndDimensions(
+            pdfBuffer, 
+            marginTop, marginRight, marginBottom, marginLeft
+          );
           pdfBuffer = cropResult.buffer;
           croppedDimensions = cropResult.dimensions;
           cropFailed = cropResult.fallback;
@@ -56,7 +63,7 @@ export function createPrintRouter(storage) {
           if (cropResult.fallback) {
             logger.info(`[Print] Content detection failed, keeping original size: ${croppedDimensions.original.widthMm}x${croppedDimensions.original.heightMm}mm`);
           } else {
-            logger.info(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm`);
+            logger.info(`[Print] PDF cropped to ${croppedDimensions.cropped.widthMm}x${croppedDimensions.cropped.heightMm}mm (T:${marginTop}/R:${marginRight}/B:${marginBottom}/L:${marginLeft}mm)`);
           }
         } catch (cropErr) {
           logger.error('[Print] Crop failed:', cropErr.message);
@@ -164,7 +171,7 @@ export function createPrintRouter(storage) {
    */
   router.post('/labels/:id/dimensions', async (req, res) => {
     try {
-      const { cropH, cropV, disableCropping } = req.body;
+      const { cropTop, cropRight, cropBottom, cropLeft, disableCropping } = req.body;
       
       const label = await storage.getLabel(req.params.id);
       if (!label) {
@@ -175,8 +182,10 @@ export function createPrintRouter(storage) {
       
       const dimensions = await getContentDimensions(
         pdfBuffer,
-        parseFloat(cropH) || 5,
-        parseFloat(cropV) || 5
+        parseFloat(cropTop) || 5,
+        parseFloat(cropRight) || 5,
+        parseFloat(cropBottom) || 5,
+        parseFloat(cropLeft) || 5
       );
       
       res.json({

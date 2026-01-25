@@ -100,15 +100,17 @@ export async function fetchPdfAsBase64(pdfUrl: string): Promise<string> {
 }
 
 /**
- * Parameters for direct printing.
+ * Parameters for direct printing (4-direction cropping).
  */
 export interface PrintParams {
   labelId: string;
   cupsUrl: string;
   printerName: string;
   orientation: 'portrait' | 'landscape';
-  cropH: number;
-  cropV: number;
+  cropTop: number;
+  cropRight: number;
+  cropBottom: number;
+  cropLeft: number;
   disableCropping: boolean;
   paperWidthMm: number;
   paperHeightMm: number;
@@ -140,23 +142,23 @@ export async function printLabelDirect(params: PrintParams): Promise<void> {
  * 
  * @param labelId - Label ID to print
  * @param config - Direct print configuration
- * @param cropH - Horizontal crop margin in mm
- * @param cropV - Vertical crop margin in mm
+ * @param cropMargins - 4-direction crop margins in mm
  * @returns Print parameters
  */
 export function buildPrintParams(
   labelId: string, 
   config: DirectPrintConfig,
-  cropH: number,
-  cropV: number
+  cropMargins: { top: number; right: number; bottom: number; left: number }
 ): PrintParams {
   return {
     labelId,
     cupsUrl: config.cupsUrl,
     printerName: config.printerName,
     orientation: config.orientation,
-    cropH,
-    cropV,
+    cropTop: cropMargins.top,
+    cropRight: cropMargins.right,
+    cropBottom: cropMargins.bottom,
+    cropLeft: cropMargins.left,
     disableCropping: config.disableCropping,
     paperWidthMm: config.paperWidthMm,
     paperHeightMm: config.paperHeightMm,
@@ -168,11 +170,19 @@ export function buildPrintParams(
  * Downloads a cropped label PDF.
  * 
  * @param labelId - Label ID
- * @param cropH - Horizontal crop margin in mm
- * @param cropV - Vertical crop margin in mm
+ * @param cropTop - Top crop margin in mm
+ * @param cropRight - Right crop margin in mm
+ * @param cropBottom - Bottom crop margin in mm
+ * @param cropLeft - Left crop margin in mm
  */
-export async function downloadLabel(labelId: string, cropH: number, cropV: number): Promise<void> {
-  const pdfUrl = `${API_BASE}/labels/${labelId}/pdf?print=1&cropH=${cropH}&cropV=${cropV}`;
+export async function downloadLabel(
+  labelId: string, 
+  cropTop: number, 
+  cropRight: number, 
+  cropBottom: number, 
+  cropLeft: number
+): Promise<void> {
+  const pdfUrl = `${API_BASE}/labels/${labelId}/pdf?print=1&cropTop=${cropTop}&cropRight=${cropRight}&cropBottom=${cropBottom}&cropLeft=${cropLeft}`;
   const response = await fetch(pdfUrl);
   
   if (!response.ok) {

@@ -138,10 +138,11 @@
 }
 
 @keyframes flash-copy {
-  0%, 100% { background-color: hsl(var(--muted) / 0.5); }
-  50% { background-color: hsl(var(--primary) / 0.5); }
+  0% { background-color: hsl(var(--muted) / 0.5); }
+  30% { background-color: hsl(var(--primary) / 0.7); }
+  100% { background-color: hsl(var(--muted) / 0.5); }
 }
 
 .animate-flash {
-  animation: flash-copy 0.3s ease;
+  animation: flash-copy 0.4s ease;
 }

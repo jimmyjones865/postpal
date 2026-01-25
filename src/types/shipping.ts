@@ -28,8 +28,11 @@ export interface PrinterConfig {
   printerName: string;
   paperFormatName: string; // selection from paper formats file
   orientation: 'portrait' | 'landscape';
-  cropMarginHorizontal: number; // in mm
-  cropMarginVertical: number;   // in mm
+  // 4-direction independent crop margins (in mm)
+  cropMarginTop: number;
+  cropMarginRight: number;
+  cropMarginBottom: number;
+  cropMarginLeft: number;
   disableCropping: boolean; // Skip PDF cropping entirely
   cupsUrl: string; // CUPS server URL (e.g., http://192.168.1.100:631)
   enableDirectPrint: boolean; // Enable direct IPP printing vs download

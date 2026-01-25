@@ -3,8 +3,10 @@ import { Ruler, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DimensionsPreviewProps {
-  cropH: number;
-  cropV: number;
+  cropTop: number;
+  cropRight: number;
+  cropBottom: number;
+  cropLeft: number;
   disableCropping: boolean;
 }
 
@@ -13,7 +15,7 @@ interface Dimensions {
   cropped: { widthMm: number; heightMm: number } | null;
 }
 
-export function DimensionsPreview({ cropH, cropV, disableCropping }: DimensionsPreviewProps) {
+export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, disableCropping }: DimensionsPreviewProps) {
   const [dimensions, setDimensions] = useState<Dimensions | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +41,11 @@ export function DimensionsPreview({ cropH, cropV, disableCropping }: DimensionsP
       const latestLabel = labels[0];
       setLastLabelId(latestLabel.id);
       
-      // Get dimensions for this label
+      // Get dimensions for this label with 4-direction margins
       const dimRes = await fetch(`${apiUrl}/labels/${latestLabel.id}/dimensions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cropH, cropV, disableCropping })
+        body: JSON.stringify({ cropTop, cropRight, cropBottom, cropLeft, disableCropping })
       });
       
       if (!dimRes.ok) throw new Error('Failed to calculate dimensions');
@@ -62,7 +64,7 @@ export function DimensionsPreview({ cropH, cropV, disableCropping }: DimensionsP
     if (lastLabelId && dimensions) {
       fetchDimensions();
     }
-  }, [cropH, cropV, disableCropping]);
+  }, [cropTop, cropRight, cropBottom, cropLeft, disableCropping]);
 
   return (
     <div className="mt-3 p-2 bg-muted rounded border border-border">
