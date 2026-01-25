@@ -12,13 +12,13 @@ const __dirname = path.dirname(__filename);
 // Configure PDF.js for proper font rendering in Node.js
 GlobalWorkerOptions.workerSrc = path.resolve(
   __dirname,
-  '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.js'
+  '../node_modules/pdfjs-dist/legacy/build/pdf.worker.js'
 );
 
 // CMaps for international text encoding
-const CMAP_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/cmaps/');
+const CMAP_URL = path.resolve(__dirname, '../node_modules/pdfjs-dist/cmaps/');
 // Standard fonts fallback
-const STANDARD_FONT_DATA_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/standard_fonts/');
+const STANDARD_FONT_DATA_URL = path.resolve(__dirname, '../node_modules/pdfjs-dist/standard_fonts/');
 
 /**
  * PDF Cropper for Deutsche Post shipping labels
