@@ -1,7 +1,24 @@
 import { PDFDocument, degrees } from 'pdf-lib';
 import pkg from 'pdfjs-dist/legacy/build/pdf.js';
-const { getDocument } = pkg;
+const { getDocument, GlobalWorkerOptions } = pkg;
 import { createCanvas } from 'canvas';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure PDF.js for proper font rendering in Node.js
+GlobalWorkerOptions.workerSrc = path.resolve(
+  __dirname,
+  '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.js'
+);
+
+// CMaps for international text encoding
+const CMAP_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/cmaps/');
+// Standard fonts fallback
+const STANDARD_FONT_DATA_URL = path.resolve(__dirname, '../../node_modules/pdfjs-dist/standard_fonts/');
 
 /**
  * PDF Cropper for Deutsche Post shipping labels
@@ -60,7 +77,15 @@ class NodeCanvasFactory {
 async function getContentBoundsPerPage(pdfBuffer) {
   const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
   const canvasFactory = new NodeCanvasFactory();
-  const pdf = await getDocument({ data, disableFontFace: true, canvasFactory }).promise;
+  
+  // Enable font rendering with proper CMap and standard font support
+  const pdf = await getDocument({
+    data,
+    canvasFactory,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+  }).promise;
 
   const results = [];
 
