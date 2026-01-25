@@ -84,12 +84,13 @@ export function createPrintRouter(storage) {
         if (croppedDimensions?.cropped) {
           contentWidth = croppedDimensions.cropped.widthMm;
           contentHeight = croppedDimensions.cropped.heightMm;
-        } else if (croppedDimensions?.original && !cropFailed) {
-          // Use original dimensions if available and crop wasn't explicitly disabled
+        } else if (croppedDimensions?.original) {
+          // Use original PDF dimensions when detection failed (preferred fallback for endless roll)
           contentWidth = croppedDimensions.original.widthMm;
           contentHeight = croppedDimensions.original.heightMm;
+          console.log(`[Print] Using original PDF dimensions: ${contentWidth}x${contentHeight}mm`);
         } else {
-          // Fallback to explicit paper dimensions or defaults
+          // Final fallback to explicit paper dimensions or defaults
           contentWidth = paperWidthMm || 62;
           contentHeight = paperHeightMm || 100;
           console.log(`[Print] Using fallback dimensions: ${contentWidth}x${contentHeight}mm`);
