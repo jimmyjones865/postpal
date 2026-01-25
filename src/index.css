@@ -132,7 +132,16 @@
     @apply space-y-2;
   }
 
-  .config-label {
+.config-label {
     @apply text-sm font-medium text-foreground/80;
   }
+}
+
+@keyframes flash-copy {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: hsl(var(--primary) / 0.3); }
+}
+
+.animate-flash {
+  animation: flash-copy 0.3s ease;
 }
