@@ -18,7 +18,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
    */
   router.post('/', async (req, res) => {
     try {
-      const { pdfBase64, recipientAddress, productCode, productName, einschreiben } = req.body;
+      const { pdfBase64, recipientAddress, productCode, productName, voucherId, trackId } = req.body;
 
       if (!pdfBase64 || !recipientAddress || !productCode) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -28,7 +28,8 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
         recipientAddress,
         productCode,
         productName,
-        einschreiben: einschreiben || false
+        voucherId: voucherId || null,
+        trackId: trackId || null
       });
 
       res.json({ success: true, label: labelInfo });

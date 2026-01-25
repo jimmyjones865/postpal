@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { History, Printer, Trash2, RefreshCw, Calendar, Package } from 'lucide-react';
+import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
 import { DirectPrintConfig, PrintOptions } from '@/lib/printConfig';
 import { printLabelDirect, buildPrintParams } from '@/services/labelService';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 interface LabelHistoryProps {
   labels: StoredLabel[];
@@ -56,6 +57,15 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     a.href = url;
     a.download = label.filename;
     a.click();
+  };
+
+  const handleCopyId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      toast.success('Copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   if (isLoading) {
@@ -118,9 +128,23 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
               </div>
               
               <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
+                  </div>
+                  {(label.trackId || label.voucherId) && (
+                    <button 
+                      onClick={() => handleCopyId(label.trackId || label.voucherId!)}
+                      className="font-mono truncate hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[100px]"
+                      title="Click to copy ID"
+                    >
+                      <span className="truncate">
+                        {label.trackId || label.voucherId}
+                      </span>
+                      <Copy className="w-3 h-3 flex-shrink-0" />
+                    </button>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-1">
