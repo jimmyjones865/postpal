@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { History, Printer, Trash2, RefreshCw, Calendar, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { StoredLabel, printLabel, getLabelPdfUrl, PrintOptions } from '@/lib/labelStorage';
+import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
+import { DirectPrintConfig, PrintOptions } from '@/lib/printConfig';
+import { printLabelDirect, buildPrintParams } from '@/services/labelService';
 import { formatDistanceToNow } from 'date-fns';
 
 interface LabelHistoryProps {
@@ -12,14 +14,7 @@ interface LabelHistoryProps {
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
   printOptions?: PrintOptions;
-  directPrintConfig?: {
-    cupsUrl: string;
-    printerName: string;
-    orientation: 'portrait' | 'landscape';
-    paperFormatName: string;
-    enableDirectPrint: boolean;
-    disableCropping?: boolean;
-  };
+  directPrintConfig?: DirectPrintConfig;
 }
 
 export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
@@ -30,26 +25,14 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     setPrintingId(label.id);
     try {
       if (directPrintConfig?.enableDirectPrint && directPrintConfig.cupsUrl) {
-        // Direct print via CUPS
-        const API_BASE = '/api';
-        const response = await fetch(`${API_BASE}/print`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            labelId: label.id,
-            cupsUrl: directPrintConfig.cupsUrl,
-            printerName: directPrintConfig.printerName,
-            orientation: directPrintConfig.orientation,
-            paperFormatName: directPrintConfig.paperFormatName,
-            cropH: printOptions?.cropH ?? 5,
-            cropV: printOptions?.cropV ?? 5,
-            disableCropping: directPrintConfig.disableCropping || false,
-          })
-        });
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Print failed');
-        }
+        // Direct print via CUPS using service
+        const printParams = buildPrintParams(
+          label.id,
+          directPrintConfig,
+          printOptions?.cropH ?? 5,
+          printOptions?.cropV ?? 5
+        );
+        await printLabelDirect(printParams);
       } else {
         await printLabel(label.id, printOptions);
       }

@@ -1,206 +1,95 @@
 
-# Plan: Preview Cropped Dimensions + Robust EU Address Parsing
+## What’s actually causing the “60 ink pixels” result
 
-This plan addresses two features:
-1. **Preview Cropped Dimensions** - Show expected label size before printing
-2. **Improve Address Parsing** - Make the parser robust for all EU countries without heavy libraries
+In `server/lib/pdf-cropper.js`, the scan loop uses:
 
----
+- `width = viewport.width` and `height = viewport.height` (both **floating point**, e.g. `498.896`)
+- pixel indexing: `idx = (y * width + x) * 4`
 
-## Feature 1: Preview Cropped Dimensions
+When `y > 0`, `y * width` becomes a float, so `idx` becomes a float.  
+Accessing `pixels[idx]` with a float index returns `undefined`, so almost no pixels are ever counted as “ink”.
 
-### Problem
-Users cannot see the final label dimensions before printing. This is especially important for endless roll paper where the height varies based on content.
+The only row that still works is `y = 0` (because `0 * width` is `0`, producing integer indices). That perfectly explains why you see a small non-zero number like **60**: you’re effectively scanning only the first row of the canvas.
 
-### Solution
-Add a new API endpoint that calculates cropped dimensions without actually cropping, and display this info in the Settings panel and/or before printing.
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `server/routes/api.js` | Add `POST /api/labels/:id/dimensions` endpoint that calculates cropped size |
-| `server/lib/pdf-cropper.js` | Export a `getContentDimensions()` function that returns bounds without modifying PDF |
-| `src/components/SettingsPanel.tsx` | Add a "Preview Dimensions" button that fetches and displays the expected output size for a sample label |
-
-### API Endpoint
-
-```text
-POST /api/labels/:id/dimensions
-Body: { cropH: number, cropV: number, disableCropping: boolean }
-
-Response: {
-  original: { widthMm: number, heightMm: number },
-  cropped: { widthMm: number, heightMm: number } | null
-}
-```
-
-### UI Display
-Show dimensions like: "Cropped size: 88.0 x 42.5 mm" near the crop margin settings.
+So the main fix is: **always scan using integer canvas dimensions** and compute indices using those integers.
 
 ---
 
-## Feature 2: Robust EU Address Parsing
+## Implementation changes
 
-### Current State
-The existing parser in `server/lib/european-address-parser.js` handles ~15 EU countries with regex patterns for postal codes. It works well for standard formats but has gaps:
-- Missing postal code patterns for some countries (Portugal, Greece, Swedish format, etc.)
-- No confidence scoring to handle ambiguous input
-- Limited handling of multi-line variations
+### 1) Fix pixel scanning to use integer canvas dimensions (core fix)
+**File:** `server/lib/pdf-cropper.js`
 
-### Options Considered
+**Change approach:**
+- Keep using `viewport = page.getViewport({ scale: RENDER_SCALE })` for rendering.
+- Create an integer-backed canvas size:
+  - `const canvasWidth = Math.ceil(viewport.width)`
+  - `const canvasHeight = Math.ceil(viewport.height)`
+- Use `canvasWidth/canvasHeight` everywhere for:
+  - `createCanvas()`
+  - `fillRect()`
+  - `getImageData()`
+  - scan loops
+  - typed array sizes (`rowInk`, `colInk`)
+  - index calculation `idx = (y * canvasWidth + x) * 4`
 
-| Option | Size | Pros | Cons |
-|--------|------|------|------|
-| **libpostal** | ~2GB | Most accurate, ML-trained | Massive, complex deployment |
-| **Google Address API** | External | Very accurate | Costs money, requires API key |
-| **lib-address** | ~2.5KB | Metadata for 200+ countries | Format templates only, no parsing |
-| **Custom regex enhancement** | 0KB (existing) | No dependencies, full control | Requires manual maintenance |
-| **Hybrid: Enhanced regex + heuristics** | ~10KB | Good accuracy, lightweight | Some edge cases |
+**Why `Math.ceil` and not `Math.floor`:**
+- Avoids clipping the rendered content at the right/bottom edge when viewport size is fractional.
 
-### Recommended Approach: Enhanced Regex Parser
+**Also update the log** to show both viewport and integer canvas dimensions so future debugging is straightforward.
 
-Improve the existing parser with:
-
-1. **Complete postal code patterns** for all 27 EU countries + EEA + common destinations
-2. **Country detection from postal code format** (e.g., Dutch 4-digit+2-letter is unmistakable)
-3. **Street suffix dictionaries** for more languages
-4. **Confidence scoring** to indicate parsing quality
-5. **Better multi-line handling** for varying input formats
-
-### Detailed Changes
-
-#### 1. Expanded Postal Code Patterns
-
-Add patterns for missing countries:
-
-| Country | Pattern | Example |
-|---------|---------|---------|
-| Portugal | `\d{4}-\d{3}` | 1000-001 Lisboa |
-| Greece | `\d{3}\s?\d{2}` | 106 82 Athens |
-| Sweden | `\d{3}\s?\d{2}` | 114 34 Stockholm |
-| Finland | `\d{5}` | 00100 Helsinki |
-| Czech | `\d{3}\s?\d{2}` | 110 00 Praha |
-| Slovakia | `\d{3}\s?\d{2}` | 811 01 Bratislava |
-| Hungary | `\d{4}` | 1051 Budapest |
-| Romania | `\d{6}` | 010011 Bucharest |
-| Bulgaria | `\d{4}` | 1000 Sofia |
-| Croatia | `\d{5}` | 10000 Zagreb |
-| Slovenia | `\d{4}` | 1000 Ljubljana |
-| Latvia | `LV-\d{4}` | LV-1050 Riga |
-| Lithuania | `LT-\d{5}` | LT-01100 Vilnius |
-| Estonia | `\d{5}` | 10111 Tallinn |
-| Cyprus | `\d{4}` | 1095 Nicosia |
-| Malta | `[A-Z]{3}\s?\d{4}` | VLT 1000 |
-| Luxembourg | `L-\d{4}` or `\d{4}` | L-1471 or 1471 |
-
-#### 2. Smarter Country Detection
-
-```text
-Algorithm:
-1. Check if last line is a known country name → use that
-2. If no explicit country, infer from postal code format:
-   - Dutch pattern (1234 AB) → Netherlands
-   - Polish pattern (00-000) → Poland
-   - Irish Eircode → Ireland
-   - UK postcode → UK
-   - Portuguese pattern (1234-567) → Portugal
-   - Latvian prefix (LV-) → Latvia
-   - Lithuanian prefix (LT-) → Lithuania
-3. Default to Germany if ambiguous 5-digit code
-```
-
-#### 3. Expanded Street Detection
-
-Add suffixes for more languages:
-
-```javascript
-const STREET_SUFFIXES = {
-  // German (existing)
-  de: ['straße', 'strasse', 'str', 'weg', 'platz', 'allee', 'gasse', 'ring', 'damm', 'ufer', 'chaussee'],
-  // French
-  fr: ['rue', 'avenue', 'boulevard', 'place', 'chemin', 'allée', 'impasse', 'passage', 'quai'],
-  // Spanish
-  es: ['calle', 'avenida', 'plaza', 'paseo', 'carrer', 'carrera', 'camino'],
-  // Italian
-  it: ['via', 'viale', 'piazza', 'corso', 'vicolo', 'largo', 'piazzale'],
-  // Portuguese
-  pt: ['rua', 'avenida', 'praça', 'travessa', 'largo', 'alameda'],
-  // Dutch (existing)
-  nl: ['straat', 'laan', 'weg', 'plein', 'gracht', 'kade', 'singel'],
-  // Polish (existing)
-  pl: ['ulica', 'ul', 'aleja', 'al', 'plac'],
-  // Czech/Slovak
-  cs: ['ulice', 'ul', 'náměstí', 'nám', 'třída', 'tř'],
-  // Hungarian
-  hu: ['utca', 'u', 'út', 'tér', 'körút', 'köz'],
-  // Romanian
-  ro: ['strada', 'str', 'bulevardul', 'bd', 'piața', 'calea'],
-  // Nordic
-  nordic: ['gatan', 'vägen', 'gade', 'vej', 'veien', 'gate', 'katu', 'tie'],
-  // Greek (transliterated)
-  gr: ['odos', 'leoforos', 'plateia'],
-  // English (existing)
-  en: ['street', 'road', 'avenue', 'lane', 'drive', 'way', 'court', 'close', 'crescent']
-};
-```
-
-#### 4. Confidence Scoring
-
-Return a confidence score (0-100) indicating parsing quality:
-
-```javascript
-// Add to parseAddress return object:
-{
-  ...fields,
-  confidence: 85,
-  warnings: ['Could not detect country, defaulting to Germany']
-}
-```
-
-Scoring factors:
-- Postal code matched known pattern: +30
-- Country explicitly provided: +20
-- Street suffix recognized: +20
-- Name line detected (at least 2 words): +15
-- ZIP+City on same line: +15
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `server/lib/european-address-parser.js` | Add postal patterns, street suffixes, confidence scoring, country inference |
-| `src/lib/address.ts` | Add `confidence?: number` and `warnings?: string[]` to ParsedAddress interface |
-| `src/components/ParsedAddressEditor.tsx` | Display confidence indicator and warnings |
+Expected result: ink pixel counts should jump from ~60 to many thousands for a real label.
 
 ---
 
-## Technical Notes
+### 2) Fix endless-roll fallback height to use original PDF height (your chosen behavior)
+Right now `server/routes/print.js` still falls back to `paperHeightMm || 100` in the endless-roll branch, which is why you see:
 
-### Why Not External Libraries?
+`[Print] Using fallback dimensions: 88x100mm`
 
-- **libpostal**: 2GB+ in size, requires C compilation, not practical for this use case
-- **Google Places API**: Costs money per request, requires API key management
-- **OpenCage/Nominatim**: Geocoding services, not address parsers - require full valid addresses
+**File:** `server/routes/print.js`
 
-### Accuracy Trade-offs
+**Change approach:**
+- In the endless roll sizing logic, prefer:
+  1) `croppedDimensions.cropped` if available
+  2) otherwise `croppedDimensions.original` (even when detection failed / fallback happened)
+  3) only then fall back to explicit/default
 
-The enhanced regex approach will handle ~95% of EU addresses correctly. Edge cases that may fail:
-- Addresses without postal codes
-- Unusual multi-line formats
-- Non-Latin scripts (Greek, Cyrillic) - will need transliteration
+Concretely: remove the `&& !cropFailed` guard so original dimensions are used when detection fails.
 
-### Maintenance
-
-The postal code patterns are standardized by each country's postal service and rarely change. The country name mapping already covers multiple languages and can be extended.
+This ensures:
+- if content detection fails, you still print using the original PDF height (not 100mm).
+- matches your stated preference for crop-fail behavior.
 
 ---
 
-## Implementation Order
+### 3) (Optional but recommended) Add a “scan sanity” retry when ink exists but bounds fail
+After the integer-dimension fix, this may not be needed, but it’s a good robustness improvement:
 
-1. Add cropped dimensions preview endpoint and UI
-2. Expand postal code patterns for all EU countries
-3. Add street suffix dictionaries for major EU languages  
-4. Implement country inference from postal code format
-5. Add confidence scoring
-6. Display parsing confidence in UI
+**File:** `server/lib/pdf-cropper.js`
+
+If `totalInk > 0` but `hasContent` is false due to row/column thresholds, do one more pass with `rowThreshold=1` / `colThreshold=1` to recover sparse content (thin lines, faint barcodes).
+
+This is a safety net and shouldn’t affect normal labels.
+
+---
+
+## Validation steps (how we’ll confirm it’s fixed)
+
+1) Re-run the exact “Print from history” case with the provided label.
+2) Confirm backend logs show something like:
+   - `canvas <int>x<int> ... found <large number> ink pixels`
+3) Confirm that for endless roll:
+   - `mediaHeightMm` uses the detected cropped height
+   - or, if detection fails, uses `croppedDimensions.original.heightMm` (not 100mm)
+
+---
+
+## Files to update
+
+1) `server/lib/pdf-cropper.js`
+   - Use integer canvas sizes and integer indexing for scan loops
+   - (Optional) add minimal retry for sparse ink
+2) `server/routes/print.js`
+   - endless roll fallback: use original PDF height whenever cropping detection fails
+
