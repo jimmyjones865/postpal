@@ -77,8 +77,12 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
       const statusCode = res.statusCode;
       logger.debug('[CUPS] Response status:', statusCode, res['status-message']);
       
-      // IPP success codes are 0x0000-0x00FF
-      if (statusCode !== undefined && statusCode <= 0x00FF) {
+      // IPP success: numeric codes 0x0000-0x00FF OR string starting with "successful"
+      const isSuccess = 
+        (typeof statusCode === 'number' && statusCode <= 0x00FF) ||
+        (typeof statusCode === 'string' && statusCode.startsWith('successful'));
+      
+      if (isSuccess) {
         const jobId = res['job-attributes-tag']?.['job-id'];
         logger.info('[CUPS] Print job submitted, ID:', jobId);
         resolve({

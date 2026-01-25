@@ -259,17 +259,21 @@ async function getContentBoundsPerPage(pdfBuffer) {
 }
 
 /**
- * Crops a PDF to its content bounds and adds a uniform white border.
+ * Crops a PDF to its content bounds and adds independent padding on each side.
  * 
  * @param {Buffer} pdfBuffer - Original PDF buffer (NOT modified)
- * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
- * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @param {number} paddingTop - Top padding in mm (default 5)
+ * @param {number} paddingRight - Right padding in mm (default 5)
+ * @param {number} paddingBottom - Bottom padding in mm (default 5)
+ * @param {number} paddingLeft - Left padding in mm (default 5)
  * @returns {Promise<Buffer>} - New cropped PDF buffer
  */
 export async function cropPdfWithPadding(
   pdfBuffer,
-  paddingHorizontalMm = 5,
-  paddingVerticalMm = 5
+  paddingTop = 5,
+  paddingRight = 5,
+  paddingBottom = 5,
+  paddingLeft = 5
 ) {
   const bounds = await getContentBoundsPerPage(pdfBuffer);
   
@@ -277,8 +281,10 @@ export async function cropPdfWithPadding(
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
 
-  const padX = mmToPoints(paddingHorizontalMm);
-  const padY = mmToPoints(paddingVerticalMm);
+  const padTop = mmToPoints(paddingTop);
+  const padRight = mmToPoints(paddingRight);
+  const padBottom = mmToPoints(paddingBottom);
+  const padLeft = mmToPoints(paddingLeft);
 
   for (let i = 0; i < pages.length; i++) {
     const b = bounds[i];
@@ -289,13 +295,13 @@ export async function cropPdfWithPadding(
       continue;
     }
 
-    // Calculate new page dimensions: content + uniform padding on all sides
-    const newMinX = b.minX - padX;
-    const newMinY = b.minY - padY;
-    const newWidth = (b.maxX - b.minX) + padX * 2;
-    const newHeight = (b.maxY - b.minY) + padY * 2;
+    // Calculate new page dimensions: content + independent padding on each side
+    const newMinX = b.minX - padLeft;
+    const newMinY = b.minY - padBottom;  // PDF Y-axis: bottom is minY
+    const newWidth = (b.maxX - b.minX) + padLeft + padRight;
+    const newHeight = (b.maxY - b.minY) + padTop + padBottom;
 
-    logger.debug(`[PDFCropper] Page ${i + 1}: content ${Math.round(b.maxX - b.minX)}x${Math.round(b.maxY - b.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (${paddingHorizontalMm}mm/${paddingVerticalMm}mm padding)`);
+    logger.debug(`[PDFCropper] Page ${i + 1}: content ${Math.round(b.maxX - b.minX)}x${Math.round(b.maxY - b.minY)} pts → cropped ${Math.round(newWidth)}x${Math.round(newHeight)} pts (T:${paddingTop}/R:${paddingRight}/B:${paddingBottom}/L:${paddingLeft}mm)`);
 
     // Set all box types to ensure consistent cropping across viewers/printers
     pages[i].setMediaBox(newMinX, newMinY, newWidth, newHeight);
@@ -385,11 +391,19 @@ export async function prepareForEndlessRoll(pdfBuffer, rollWidthMm, landscape = 
  * Useful for previewing the expected output size before printing.
  * 
  * @param {Buffer} pdfBuffer - Original PDF buffer
- * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
- * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @param {number} paddingTop - Top padding in mm (default 5)
+ * @param {number} paddingRight - Right padding in mm (default 5)
+ * @param {number} paddingBottom - Bottom padding in mm (default 5)
+ * @param {number} paddingLeft - Left padding in mm (default 5)
  * @returns {Promise<{original: {widthMm: number, heightMm: number}, cropped: {widthMm: number, heightMm: number} | null}>}
  */
-export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, paddingVerticalMm = 5) {
+export async function getContentDimensions(
+  pdfBuffer, 
+  paddingTop = 5, 
+  paddingRight = 5, 
+  paddingBottom = 5, 
+  paddingLeft = 5
+) {
   const bounds = await getContentBoundsPerPage(pdfBuffer);
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
@@ -400,8 +414,10 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
   
   const page = pages[0];
   const b = bounds[0];
-  const padX = mmToPoints(paddingHorizontalMm);
-  const padY = mmToPoints(paddingVerticalMm);
+  const padTop = mmToPoints(paddingTop);
+  const padRight = mmToPoints(paddingRight);
+  const padBottom = mmToPoints(paddingBottom);
+  const padLeft = mmToPoints(paddingLeft);
   
   const originalWidth = page.getWidth();
   const originalHeight = page.getHeight();
@@ -417,8 +433,8 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
     };
   }
   
-  const croppedWidth = (b.maxX - b.minX) + padX * 2;
-  const croppedHeight = (b.maxY - b.minY) + padY * 2;
+  const croppedWidth = (b.maxX - b.minX) + padLeft + padRight;
+  const croppedHeight = (b.maxY - b.minY) + padTop + padBottom;
   
   return {
     original: {
@@ -437,22 +453,28 @@ export async function getContentDimensions(pdfBuffer, paddingHorizontalMm = 5, p
  * This avoids duplicate pixel scanning operations.
  * 
  * @param {Buffer} pdfBuffer - Original PDF buffer (NOT modified)
- * @param {number} paddingHorizontalMm - Horizontal padding in mm (default 5)
- * @param {number} paddingVerticalMm - Vertical padding in mm (default 5)
+ * @param {number} paddingTop - Top padding in mm (default 5)
+ * @param {number} paddingRight - Right padding in mm (default 5)
+ * @param {number} paddingBottom - Bottom padding in mm (default 5)
+ * @param {number} paddingLeft - Left padding in mm (default 5)
  * @returns {Promise<{buffer: Buffer, dimensions: {original: {...}, cropped: {...} | null}, fallback: boolean}>}
  */
 export async function cropPdfWithPaddingAndDimensions(
   pdfBuffer,
-  paddingHorizontalMm = 5,
-  paddingVerticalMm = 5
+  paddingTop = 5,
+  paddingRight = 5,
+  paddingBottom = 5,
+  paddingLeft = 5
 ) {
   const bounds = await getContentBoundsPerPage(pdfBuffer);
   
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
 
-  const padX = mmToPoints(paddingHorizontalMm);
-  const padY = mmToPoints(paddingVerticalMm);
+  const padTop = mmToPoints(paddingTop);
+  const padRight = mmToPoints(paddingRight);
+  const padBottom = mmToPoints(paddingBottom);
+  const padLeft = mmToPoints(paddingLeft);
   
   // Get original dimensions from first page
   const originalWidth = pages[0].getWidth();
@@ -472,11 +494,11 @@ export async function cropPdfWithPaddingAndDimensions(
       continue;
     }
 
-    // Calculate new page dimensions: content + uniform padding on all sides
-    const newMinX = pageBounds.minX - padX;
-    const newMinY = pageBounds.minY - padY;
-    const newWidth = (pageBounds.maxX - pageBounds.minX) + padX * 2;
-    const newHeight = (pageBounds.maxY - pageBounds.minY) + padY * 2;
+    // Calculate new page dimensions: content + independent padding on each side
+    const newMinX = pageBounds.minX - padLeft;
+    const newMinY = pageBounds.minY - padBottom;
+    const newWidth = (pageBounds.maxX - pageBounds.minX) + padLeft + padRight;
+    const newHeight = (pageBounds.maxY - pageBounds.minY) + padTop + padBottom;
     
     // Store first page cropped dimensions
     if (i === 0) {

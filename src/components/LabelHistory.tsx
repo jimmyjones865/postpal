@@ -26,12 +26,16 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     setPrintingId(label.id);
     try {
       if (directPrintConfig?.enableDirectPrint && directPrintConfig.cupsUrl) {
-        // Direct print via CUPS using service
+        // Direct print via CUPS using service with 4-direction margins
         const printParams = buildPrintParams(
           label.id,
           directPrintConfig,
-          printOptions?.cropH ?? 5,
-          printOptions?.cropV ?? 5
+          {
+            top: printOptions?.cropTop ?? 5,
+            right: printOptions?.cropRight ?? 5,
+            bottom: printOptions?.cropBottom ?? 5,
+            left: printOptions?.cropLeft ?? 5
+          }
         );
         await printLabelDirect(printParams);
       } else {

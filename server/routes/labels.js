@@ -54,11 +54,11 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
   });
 
   /**
-   * GET /labels/:id/pdf - Download a label PDF (with optional cropping)
+   * GET /labels/:id/pdf - Download a label PDF (with optional 4-direction cropping)
    */
   router.get('/:id/pdf', async (req, res) => {
     try {
-      const { print, cropH, cropV } = req.query;
+      const { print, cropTop, cropRight, cropBottom, cropLeft } = req.query;
       
       const label = await storage.getLabel(req.params.id);
       if (!label) {
@@ -67,13 +67,15 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
 
       let pdfBuffer = await storage.getLabelPdf(req.params.id);
 
-      // Apply cropping for print mode
+      // Apply 4-direction cropping for print mode
       if (print === '1') {
         try {
           pdfBuffer = await cropPdfWithPadding(
             pdfBuffer, 
-            parseFloat(cropH) || 5, 
-            parseFloat(cropV) || 5
+            parseFloat(cropTop) || 5,
+            parseFloat(cropRight) || 5,
+            parseFloat(cropBottom) || 5,
+            parseFloat(cropLeft) || 5
           );
           logger.info('[Labels] PDF cropped for printing');
         } catch (err) {

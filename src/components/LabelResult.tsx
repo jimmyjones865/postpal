@@ -87,7 +87,13 @@ export function LabelResult({
     if (!purchasedLabelId) return;
     setIsDownloading(true);
     try {
-      await downloadLabel(purchasedLabelId, printOptions.cropH ?? 5, printOptions.cropV ?? 5);
+      await downloadLabel(
+        purchasedLabelId, 
+        printOptions.cropTop ?? 5,
+        printOptions.cropRight ?? 5,
+        printOptions.cropBottom ?? 5,
+        printOptions.cropLeft ?? 5
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -98,12 +104,12 @@ export function LabelResult({
     setIsPrinting(true);
     try {
       if (directPrintConfig.enableDirectPrint && directPrintConfig.cupsUrl) {
-        const params = buildPrintParams(
-          purchasedLabelId,
-          directPrintConfig,
-          printOptions.cropH ?? 5,
-          printOptions.cropV ?? 5
-        );
+        const params = buildPrintParams(purchasedLabelId, directPrintConfig, {
+          top: printOptions.cropTop ?? 5,
+          right: printOptions.cropRight ?? 5,
+          bottom: printOptions.cropBottom ?? 5,
+          left: printOptions.cropLeft ?? 5
+        });
         await printLabelDirect(params);
       } else {
         await printLabel(purchasedLabelId, printOptions);
@@ -138,11 +144,11 @@ export function LabelResult({
       <div className="bg-card border border-border rounded-lg p-3">
         <div className="text-xs text-muted-foreground mb-2">Purchased Label</div>
         {pdfUrl ? (
-          <iframe 
+          <embed 
             src={pdfUrl}
+            type="application/pdf"
             className="w-full rounded border border-border bg-white"
             style={previewStyle}
-            title="Purchased Label PDF"
           />
         ) : (
           <div 
@@ -180,6 +186,7 @@ export function LabelResult({
 
       {/* Section 4: Voucher/Track ID */}
       <button
+        type="button"
         onClick={handleCopyId}
         disabled={!displayId}
         className={cn(

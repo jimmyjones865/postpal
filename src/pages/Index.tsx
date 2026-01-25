@@ -230,8 +230,12 @@ const Index = () => {
           const printParams = buildPrintParams(
             savedLabel.id,
             directPrintConfig,
-            printOptions.cropH,
-            printOptions.cropV
+            {
+              top: printOptions.cropTop,
+              right: printOptions.cropRight,
+              bottom: printOptions.cropBottom,
+              left: printOptions.cropLeft
+            }
           );
           await printLabelDirect(printParams);
           
@@ -247,7 +251,13 @@ const Index = () => {
       } else if (printMode === 'download' && savedLabel) {
         // Download the cropped PDF
         try {
-          await downloadLabel(savedLabel.id, printOptions.cropH, printOptions.cropV);
+          await downloadLabel(
+            savedLabel.id, 
+            printOptions.cropTop, 
+            printOptions.cropRight, 
+            printOptions.cropBottom, 
+            printOptions.cropLeft
+          );
           toast.success('Label Downloaded', {
             description: `${product?.name} label saved.`
           });
