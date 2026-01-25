@@ -7,3 +7,6 @@ docker-compose*
 README.md
 LICENSE
 .vscode
+bun.lockb
+bun.lock
+config/
