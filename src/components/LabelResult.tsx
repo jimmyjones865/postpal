@@ -6,6 +6,8 @@ import { PrintOptions, DirectPrintConfig } from '@/lib/printConfig';
 import { printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
 import { printLabel } from '@/lib/labelStorage';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/clipboard';
+import { toast } from 'sonner';
 
 interface LabelResultProps {
   parsedRecipient: ParsedAddress;
@@ -121,12 +123,12 @@ export function LabelResult({
 
   const handleCopyId = async () => {
     if (!displayId) return;
-    try {
-      await navigator.clipboard.writeText(displayId);
+    const success = await copyToClipboard(displayId);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 300);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } else {
+      toast.error('Failed to copy to clipboard');
     }
   };
 
