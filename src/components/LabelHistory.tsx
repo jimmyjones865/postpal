@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalLink } from 'lucide-react';
+import { copyToClipboard } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
@@ -66,13 +67,13 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
   };
 
   const handleCopyId = async (id: string, labelId: string) => {
-    try {
-      await navigator.clipboard.writeText(id);
+    const success = await copyToClipboard(id);
+    if (success) {
       setCopiedId(labelId);
       toast.success('Copied to clipboard');
       setTimeout(() => setCopiedId(null), 300);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } else {
+      toast.error('Failed to copy to clipboard');
     }
   };
 
