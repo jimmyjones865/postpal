@@ -1,123 +1,35 @@
 
-# Fix: Safari Clipboard Copy Not Working
+# Cleanup: Remove Unused Function from countryCodes.ts
 
-## Problem Analysis
+## What's Being Removed
 
-Safari on macOS has stricter requirements for the Clipboard API than Chrome or Firefox:
+The `extractCountryFromAddress` function (lines 319-328) is exported but never used anywhere in the codebase. It was likely created as a utility that ended up not being needed.
 
-1. **User Activation Requirement**: Safari requires clipboard writes to happen immediately during a user gesture (click). Any async delays may cause the gesture to "expire"
-2. **Silent Failures**: `navigator.clipboard.writeText()` can fail silently or throw a `NotAllowedError` in Safari
-3. **No Error Visibility**: The current code catches errors but doesn't show them to the user, so failures appear as "nothing happening"
+## File to Modify
 
-The current implementation uses `navigator.clipboard.writeText()` which should work, but Safari can be finicky. The solution is to add a fallback mechanism.
+`src/lib/countryCodes.ts`
 
-## Solution
+## Change
 
-Create a robust clipboard utility that:
-1. Tries `navigator.clipboard.writeText()` first (modern API)
-2. Falls back to `document.execCommand('copy')` if that fails (legacy but more reliable)
-3. Shows a toast message on both success and failure
-
-### New Utility Function
-
-Create `src/lib/clipboard.ts`:
+Remove lines 319-328:
 
 ```typescript
-/**
- * Copy text to clipboard with Safari fallback.
- * Uses modern Clipboard API with fallback to execCommand for Safari compatibility.
- */
-export async function copyToClipboard(text: string): Promise<boolean> {
-  // Try modern Clipboard API first
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      console.warn('Clipboard API failed, trying fallback:', err);
-      // Fall through to legacy method
-    }
-  }
+// DELETE THIS:
+export function extractCountryFromAddress(address: string): { country: string | null; isoCode: string | null } {
+  const lines = address.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return { country: null, isoCode: null };
   
-  // Fallback: Create a temporary textarea and use execCommand
-  try {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    
-    // Prevent scrolling to bottom on iOS
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    textArea.style.top = '0';
-    textArea.style.opacity = '0';
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    const success = document.execCommand('copy');
-    document.body.removeChild(textArea);
-    
-    return success;
-  } catch (err) {
-    console.error('Fallback copy failed:', err);
-    return false;
-  }
+  // Last non-empty line is typically the country
+  const lastLine = lines[lines.length - 1];
+  const isoCode = getCountryCode(lastLine);
+  
+  return { country: lastLine, isoCode };
 }
 ```
 
-### Update LabelHistory.tsx
+## What Remains
 
-Replace the `handleCopyId` function:
+- `COUNTRY_CODES` constant (the translation table) - actively used
+- `getCountryCode()` function - actively used in Index.tsx
 
-```typescript
-import { copyToClipboard } from '@/lib/clipboard';
-
-const handleCopyId = async (id: string, labelId: string) => {
-  const success = await copyToClipboard(id);
-  if (success) {
-    setCopiedId(labelId);
-    toast.success('Copied to clipboard');
-    setTimeout(() => setCopiedId(null), 300);
-  } else {
-    toast.error('Failed to copy to clipboard');
-  }
-};
-```
-
-### Update LabelResult.tsx
-
-Replace the `handleCopyId` function:
-
-```typescript
-import { copyToClipboard } from '@/lib/clipboard';
-
-const handleCopyId = async () => {
-  if (!displayId) return;
-  const success = await copyToClipboard(displayId);
-  if (success) {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 300);
-  } else {
-    toast.error('Failed to copy to clipboard');
-  }
-};
-```
-
-Also add the toast import to LabelResult.tsx since it doesn't currently have one:
-```typescript
-import { toast } from 'sonner';
-```
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/lib/clipboard.ts` | New file - Safari-compatible clipboard utility |
-| `src/components/LabelHistory.tsx` | Use new `copyToClipboard` utility |
-| `src/components/LabelResult.tsx` | Use new `copyToClipboard` utility, add toast import |
-
-## Summary
-
-- Create a new utility with fallback for Safari compatibility
-- Show error toast if copy fails (instead of silent failure)
-- Both components will use the same robust clipboard function
+This is a small, safe cleanup with zero risk of breaking anything.
