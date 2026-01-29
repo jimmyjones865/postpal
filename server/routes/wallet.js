@@ -1,4 +1,5 @@
 import express from 'express';
+import { logger } from '../lib/logger.js';
 
 /**
  * Creates the wallet router for balance operations.
@@ -28,7 +29,7 @@ export function createWalletRouter(dhlClient, getCredentials) {
         expiresAt: tokenData.expiresAt 
       });
     } catch (err) {
-      console.error('[Wallet] Balance error:', err);
+      logger.error('[Wallet] Balance error:', err);
       res.status(500).json({ error: err.message || 'Failed to get wallet balance' });
     }
   });

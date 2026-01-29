@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Printer, AlertCircle, History, Mail, Settings } from 'lucide-react';
 import { useConfig } from '@/hooks/useConfig';
@@ -7,11 +7,10 @@ import { useLabelHistory } from '@/hooks/useLabelHistory';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput, PrintMode } from '@/components/AddressInput';
-import { LabelPreview } from '@/components/LabelPreview';
+import { LabelResult } from '@/components/LabelResult';
 import { LabelHistory } from '@/components/LabelHistory';
 import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
 import { WalletBalance } from '@/components/WalletBalance';
-import { TrackingNumber } from '@/components/TrackingNumber';
 import { validateAddress } from '@/lib/addressValidation';
 import { saveLabel } from '@/lib/labelStorage';
 import { ParsedAddress, emptyAddress } from '@/lib/address';
@@ -44,8 +43,41 @@ const Index = () => {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [trackingNumber, setTrackingNumber] = useState<string | null>(null);
   const [printMode, setPrintMode] = useState<PrintMode>('print');
+  
+  // Purchase result state
+  const [purchasedLabelId, setPurchasedLabelId] = useState<string | null>(null);
+  const [voucherId, setVoucherId] = useState<string | null>(null);
+  const [trackId, setTrackId] = useState<string | null>(null);
+  
+  // Paper formats for preview sizing
+  interface PaperFormat {
+    name: string;
+    pageLayout: { size: { x: number; y: number } };
+  }
+  const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
+  
+  // Fetch paper formats on mount
+  useEffect(() => {
+    fetch('/paper-formats.json')
+      .then(res => res.json())
+      .then(data => setPaperFormats(data.formats || []))
+      .catch(err => console.warn('Failed to load paper formats:', err));
+  }, []);
+  
+  // Clear purchase results when address changes
+  useEffect(() => {
+    setPurchasedLabelId(null);
+    setVoucherId(null);
+    setTrackId(null);
+  }, [recipientAddress]);
+  
+  // Get preview dimensions from selected paper format
+  const selectedFormat = paperFormats.find(f => f.name === config.printerConfig.paperFormatName);
+  const previewDimensions = selectedFormat ? {
+    widthMm: selectedFormat.pageLayout.size.x,
+    heightMm: selectedFormat.pageLayout.size.y
+  } : null;
   
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
@@ -54,8 +86,6 @@ const Index = () => {
 
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
-    // Clear tracking number when selecting a new product
-    setTrackingNumber(null);
   };
 
   const handlePrint = async () => {
@@ -155,11 +185,6 @@ const Index = () => {
       
       console.log('Label purchased successfully:', purchaseData);
       
-      // Update tracking number if provided
-      if (purchaseData.trackingNumber) {
-        setTrackingNumber(purchaseData.trackingNumber);
-      }
-      
       // Update wallet balance if returned
       if (purchaseData.newBalance !== undefined) {
         setWalletBalance(purchaseData.newBalance);
@@ -182,9 +207,15 @@ const Index = () => {
           pdfBase64,
           recipientAddress,
           productCode: productToUse!,
-          productName: product?.name || productToUse!
+          productName: product?.name || productToUse!,
+          voucherId: purchaseData.voucherId,
+          trackId: purchaseData.trackingNumber
         });
         addLabel(savedLabel);
+        // Set purchase result state
+        setPurchasedLabelId(savedLabel.id);
+        setVoucherId(purchaseData.voucherId || null);
+        setTrackId(purchaseData.trackingNumber || null);
       } catch (saveError) {
         console.warn('Could not save label to storage:', saveError);
       }
@@ -199,8 +230,12 @@ const Index = () => {
           const printParams = buildPrintParams(
             savedLabel.id,
             directPrintConfig,
-            printOptions.cropH,
-            printOptions.cropV
+            {
+              top: printOptions.cropTop,
+              right: printOptions.cropRight,
+              bottom: printOptions.cropBottom,
+              left: printOptions.cropLeft
+            }
           );
           await printLabelDirect(printParams);
           
@@ -216,7 +251,13 @@ const Index = () => {
       } else if (printMode === 'download' && savedLabel) {
         // Download the cropped PDF
         try {
-          await downloadLabel(savedLabel.id, printOptions.cropH, printOptions.cropV);
+          await downloadLabel(
+            savedLabel.id, 
+            printOptions.cropTop, 
+            printOptions.cropRight, 
+            printOptions.cropBottom, 
+            printOptions.cropLeft
+          );
           toast.success('Label Downloaded', {
             description: `${product?.name} label saved.`
           });
@@ -232,11 +273,7 @@ const Index = () => {
         });
       }
       
-      // Reset form after successful purchase
-      setSelectedProduct(null);
-      setRecipientAddress('');
-      setParsedRecipient(emptyAddress());
-      setTrackingNumber(null);
+      // Don't reset form - user can see result, will clear when address changes
     } catch (error) {
       console.error('Label purchase error:', error);
       toast.error('Purchase Failed', {
@@ -326,18 +363,16 @@ const Index = () => {
                 />
               </div>
 
-              {/* Preview */}
-              <div className="space-y-0">
-              <LabelPreview 
-                  senderAddress={config.senderAddress} 
-                  parsedRecipient={parsedRecipient} 
-                  selectedProduct={selectedProductData} 
-                />
-                <TrackingNumber 
-                  trackingNumber={trackingNumber}
-                  isTracked={selectedProductData?.tracked || false}
-                />
-              </div>
+              {/* Result panel */}
+              <LabelResult 
+                parsedRecipient={parsedRecipient}
+                purchasedLabelId={purchasedLabelId}
+                voucherId={voucherId}
+                trackId={trackId}
+                paperFormat={previewDimensions}
+                printOptions={buildPrintOptions(config.printerConfig)}
+                directPrintConfig={buildDirectPrintConfig(config.printerConfig)}
+              />
             </div>
 
             {/* Product selector */}

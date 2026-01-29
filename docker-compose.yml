@@ -6,11 +6,14 @@ services:
       - "3001:3000"
     volumes:
       - labels-data:/data/labels
+      # products.json holds the available Deutsche Post shipping product list, incl. their prices. Adjust as needed, then reload the container
       - ./public/products.json:/app/public/products.json:ro
     environment:
       # Server configuration
       - PORT=3000
+      - LOG_LEVEL=info                # debug | info | warn | none
       - PDF_STORAGE_PATH=/data/labels
+      # Retention days governs how long pdf files of purchased labels are kept in local storage; they are then deleted
       - RETENTION_DAYS=60
       - STATIC_PATH=/app/public
       # DHL credentials - set values here or create a .env file

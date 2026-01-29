@@ -17,11 +17,13 @@ export interface DirectPrintConfig {
 }
 
 /**
- * Print options for PDF cropping.
+ * Print options for PDF cropping (4-direction).
  */
 export interface PrintOptions {
-  cropH: number;
-  cropV: number;
+  cropTop: number;
+  cropRight: number;
+  cropBottom: number;
+  cropLeft: number;
 }
 
 /**
@@ -52,7 +54,9 @@ export function buildDirectPrintConfig(config: PrinterConfig): DirectPrintConfig
  */
 export function buildPrintOptions(config: PrinterConfig): PrintOptions {
   return {
-    cropH: config.cropMarginHorizontal ?? 5,
-    cropV: config.cropMarginVertical ?? 5
+    cropTop: config.cropMarginTop ?? 5,
+    cropRight: config.cropMarginRight ?? 5,
+    cropBottom: config.cropMarginBottom ?? 5,
+    cropLeft: config.cropMarginLeft ?? 5
   };
 }

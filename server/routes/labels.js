@@ -1,4 +1,5 @@
 import express from 'express';
+import { logger } from '../lib/logger.js';
 import { cropPdfWithPadding } from '../lib/pdf-cropper.js';
 
 /**
@@ -18,7 +19,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
    */
   router.post('/', async (req, res) => {
     try {
-      const { pdfBase64, recipientAddress, productCode, productName, einschreiben } = req.body;
+      const { pdfBase64, recipientAddress, productCode, productName, voucherId, trackId } = req.body;
 
       if (!pdfBase64 || !recipientAddress || !productCode) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -28,12 +29,13 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
         recipientAddress,
         productCode,
         productName,
-        einschreiben: einschreiben || false
+        voucherId: voucherId || null,
+        trackId: trackId || null
       });
 
       res.json({ success: true, label: labelInfo });
     } catch (err) {
-      console.error('[Labels] Save error:', err);
+      logger.error('[Labels] Save error:', err);
       res.status(500).json({ error: 'Failed to save label' });
     }
   });
@@ -46,17 +48,17 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       const labels = await storage.getAllLabels();
       res.json(labels);
     } catch (err) {
-      console.error('[Labels] Get error:', err);
+      logger.error('[Labels] Get error:', err);
       res.status(500).json({ error: 'Failed to get labels' });
     }
   });
 
   /**
-   * GET /labels/:id/pdf - Download a label PDF (with optional cropping)
+   * GET /labels/:id/pdf - Download a label PDF (with optional 4-direction cropping)
    */
   router.get('/:id/pdf', async (req, res) => {
     try {
-      const { print, cropH, cropV } = req.query;
+      const { print, cropTop, cropRight, cropBottom, cropLeft } = req.query;
       
       const label = await storage.getLabel(req.params.id);
       if (!label) {
@@ -65,17 +67,19 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
 
       let pdfBuffer = await storage.getLabelPdf(req.params.id);
 
-      // Apply cropping for print mode
+      // Apply 4-direction cropping for print mode
       if (print === '1') {
         try {
           pdfBuffer = await cropPdfWithPadding(
             pdfBuffer, 
-            parseFloat(cropH) || 5, 
-            parseFloat(cropV) || 5
+            parseFloat(cropTop) || 5,
+            parseFloat(cropRight) || 5,
+            parseFloat(cropBottom) || 5,
+            parseFloat(cropLeft) || 5
           );
-          console.log('[Labels] PDF cropped for printing');
+          logger.info('[Labels] PDF cropped for printing');
         } catch (err) {
-          console.error('[Labels] Crop failed, sending original:', err.message);
+          logger.error('[Labels] Crop failed, sending original:', err.message);
         }
       }
 
@@ -83,7 +87,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       res.setHeader('Content-Disposition', `inline; filename="${label.filename}"`);
       res.send(pdfBuffer);
     } catch (err) {
-      console.error('[Labels] PDF error:', err);
+      logger.error('[Labels] PDF error:', err);
       res.status(500).json({ error: 'Failed to get PDF' });
     }
   });
@@ -99,7 +103,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       }
       res.json({ success: true });
     } catch (err) {
-      console.error('[Labels] Delete error:', err);
+      logger.error('[Labels] Delete error:', err);
       res.status(500).json({ error: 'Failed to delete label' });
     }
   });
@@ -139,7 +143,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
 
       res.json(result);
     } catch (err) {
-      console.error('[Labels] Purchase error:', err);
+      logger.error('[Labels] Purchase error:', err);
       res.status(500).json({ error: err.message || 'Failed to purchase label' });
     }
   });

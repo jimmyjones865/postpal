@@ -370,41 +370,74 @@ export function SettingsPanel({
             
             {!config.printerConfig.disableCropping && (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="config-field">
-                    <Label className="config-label text-xs">Horizontal Margin (mm)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={50}
-                      value={config.printerConfig.cropMarginHorizontal ?? 5}
-                      onChange={e =>
-                        onUpdatePrinterConfig({ cropMarginHorizontal: parseInt(e.target.value) || 0 })
-                      }
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="config-field">
-                    <Label className="config-label text-xs">Vertical Margin (mm)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={50}
-                      value={config.printerConfig.cropMarginVertical ?? 5}
-                      onChange={e =>
-                        onUpdatePrinterConfig({ cropMarginVertical: parseInt(e.target.value) || 0 })
-                      }
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mb-3">
                   Crops whitespace from labels, keeping the specified margins around the content.
                 </p>
                 
+                <div className="grid grid-cols-3 gap-2 items-center">
+                  {/* Top - centered */}
+                  <div />
+                  <div className="config-field">
+                    <Label className="config-label text-xs text-center block">Top</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginTop ?? 5}
+                      onChange={e => onUpdatePrinterConfig({ cropMarginTop: parseInt(e.target.value) || 0 })}
+                      className="h-9 text-sm text-center"
+                    />
+                  </div>
+                  <div />
+                  
+                  {/* Left and Right */}
+                  <div className="config-field">
+                    <Label className="config-label text-xs text-center block">Left</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginLeft ?? 5}
+                      onChange={e => onUpdatePrinterConfig({ cropMarginLeft: parseInt(e.target.value) || 0 })}
+                      className="h-9 text-sm text-center"
+                    />
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <Ruler className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <div className="config-field">
+                    <Label className="config-label text-xs text-center block">Right</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginRight ?? 5}
+                      onChange={e => onUpdatePrinterConfig({ cropMarginRight: parseInt(e.target.value) || 0 })}
+                      className="h-9 text-sm text-center"
+                    />
+                  </div>
+                  
+                  {/* Bottom - centered */}
+                  <div />
+                  <div className="config-field">
+                    <Label className="config-label text-xs text-center block">Bottom</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={config.printerConfig.cropMarginBottom ?? 5}
+                      onChange={e => onUpdatePrinterConfig({ cropMarginBottom: parseInt(e.target.value) || 0 })}
+                      className="h-9 text-sm text-center"
+                    />
+                  </div>
+                  <div />
+                </div>
+                
                 <DimensionsPreview 
-                  cropH={config.printerConfig.cropMarginHorizontal ?? 5}
-                  cropV={config.printerConfig.cropMarginVertical ?? 5}
+                  cropTop={config.printerConfig.cropMarginTop ?? 5}
+                  cropRight={config.printerConfig.cropMarginRight ?? 5}
+                  cropBottom={config.printerConfig.cropMarginBottom ?? 5}
+                  cropLeft={config.printerConfig.cropMarginLeft ?? 5}
                   disableCropping={config.printerConfig.disableCropping || false}
                 />
               </>

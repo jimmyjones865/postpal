@@ -4,6 +4,8 @@ export interface StoredLabel {
   recipientAddress: string;
   productCode: string;
   productName: string;
+  voucherId?: string;
+  trackId?: string;
   createdAt: string;
 }
 
@@ -14,6 +16,8 @@ export async function saveLabel(data: {
   recipientAddress: string;
   productCode: string;
   productName: string;
+  voucherId?: string;
+  trackId?: string;
 }): Promise<StoredLabel> {
   const response = await fetch(`${API_BASE}/labels`, {
     method: 'POST',
@@ -45,15 +49,19 @@ export async function getLabelPdfUrl(id: string): Promise<string> {
 }
 
 export interface PrintOptions {
-  cropH?: number;
-  cropV?: number;
+  cropTop?: number;
+  cropRight?: number;
+  cropBottom?: number;
+  cropLeft?: number;
 }
 
 export async function getLabelPdfUrlForPrint(id: string, options?: PrintOptions): Promise<string> {
-  // Returns cropped PDF URL for printing
-  const cropH = options?.cropH ?? 5;
-  const cropV = options?.cropV ?? 5;
-  return `${API_BASE}/labels/${id}/pdf?print=1&cropH=${cropH}&cropV=${cropV}`;
+  // Returns cropped PDF URL for printing with 4-direction margins
+  const cropTop = options?.cropTop ?? 5;
+  const cropRight = options?.cropRight ?? 5;
+  const cropBottom = options?.cropBottom ?? 5;
+  const cropLeft = options?.cropLeft ?? 5;
+  return `${API_BASE}/labels/${id}/pdf?print=1&cropTop=${cropTop}&cropRight=${cropRight}&cropBottom=${cropBottom}&cropLeft=${cropLeft}`;
 }
 
 export async function deleteLabel(id: string): Promise<void> {

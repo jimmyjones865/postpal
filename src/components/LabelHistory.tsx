@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { History, Printer, Trash2, RefreshCw, Calendar, Package } from 'lucide-react';
+import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalLink } from 'lucide-react';
+import { copyToClipboard } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
 import { DirectPrintConfig, PrintOptions } from '@/lib/printConfig';
 import { printLabelDirect, buildPrintParams } from '@/services/labelService';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface LabelHistoryProps {
   labels: StoredLabel[];
@@ -20,17 +23,22 @@ interface LabelHistoryProps {
 export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
     setPrintingId(label.id);
     try {
       if (directPrintConfig?.enableDirectPrint && directPrintConfig.cupsUrl) {
-        // Direct print via CUPS using service
+        // Direct print via CUPS using service with 4-direction margins
         const printParams = buildPrintParams(
           label.id,
           directPrintConfig,
-          printOptions?.cropH ?? 5,
-          printOptions?.cropV ?? 5
+          {
+            top: printOptions?.cropTop ?? 5,
+            right: printOptions?.cropRight ?? 5,
+            bottom: printOptions?.cropBottom ?? 5,
+            left: printOptions?.cropLeft ?? 5
+          }
         );
         await printLabelDirect(printParams);
       } else {
@@ -56,6 +64,17 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     a.href = url;
     a.download = label.filename;
     a.click();
+  };
+
+  const handleCopyId = async (id: string, labelId: string) => {
+    const success = await copyToClipboard(id);
+    if (success) {
+      setCopiedId(labelId);
+      toast.success('Copied to clipboard');
+      setTimeout(() => setCopiedId(null), 300);
+    } else {
+      toast.error('Failed to copy to clipboard');
+    }
   };
 
   if (isLoading) {
@@ -118,9 +137,40 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
               </div>
               
               <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
+                  </div>
+                  {(label.trackId || label.voucherId) && (
+                    <div className="flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => handleCopyId(label.trackId || label.voucherId!, label.id)}
+                        className={cn(
+                          "font-mono truncate hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[100px]",
+                          copiedId === label.id && "animate-flash"
+                        )}
+                        title="Click to copy ID"
+                      >
+                        <span className="truncate">
+                          {label.trackId || label.voucherId}
+                        </span>
+                        <Copy className="w-3 h-3 flex-shrink-0" />
+                      </button>
+                      {label.trackId && (
+                        <a
+                          href={`https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary"
+                          title="Track shipment"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-1">
