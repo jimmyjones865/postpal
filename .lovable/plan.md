@@ -1,73 +1,132 @@
 
-# Full Address Parsing for EU/EEA + UK Countries
+# Graceful CUPS Integration (Works with Both Compose Files)
 
-## Current Status
+## The Issue
 
-Both parsing systems already have solid coverage for most countries. After analysis, I found a few gaps that need to be addressed.
+The planned CUPS integration adds:
+1. A backend `/cups/defaults` endpoint that reads `DEFAULT_CUPS_URL` from environment
+2. Frontend logic to auto-apply CUPS defaults
 
-## Gaps Identified
+When using the original `docker-compose.yml` (without CUPS), the `DEFAULT_CUPS_URL` environment variable won't exist. We need to ensure this doesn't cause errors or unexpected behavior.
 
-### 1. Missing Postal Code Patterns
+## Safety Analysis
 
-| Country | Format | Current State |
-|---------|--------|---------------|
-| Denmark | 4 digits (1000-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
-| Norway | 4 digits (0001-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
-| Iceland | 3 digits (101-999) | No pattern at all |
+### Backend: `/cups/defaults` Endpoint
 
-### 2. Missing Street Suffixes
-
-| Country | Missing Suffixes |
-|---------|-----------------|
-| Bulgaria | улица (ulitsa), булевард (bulevard), площад (ploshtad) |
-| Cyprus | Already covered by Greek (`gr`) suffixes |
-
-## Implementation Plan
-
-### File: `server/lib/european-address-parser.js`
-
-**1. Add Icelandic postal code pattern**
+The endpoint is already safe:
 ```javascript
-// Iceland: 3 digits (101-999)
-icelandic: { pattern: /\b(\d{3})\b/, country: 'Island' },
+router.get('/cups/defaults', (req, res) => {
+  const defaultCupsUrl = process.env.DEFAULT_CUPS_URL || '';  // Falls back to empty string
+  res.json({ 
+    cupsUrl: defaultCupsUrl,
+    configured: Boolean(defaultCupsUrl)  // Will be false
+  });
+});
 ```
 
-**2. Add Icelandic street suffixes**
-```javascript
-// Icelandic
-is: ['vegur', 'gata', 'stræti', 'straeti', 'braut', 'torg', 'laugavegur']
+When `DEFAULT_CUPS_URL` is not set, it returns `{ cupsUrl: '', configured: false }`.
+
+### Frontend: `useConfig.ts` Auto-Apply Logic
+
+The planned logic needs proper guards:
+
+```typescript
+useEffect(() => {
+  async function checkCupsDefaults() {
+    // Guard 1: Skip if user already configured a CUPS URL
+    if (config.printerConfig.cupsUrl) return;
+    
+    try {
+      const response = await fetch('/api/cups/defaults');
+      if (response.ok) {
+        const data = await response.json();
+        // Guard 2: Only apply if server actually has a configured URL
+        if (data.configured && data.cupsUrl) {
+          updatePrinterConfig({ cupsUrl: data.cupsUrl });
+        }
+      }
+      // Guard 3: Silently ignore non-ok responses (endpoint might not exist in older versions)
+    } catch (e) {
+      // Guard 4: Silently fail - CUPS defaults are optional
+      console.debug('CUPS defaults not available');
+    }
+  }
+  
+  if (isLoaded) {
+    checkCupsDefaults();
+  }
+}, [isLoaded]);
 ```
 
-**3. Add Bulgarian street suffixes (transliterated)**
+## Implementation
+
+### File: `server/routes/api.js`
+
+Add the `/cups/defaults` endpoint after `/credentials/status`:
+
 ```javascript
-// Bulgarian (transliterated)
-bg: ['ulitsa', 'ul', 'bulevard', 'bul', 'ploshtad', 'pl', 'улица', 'ул', 'булевард', 'бул', 'площад', 'пл']
+/**
+ * GET /cups/defaults - Get default CUPS configuration
+ * Returns pre-configured CUPS URL if set via environment
+ * Safe to call even when DEFAULT_CUPS_URL is not set
+ */
+router.get('/cups/defaults', (req, res) => {
+  const defaultCupsUrl = process.env.DEFAULT_CUPS_URL || '';
+  res.json({ 
+    cupsUrl: defaultCupsUrl,
+    configured: Boolean(defaultCupsUrl)
+  });
+});
 ```
 
-**4. Update ZIP_PATTERN_ORDER**
+### File: `src/hooks/useConfig.ts`
 
-Add `icelandic` to the pattern order before `fourDigit` to ensure 3-digit codes are checked.
+Add a new effect to check for CUPS defaults (after the existing effects):
 
-### Summary of Changes
+```typescript
+// Check for server-provided CUPS defaults (for docker-compose.cups.yml users)
+useEffect(() => {
+  async function checkCupsDefaults() {
+    // Don't override if user already has CUPS configured
+    if (config.printerConfig.cupsUrl) return;
+    
+    try {
+      const response = await fetch('/api/cups/defaults');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.configured && data.cupsUrl) {
+          updatePrinterConfig({ cupsUrl: data.cupsUrl });
+        }
+      }
+    } catch {
+      // Silently ignore - CUPS defaults are optional
+    }
+  }
+  
+  if (isLoaded) {
+    checkCupsDefaults();
+  }
+}, [isLoaded, config.printerConfig.cupsUrl]);
+```
 
-| Change | Location | Lines |
-|--------|----------|-------|
-| Add `icelandic` postal pattern | ZIP_PATTERNS object | ~line 45 |
-| Update ZIP_PATTERN_ORDER | Array | line 62-66 |
-| Add Icelandic street suffixes | STREET_SUFFIXES object | ~line 95 |
-| Add Bulgarian street suffixes | STREET_SUFFIXES object | ~line 97 |
+## Behavior Matrix
 
-## Technical Notes
-
-- Denmark and Norway use 4-digit codes which are already matched by `fourDigit` pattern. Making them specific would require checking for digit ranges (DK: 1000-9999, NO: 0001-9999) which overlap with other countries. The current approach of requiring explicit country names for these is the safest approach.
-
-- The `fourDigit` pattern is intentionally ambiguous because Austria, Belgium, Switzerland, Hungary, Bulgaria, Slovenia, Cyprus, Denmark, and Norway all use 4-digit postal codes that overlap. Country inference only works for unique formats like Dutch (1234 AB) or Polish (12-345).
-
-- Iceland's 3-digit postal codes are unique in Europe, so we can add a specific pattern with country inference.
+| Compose File | `DEFAULT_CUPS_URL` | Endpoint Response | Frontend Behavior |
+|--------------|-------------------|-------------------|-------------------|
+| `docker-compose.yml` | Not set | `{ cupsUrl: '', configured: false }` | Does nothing |
+| `docker-compose.cups.yml` | `http://cups:631` | `{ cupsUrl: 'http://cups:631', configured: true }` | Auto-fills CUPS URL |
+| Either (user already configured) | Any | Any | Skipped entirely |
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `server/lib/european-address-parser.js` | Add Icelandic postal pattern, Bulgarian + Icelandic street suffixes |
+| File | Change |
+|------|--------|
+| `server/routes/api.js` | Add `/cups/defaults` endpoint (~6 lines) |
+| `src/hooks/useConfig.ts` | Add CUPS defaults effect (~15 lines) |
 
+## New Files to Create
+
+| File | Description |
+|------|-------------|
+| `docker-compose.cups.yml` | Compose file with CUPS service included |
+| `cups/cupsd.conf` | Custom CUPS configuration for local network printing |
