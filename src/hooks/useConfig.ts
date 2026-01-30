@@ -73,6 +73,30 @@ export function useConfig() {
     setIsLoaded(true);
   }, []);
 
+  // Check for server-provided CUPS defaults (for docker-compose.cups.yml users)
+  useEffect(() => {
+    async function checkCupsDefaults() {
+      // Don't override if user already has CUPS configured
+      if (config.printerConfig.cupsUrl) return;
+      
+      try {
+        const response = await fetch('/api/cups/defaults');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.configured && data.cupsUrl) {
+            updatePrinterConfig({ cupsUrl: data.cupsUrl });
+          }
+        }
+      } catch {
+        // Silently ignore - CUPS defaults are optional
+      }
+    }
+    
+    if (isLoaded) {
+      checkCupsDefaults();
+    }
+  }, [isLoaded, config.printerConfig.cupsUrl]);
+
   const updateConfig = (updates: Partial<AppConfig>) => {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
