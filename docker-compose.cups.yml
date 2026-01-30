@@ -1,0 +1,53 @@
+# Docker Compose with integrated CUPS print server
+# For users who don't have an existing CUPS server
+#
+# Usage:
+#   docker-compose -f docker-compose.cups.yml up -d
+#
+# CUPS Web Admin: http://localhost:631 (user: print, password: print)
+
+services:
+  app:
+    build: .
+    container_name: postpal
+    ports:
+      - "3001:3000"
+    volumes:
+      - labels-data:/data/labels
+      - ./public/products.json:/app/public/products.json:ro
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=info
+      - PDF_STORAGE_PATH=/data/labels
+      - RETENTION_DAYS=60
+      - STATIC_PATH=/app/public
+      # DHL credentials
+      - DHL_API_KEY=${DHL_API_KEY}
+      - DHL_API_SECRET=${DHL_API_SECRET}
+      - DHL_PORTOKASSE_LOGIN=${DHL_PORTOKASSE_LOGIN}
+      - DHL_PORTOKASSE_PASSWORD=${DHL_PORTOKASSE_PASSWORD}
+      # Pre-configured CUPS URL (points to cups service)
+      - DEFAULT_CUPS_URL=http://cups:631
+    depends_on:
+      - cups
+    restart: unless-stopped
+
+  cups:
+    image: olbat/cupsd:latest
+    container_name: postpal-cups
+    ports:
+      - "631:631"
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /dev/bus/usb:/dev/bus/usb
+      - cups-data:/etc/cups
+      - ./cups/cupsd.conf:/etc/cups/cupsd.conf:ro
+    environment:
+      - CUPS_ADMIN_USER=${CUPS_ADMIN_USER:-print}
+      - CUPS_ADMIN_PASSWORD=${CUPS_ADMIN_PASSWORD:-print}
+    privileged: true
+    restart: unless-stopped
+
+volumes:
+  labels-data:
+  cups-data:
