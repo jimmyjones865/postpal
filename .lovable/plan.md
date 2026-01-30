@@ -1,123 +1,73 @@
 
-# Fix: Safari Clipboard Copy Not Working
+# Full Address Parsing for EU/EEA + UK Countries
 
-## Problem Analysis
+## Current Status
 
-Safari on macOS has stricter requirements for the Clipboard API than Chrome or Firefox:
+Both parsing systems already have solid coverage for most countries. After analysis, I found a few gaps that need to be addressed.
 
-1. **User Activation Requirement**: Safari requires clipboard writes to happen immediately during a user gesture (click). Any async delays may cause the gesture to "expire"
-2. **Silent Failures**: `navigator.clipboard.writeText()` can fail silently or throw a `NotAllowedError` in Safari
-3. **No Error Visibility**: The current code catches errors but doesn't show them to the user, so failures appear as "nothing happening"
+## Gaps Identified
 
-The current implementation uses `navigator.clipboard.writeText()` which should work, but Safari can be finicky. The solution is to add a fallback mechanism.
+### 1. Missing Postal Code Patterns
 
-## Solution
+| Country | Format | Current State |
+|---------|--------|---------------|
+| Denmark | 4 digits (1000-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
+| Norway | 4 digits (0001-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
+| Iceland | 3 digits (101-999) | No pattern at all |
 
-Create a robust clipboard utility that:
-1. Tries `navigator.clipboard.writeText()` first (modern API)
-2. Falls back to `document.execCommand('copy')` if that fails (legacy but more reliable)
-3. Shows a toast message on both success and failure
+### 2. Missing Street Suffixes
 
-### New Utility Function
+| Country | Missing Suffixes |
+|---------|-----------------|
+| Bulgaria | улица (ulitsa), булевард (bulevard), площад (ploshtad) |
+| Cyprus | Already covered by Greek (`gr`) suffixes |
 
-Create `src/lib/clipboard.ts`:
+## Implementation Plan
 
-```typescript
-/**
- * Copy text to clipboard with Safari fallback.
- * Uses modern Clipboard API with fallback to execCommand for Safari compatibility.
- */
-export async function copyToClipboard(text: string): Promise<boolean> {
-  // Try modern Clipboard API first
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      console.warn('Clipboard API failed, trying fallback:', err);
-      // Fall through to legacy method
-    }
-  }
-  
-  // Fallback: Create a temporary textarea and use execCommand
-  try {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    
-    // Prevent scrolling to bottom on iOS
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    textArea.style.top = '0';
-    textArea.style.opacity = '0';
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    const success = document.execCommand('copy');
-    document.body.removeChild(textArea);
-    
-    return success;
-  } catch (err) {
-    console.error('Fallback copy failed:', err);
-    return false;
-  }
-}
+### File: `server/lib/european-address-parser.js`
+
+**1. Add Icelandic postal code pattern**
+```javascript
+// Iceland: 3 digits (101-999)
+icelandic: { pattern: /\b(\d{3})\b/, country: 'Island' },
 ```
 
-### Update LabelHistory.tsx
-
-Replace the `handleCopyId` function:
-
-```typescript
-import { copyToClipboard } from '@/lib/clipboard';
-
-const handleCopyId = async (id: string, labelId: string) => {
-  const success = await copyToClipboard(id);
-  if (success) {
-    setCopiedId(labelId);
-    toast.success('Copied to clipboard');
-    setTimeout(() => setCopiedId(null), 300);
-  } else {
-    toast.error('Failed to copy to clipboard');
-  }
-};
+**2. Add Icelandic street suffixes**
+```javascript
+// Icelandic
+is: ['vegur', 'gata', 'stræti', 'straeti', 'braut', 'torg', 'laugavegur']
 ```
 
-### Update LabelResult.tsx
-
-Replace the `handleCopyId` function:
-
-```typescript
-import { copyToClipboard } from '@/lib/clipboard';
-
-const handleCopyId = async () => {
-  if (!displayId) return;
-  const success = await copyToClipboard(displayId);
-  if (success) {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 300);
-  } else {
-    toast.error('Failed to copy to clipboard');
-  }
-};
+**3. Add Bulgarian street suffixes (transliterated)**
+```javascript
+// Bulgarian (transliterated)
+bg: ['ulitsa', 'ul', 'bulevard', 'bul', 'ploshtad', 'pl', 'улица', 'ул', 'булевард', 'бул', 'площад', 'пл']
 ```
 
-Also add the toast import to LabelResult.tsx since it doesn't currently have one:
-```typescript
-import { toast } from 'sonner';
-```
+**4. Update ZIP_PATTERN_ORDER**
+
+Add `icelandic` to the pattern order before `fourDigit` to ensure 3-digit codes are checked.
+
+### Summary of Changes
+
+| Change | Location | Lines |
+|--------|----------|-------|
+| Add `icelandic` postal pattern | ZIP_PATTERNS object | ~line 45 |
+| Update ZIP_PATTERN_ORDER | Array | line 62-66 |
+| Add Icelandic street suffixes | STREET_SUFFIXES object | ~line 95 |
+| Add Bulgarian street suffixes | STREET_SUFFIXES object | ~line 97 |
+
+## Technical Notes
+
+- Denmark and Norway use 4-digit codes which are already matched by `fourDigit` pattern. Making them specific would require checking for digit ranges (DK: 1000-9999, NO: 0001-9999) which overlap with other countries. The current approach of requiring explicit country names for these is the safest approach.
+
+- The `fourDigit` pattern is intentionally ambiguous because Austria, Belgium, Switzerland, Hungary, Bulgaria, Slovenia, Cyprus, Denmark, and Norway all use 4-digit postal codes that overlap. Country inference only works for unique formats like Dutch (1234 AB) or Polish (12-345).
+
+- Iceland's 3-digit postal codes are unique in Europe, so we can add a specific pattern with country inference.
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/lib/clipboard.ts` | New file - Safari-compatible clipboard utility |
-| `src/components/LabelHistory.tsx` | Use new `copyToClipboard` utility |
-| `src/components/LabelResult.tsx` | Use new `copyToClipboard` utility, add toast import |
+| `server/lib/european-address-parser.js` | Add Icelandic postal pattern, Bulgarian + Icelandic street suffixes |
 
-## Summary
-
-- Create a new utility with fallback for Safari compatibility
-- Show error toast if copy fails (instead of silent failure)
-- Both components will use the same robust clipboard function

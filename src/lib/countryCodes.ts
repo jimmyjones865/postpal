@@ -315,14 +315,3 @@ export function getCountryCode(countryName: string): string | null {
   const normalized = countryName.toLowerCase().trim();
   return COUNTRY_CODES[normalized] || null;
 }
-
-export function extractCountryFromAddress(address: string): { country: string | null; isoCode: string | null } {
-  const lines = address.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return { country: null, isoCode: null };
-  
-  // Last non-empty line is typically the country
-  const lastLine = lines[lines.length - 1];
-  const isoCode = getCountryCode(lastLine);
-  
-  return { country: lastLine, isoCode };
-}

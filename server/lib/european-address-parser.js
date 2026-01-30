@@ -56,13 +56,16 @@ const ZIP_PATTERNS = {
   
   // Croatia/Estonia: 5 digits (10000)
   croatian: { pattern: /\b(\d{5})\b/, country: null }, // Same as 5-digit, use context
+  
+  // Iceland: 3 digits (101-999) - unique in Europe
+  icelandic: { pattern: /\b(\d{3})\b/, country: 'Island' },
 };
 
 // Order of pattern checking - most specific first
 const ZIP_PATTERN_ORDER = [
   'irish', 'uk', 'dutch', 'polish', 'portuguese', 
   'latvian', 'lithuanian', 'maltese', 'luxembourg',
-  'romanian', 'nordic_cz', 'fiveDigit', 'fourDigit'
+  'romanian', 'nordic_cz', 'fiveDigit', 'fourDigit', 'icelandic'
 ];
 
 // ============================================================
@@ -94,6 +97,10 @@ const STREET_SUFFIXES = {
   nordic: ['gatan', 'gata', 'vägen', 'vagen', 'väg', 'vag', 'gade', 'vej', 'veien', 'gate', 'plass', 'katu', 'tie', 'tori'],
   // Greek (transliterated)
   gr: ['odos', 'leoforos', 'plateia', 'odoς'],
+  // Icelandic
+  is: ['vegur', 'gata', 'stræti', 'straeti', 'braut', 'torg', 'götu', 'gotu'],
+  // Bulgarian (transliterated + Cyrillic)
+  bg: ['ulitsa', 'ul', 'bulevard', 'bul', 'ploshtad', 'pl', 'улица', 'ул', 'булевард', 'бул', 'площад', 'пл'],
   // Baltic (Estonian/Latvian/Lithuanian)
   baltic: ['tänav', 'tanav', 'tee', 'iela', 'bulvāris', 'bulvaris', 'gatvė', 'gatve', 'prospektas', 'aikštė', 'aikste'],
   // Slavic (Croatian/Slovenian/Serbian)
