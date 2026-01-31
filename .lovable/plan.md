@@ -1,132 +1,53 @@
 
-# Graceful CUPS Integration (Works with Both Compose Files)
 
-## The Issue
+# Fix: Reset Product Selection After Successful Purchase
 
-The planned CUPS integration adds:
-1. A backend `/cups/defaults` endpoint that reads `DEFAULT_CUPS_URL` from environment
-2. Frontend logic to auto-apply CUPS defaults
+## Problem
 
-When using the original `docker-compose.yml` (without CUPS), the `DEFAULT_CUPS_URL` environment variable won't exist. We need to ensure this doesn't cause errors or unexpected behavior.
+After purchasing a label, the shipping products should be deselected to prevent accidental duplicate orders. This functionality used to work but is currently broken.
 
-## Safety Analysis
+## Root Cause
 
-### Backend: `/cups/defaults` Endpoint
+In `src/pages/Index.tsx`, the `handlePrint` function does not reset the `selectedProduct` state after a successful purchase. Line 254 has a comment "Don't reset form - user can see result, will clear when address changes" but this doesn't include resetting the product selection.
 
-The endpoint is already safe:
-```javascript
-router.get('/cups/defaults', (req, res) => {
-  const defaultCupsUrl = process.env.DEFAULT_CUPS_URL || '';  // Falls back to empty string
-  res.json({ 
-    cupsUrl: defaultCupsUrl,
-    configured: Boolean(defaultCupsUrl)  // Will be false
-  });
-});
-```
+The expected behavior (per project memory) is: "After a successful purchase, the UI automatically resets the product selection and recipient fields to prevent accidental duplicate orders."
 
-When `DEFAULT_CUPS_URL` is not set, it returns `{ cupsUrl: '', configured: false }`.
+## Solution
 
-### Frontend: `useConfig.ts` Auto-Apply Logic
+Add `setSelectedProduct(null)` after a successful label purchase to deselect all products.
 
-The planned logic needs proper guards:
+## Changes Required
+
+### File: `src/pages/Index.tsx`
+
+**Location**: After the successful purchase handling (around line 252-254), add product reset:
 
 ```typescript
-useEffect(() => {
-  async function checkCupsDefaults() {
-    // Guard 1: Skip if user already configured a CUPS URL
-    if (config.printerConfig.cupsUrl) return;
-    
-    try {
-      const response = await fetch('/api/cups/defaults');
-      if (response.ok) {
-        const data = await response.json();
-        // Guard 2: Only apply if server actually has a configured URL
-        if (data.configured && data.cupsUrl) {
-          updatePrinterConfig({ cupsUrl: data.cupsUrl });
-        }
-      }
-      // Guard 3: Silently ignore non-ok responses (endpoint might not exist in older versions)
-    } catch (e) {
-      // Guard 4: Silently fail - CUPS defaults are optional
-      console.debug('CUPS defaults not available');
-    }
-  }
-  
-  if (isLoaded) {
-    checkCupsDefaults();
-  }
-}, [isLoaded]);
-```
-
-## Implementation
-
-### File: `server/routes/api.js`
-
-Add the `/cups/defaults` endpoint after `/credentials/status`:
-
-```javascript
-/**
- * GET /cups/defaults - Get default CUPS configuration
- * Returns pre-configured CUPS URL if set via environment
- * Safe to call even when DEFAULT_CUPS_URL is not set
- */
-router.get('/cups/defaults', (req, res) => {
-  const defaultCupsUrl = process.env.DEFAULT_CUPS_URL || '';
-  res.json({ 
-    cupsUrl: defaultCupsUrl,
-    configured: Boolean(defaultCupsUrl)
+// Before (current code around line 248-254):
+} else {
+  toast.success('Label Purchased & Saved', {
+    description: `${product?.name} label ready.`
   });
-});
+}
+
+// Don't reset form - user can see result, will clear when address changes
+
+// After (with fix):
+} else {
+  toast.success('Label Purchased & Saved', {
+    description: `${product?.name} label ready.`
+  });
+}
+
+// Reset product selection to prevent accidental duplicate orders
+setSelectedProduct(null);
 ```
 
-### File: `src/hooks/useConfig.ts`
+This single line addition will deselect the product after any successful purchase (whether print, download, or just save).
 
-Add a new effect to check for CUPS defaults (after the existing effects):
-
-```typescript
-// Check for server-provided CUPS defaults (for docker-compose.cups.yml users)
-useEffect(() => {
-  async function checkCupsDefaults() {
-    // Don't override if user already has CUPS configured
-    if (config.printerConfig.cupsUrl) return;
-    
-    try {
-      const response = await fetch('/api/cups/defaults');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.configured && data.cupsUrl) {
-          updatePrinterConfig({ cupsUrl: data.cupsUrl });
-        }
-      }
-    } catch {
-      // Silently ignore - CUPS defaults are optional
-    }
-  }
-  
-  if (isLoaded) {
-    checkCupsDefaults();
-  }
-}, [isLoaded, config.printerConfig.cupsUrl]);
-```
-
-## Behavior Matrix
-
-| Compose File | `DEFAULT_CUPS_URL` | Endpoint Response | Frontend Behavior |
-|--------------|-------------------|-------------------|-------------------|
-| `docker-compose.yml` | Not set | `{ cupsUrl: '', configured: false }` | Does nothing |
-| `docker-compose.cups.yml` | `http://cups:631` | `{ cupsUrl: 'http://cups:631', configured: true }` | Auto-fills CUPS URL |
-| Either (user already configured) | Any | Any | Skipped entirely |
-
-## Files to Modify
+## Summary
 
 | File | Change |
 |------|--------|
-| `server/routes/api.js` | Add `/cups/defaults` endpoint (~6 lines) |
-| `src/hooks/useConfig.ts` | Add CUPS defaults effect (~15 lines) |
+| `src/pages/Index.tsx` | Add `setSelectedProduct(null)` after successful purchase (~1 line) |
 
-## New Files to Create
-
-| File | Description |
-|------|-------------|
-| `docker-compose.cups.yml` | Compose file with CUPS service included |
-| `cups/cupsd.conf` | Custom CUPS configuration for local network printing |
