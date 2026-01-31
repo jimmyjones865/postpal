@@ -251,7 +251,8 @@ const Index = () => {
         });
       }
 
-      // Don't reset form - user can see result, will clear when address changes
+      // Reset product selection to prevent accidental duplicate orders
+      setSelectedProduct(null);
     } catch (error) {
       console.error('Label purchase error:', error);
       toast.error('Purchase Failed', {
