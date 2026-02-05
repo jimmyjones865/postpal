@@ -1,6 +1,6 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
-import { cropPdfWithPadding } from '../lib/pdf-cropper.js';
+import { cropPdfWithPadding, renderPdfToImage } from '../lib/pdf-cropper.js';
 
 /**
  * Creates the labels router for CRUD and purchase operations.
@@ -89,6 +89,28 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
     } catch (err) {
       logger.error('[Labels] PDF error:', err);
       res.status(500).json({ error: 'Failed to get PDF' });
+    }
+  });
+
+  /**
+   * GET /labels/:id/image - Get label as a rendered PNG image (for preview)
+   */
+  router.get('/:id/image', async (req, res) => {
+    try {
+      const label = await storage.getLabel(req.params.id);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+
+      const pdfBuffer = await storage.getLabelPdf(req.params.id);
+      const imageBuffer = await renderPdfToImage(pdfBuffer);
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.send(imageBuffer);
+    } catch (err) {
+      logger.error('[Labels] Image render error:', err);
+      res.status(500).json({ error: 'Failed to render label image' });
     }
   });
 

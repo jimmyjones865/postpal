@@ -74,9 +74,9 @@ export function LabelResult({
   const formattedAddress = formatRecipientForDisplay(parsedRecipient);
   const hasAddress = formattedAddress.trim().length > 0;
   
-  // PDF embed URL (only when purchased) - with params to hide toolbar
-  const pdfUrl = purchasedLabelId 
-    ? `${API_BASE}/labels/${purchasedLabelId}/pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit` 
+  // Image URL for preview (rendered from PDF on server)
+  const imageUrl = purchasedLabelId 
+    ? `${API_BASE}/labels/${purchasedLabelId}/image` 
     : null;
   
   // Display ID (trackId preferred, else voucherId)
@@ -145,11 +145,11 @@ export function LabelResult({
       {/* Section 2: Purchased label PDF */}
       <div className="bg-card border border-border rounded-lg p-3">
         <div className="text-xs text-muted-foreground mb-2">Purchased Label</div>
-        {pdfUrl ? (
-          <embed 
-            src={pdfUrl}
-            type="application/pdf"
-            className="w-full rounded border border-border bg-white"
+        {imageUrl ? (
+          <img 
+            src={imageUrl}
+            alt="Purchased shipping label"
+            className="w-full rounded border border-border bg-white object-contain"
             style={previewStyle}
           />
         ) : (
