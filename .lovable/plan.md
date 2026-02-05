@@ -1,73 +1,94 @@
 
-# Full Address Parsing for EU/EEA + UK Countries
 
-## Current Status
+# Label Preview as Image (Storage & Cropping Untouched)
 
-Both parsing systems already have solid coverage for most countries. After analysis, I found a few gaps that need to be addressed.
+## Overview
 
-## Gaps Identified
+Add a **read-only** image rendering endpoint that converts stored PDFs to PNG for preview display. This change is purely additive and does not modify any existing functionality.
 
-### 1. Missing Postal Code Patterns
+## What Remains Untouched
 
-| Country | Format | Current State |
-|---------|--------|---------------|
-| Denmark | 4 digits (1000-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
-| Norway | 4 digits (0001-9999) | Falls into ambiguous `fourDigit` - no specific pattern |
-| Iceland | 3 digits (101-999) | No pattern at all |
+| Component | Status | Reason |
+|-----------|--------|--------|
+| `server/lib/label-storage.js` | No changes | Labels continue to be stored as PDF files |
+| `server/lib/pdf-cropper.js` cropping functions | No changes | All cropping logic (`cropPdfWithPadding`, `cropPdfWithPaddingAndDimensions`) stays exactly as-is |
+| `GET /labels/:id/pdf` endpoint | No changes | PDF download/print with cropping continues to work |
+| `POST /print` endpoint | No changes | CUPS printing with cropping continues to work |
 
-### 2. Missing Street Suffixes
+## Changes Summary
 
-| Country | Missing Suffixes |
-|---------|-----------------|
-| Bulgaria | улица (ulitsa), булевард (bulevard), площад (ploshtad) |
-| Cyprus | Already covered by Greek (`gr`) suffixes |
+### 1. Add `renderPdfToImage` function (server/lib/pdf-cropper.js)
 
-## Implementation Plan
+Add a **new export** at the end of the file. This function reuses the existing canvas infrastructure to render a PDF page to PNG:
 
-### File: `server/lib/european-address-parser.js`
-
-**1. Add Icelandic postal code pattern**
 ```javascript
-// Iceland: 3 digits (101-999)
-icelandic: { pattern: /\b(\d{3})\b/, country: 'Island' },
+export async function renderPdfToImage(pdfBuffer, scale = 2) {
+  // Uses existing NodeCanvasFactory, CMAP_URL, STANDARD_FONT_DATA_URL
+  // Renders first page to canvas and returns PNG buffer
+}
 ```
 
-**2. Add Icelandic street suffixes**
+This is purely additive - no existing functions are modified.
+
+### 2. Add `GET /labels/:id/image` endpoint (server/routes/labels.js)
+
+Add a **new route** that serves the label as a rendered PNG image:
+
 ```javascript
-// Icelandic
-is: ['vegur', 'gata', 'stræti', 'straeti', 'braut', 'torg', 'laugavegur']
+router.get('/:id/image', async (req, res) => {
+  const pdfBuffer = await storage.getLabelPdf(req.params.id);
+  const imageBuffer = await renderPdfToImage(pdfBuffer);
+  res.setHeader('Content-Type', 'image/png');
+  res.send(imageBuffer);
+});
 ```
 
-**3. Add Bulgarian street suffixes (transliterated)**
-```javascript
-// Bulgarian (transliterated)
-bg: ['ulitsa', 'ul', 'bulevard', 'bul', 'ploshtad', 'pl', 'улица', 'ул', 'булевард', 'бул', 'площад', 'пл']
+Key points:
+- Reads the original PDF from storage (unchanged)
+- Renders to PNG on-the-fly (no file saved)
+- No cropping applied (preview shows original label as-is)
+
+### 3. Update frontend preview (src/components/LabelResult.tsx)
+
+Replace the `<embed>` PDF viewer with an `<img>` tag:
+
+```tsx
+// Before:
+<embed src={pdfUrl} type="application/pdf" ... />
+
+// After:
+<img src={imageUrl} alt="Purchased shipping label" ... />
 ```
 
-**4. Update ZIP_PATTERN_ORDER**
+The Download and Print buttons continue to use the existing PDF endpoint with cropping.
 
-Add `icelandic` to the pattern order before `fourDigit` to ensure 3-digit codes are checked.
+## Data Flow Comparison
 
-### Summary of Changes
+```text
+PREVIEW (new - image):
+  LabelResult <img> --> GET /labels/:id/image --> render PDF to PNG --> display
 
-| Change | Location | Lines |
-|--------|----------|-------|
-| Add `icelandic` postal pattern | ZIP_PATTERNS object | ~line 45 |
-| Update ZIP_PATTERN_ORDER | Array | line 62-66 |
-| Add Icelandic street suffixes | STREET_SUFFIXES object | ~line 95 |
-| Add Bulgarian street suffixes | STREET_SUFFIXES object | ~line 97 |
+DOWNLOAD (unchanged - PDF with cropping):
+  handleDownload --> GET /labels/:id/pdf?print=1&cropTop=5... --> cropped PDF
 
-## Technical Notes
+PRINT (unchanged - PDF with cropping):
+  handlePrint --> POST /print --> cropped PDF --> CUPS
+```
 
-- Denmark and Norway use 4-digit codes which are already matched by `fourDigit` pattern. Making them specific would require checking for digit ranges (DK: 1000-9999, NO: 0001-9999) which overlap with other countries. The current approach of requiring explicit country names for these is the safest approach.
+## Technical Details
 
-- The `fourDigit` pattern is intentionally ambiguous because Austria, Belgium, Switzerland, Hungary, Bulgaria, Slovenia, Cyprus, Denmark, and Norway all use 4-digit postal codes that overlap. Country inference only works for unique formats like Dutch (1234 AB) or Polish (12-345).
+### Files to Modify
 
-- Iceland's 3-digit postal codes are unique in Europe, so we can add a specific pattern with country inference.
+| File | Change |
+|------|--------|
+| `server/lib/pdf-cropper.js` | Add `renderPdfToImage()` export (~20 lines at end of file) |
+| `server/routes/labels.js` | Add import + `GET /:id/image` route (~15 lines) |
+| `src/components/LabelResult.tsx` | Replace `<embed>` with `<img>`, update URL variable (~5 lines) |
 
-## Files to Modify
+### No Changes To
 
-| File | Changes |
-|------|---------|
-| `server/lib/european-address-parser.js` | Add Icelandic postal pattern, Bulgarian + Icelandic street suffixes |
+- `server/lib/label-storage.js` - PDF storage unchanged
+- `server/lib/pdf-cropper.js` existing functions - cropping unchanged
+- `server/routes/print.js` - CUPS printing unchanged
+- Download/Print functionality - continues to use PDF with cropping
 

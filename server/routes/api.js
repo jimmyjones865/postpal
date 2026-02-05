@@ -98,6 +98,19 @@ export function createApiRouter() {
   });
 
   /**
+   * GET /cups/defaults - Get default CUPS configuration
+   * Returns pre-configured CUPS URL if set via environment
+   * Safe to call even when DEFAULT_CUPS_URL is not set
+   */
+  router.get('/cups/defaults', (req, res) => {
+    const defaultCupsUrl = process.env.DEFAULT_CUPS_URL || '';
+    res.json({ 
+      cupsUrl: defaultCupsUrl,
+      configured: Boolean(defaultCupsUrl)
+    });
+  });
+
+  /**
    * POST /parse-address - Parse a raw address string
    */
   router.post('/parse-address', (req, res) => {
