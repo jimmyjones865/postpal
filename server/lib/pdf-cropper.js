@@ -533,3 +533,43 @@ export async function cropPdfWithPaddingAndDimensions(
     fallback: hasFallback
   };
 }
+
+/**
+ * Renders the first page of a PDF to a PNG image buffer.
+ * Used for label preview display - does NOT modify the PDF.
+ * 
+ * @param {Buffer} pdfBuffer - The PDF buffer to render
+ * @param {number} scale - Render scale (default 2 for good quality)
+ * @returns {Promise<Buffer>} - PNG image buffer
+ */
+export async function renderPdfToImage(pdfBuffer, scale = 2) {
+  const data = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer;
+  const canvasFactory = new NodeCanvasFactory();
+
+  const pdf = await getDocument({
+    data,
+    canvasFactory,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+  }).promise;
+
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale });
+
+  const canvasWidth = Math.ceil(viewport.width);
+  const canvasHeight = Math.ceil(viewport.height);
+
+  const canvas = createCanvas(canvasWidth, canvasHeight);
+  const ctx = canvas.getContext('2d');
+
+  // White background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  // Render PDF page
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  await pdf.destroy();
+
+  return canvas.toBuffer('image/png');
+}
