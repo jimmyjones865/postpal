@@ -3,10 +3,10 @@
 
 // Allowed characters: German alphanumeric + aeiou altered by ´`^ + , . - & / ( ) ` +
 // German alphabet includes: a-z A-Z äöüß ÄÖÜ 0-9
-const ALLOWED_PATTERN = /^[a-zA-ZäöüßÄÖÜáàÁÀéèÉÈíìÍÌóòÓÒúùÚÙâÂêÊîÎôÔûÛ0-9\s,.\-&/()'`+]*$/;
+const ALLOWED_PATTERN = /^[a-zA-ZäöüßÄÖÜáàÁÀéèÉÈíìÍÌóòÓÒúùÚÙâÂêÊîÎôÔûÛøØ0-9\s,.\-&/()'`+]*$/;
 
 // Characters that are explicitly NOT allowed (examples for user feedback)
-const FORBIDDEN_EXAMPLES = ['ñ', 'ç', 'ø', 'æ', 'ł', 'ő', 'ű', 'ă', 'ș', 'ț', 'đ', 'ř', 'ě', 'ů', 'ý', 'ã', 'õ', 'ñ', '@', '#', '$', '%', '^', '*', '=', '[', ']', '{', '}', '|', '\\', ':', ';', '"', "'", '<', '>', '?', '!', '~'];
+const FORBIDDEN_EXAMPLES = ['ñ', 'ç', 'æ', 'ł', 'ő', 'ű', 'ă', 'ș', 'ț', 'đ', 'ř', 'ě', 'ů', 'ý', 'ã', 'õ', 'ñ', '@', '#', '$', '%', '^', '*', '=', '[', ']', '{', '}', '|', '\\', ':', ';', '"', "'", '<', '>', '?', '!', '~'];
 
 export const MAX_LINE_LENGTH = 50;
 
