@@ -18,7 +18,10 @@ import { getCountryCode } from '@/lib/countryCodes';
 import { buildDirectPrintConfig, buildPrintOptions } from '@/lib/printConfig';
 import { purchaseLabel, fetchPdfAsBase64, printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTranslation } from '@/hooks/useTranslation';
+
 const Index = () => {
+  const { t } = useTranslation();
   const {
     config,
     isLoaded,
@@ -51,21 +54,14 @@ const Index = () => {
   const [voucherId, setVoucherId] = useState<string | null>(null);
   const [trackId, setTrackId] = useState<string | null>(null);
 
-  // Paper formats for preview sizing
-  interface PaperFormat {
-    name: string;
-    pageLayout: {
-      size: {
-        x: number;
-        y: number;
-      };
-    };
-  }
+  // Paper formats for image preview aspect ratio
+  interface PaperFormat { name: string; pageLayout: { size: { x: number; y: number } } }
   const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
-
-  // Fetch paper formats on mount
   useEffect(() => {
-    fetch('/paper-formats.json').then(res => res.json()).then(data => setPaperFormats(data.formats || [])).catch(err => console.warn('Failed to load paper formats:', err));
+    fetch('/paper-formats.json').then(res => res.json()).then(data => {
+      const all = Object.values(data).flat().filter(Boolean) as PaperFormat[];
+      setPaperFormats(all);
+    }).catch(() => {});
   }, []);
 
   // Clear purchase results when address changes
@@ -75,22 +71,21 @@ const Index = () => {
     setTrackId(null);
   }, [recipientAddress]);
 
-  // Get preview dimensions from selected paper format
-  const selectedFormat = paperFormats.find(f => f.name === config.printerConfig.paperFormatName);
-  const previewDimensions = selectedFormat ? {
-    widthMm: selectedFormat.pageLayout.size.x,
-    heightMm: selectedFormat.pageLayout.size.y
-  } : null;
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
+  const selectedFormat = paperFormats.find(f => f.name === config.printerConfig.paperFormatName);
+  const previewDimensions = selectedFormat
+    ? { widthMm: selectedFormat.pageLayout.size.x, heightMm: selectedFormat.pageLayout.size.y }
+    : null;
+
   const selectedProductData = products.find(p => p.code === selectedProduct) || null;
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
   };
   const handlePrint = async () => {
     if (!isConfigured) {
-      toast.error('Configuration Required', {
-        description: 'Please complete the API and sender address configuration.'
+      toast.error(t('toast.configRequired'), {
+        description: t('toast.configRequiredDesc')
       });
       return;
     }
@@ -107,8 +102,8 @@ const Index = () => {
         productToUse = defaultProduct.code;
         setSelectedProduct(productToUse);
       } else {
-        toast.error('Product Required', {
-          description: 'Please select a shipping product.'
+        toast.error(t('toast.productRequired'), {
+          description: t('toast.productRequiredDesc')
         });
         return;
       }
@@ -117,20 +112,23 @@ const Index = () => {
     // walletBalance is in cents from API, product.cost is in EUR
     const productCostInCents = product ? Math.round(product.cost * 100) : 0;
     if (product && walletBalance !== null && walletBalance < productCostInCents) {
-      toast.error('Insufficient Balance', {
-        description: `Wallet balance (${(walletBalance / 100).toFixed(2)}€) is too low for this product (${product.cost.toFixed(2)}€).`
+      toast.error(t('toast.insufficientBalance'), {
+        description: t('toast.insufficientBalanceDesc', { 
+          balance: (walletBalance / 100).toFixed(2), 
+          cost: product.cost.toFixed(2) 
+        })
       });
       return;
     }
     if (!recipientAddress.trim()) {
-      toast.error('Address Required', {
-        description: 'Please enter a recipient address.'
+      toast.error(t('toast.addressRequired'), {
+        description: t('toast.addressRequiredDesc')
       });
       return;
     }
     if (!validation.isValid) {
-      toast.error('Address Invalid', {
-        description: 'Please fix the address validation errors before printing.'
+      toast.error(t('toast.addressInvalid'), {
+        description: t('toast.addressInvalidDesc')
       });
       return;
     }
@@ -163,14 +161,14 @@ const Index = () => {
         receiver,
         productCode: productToUse!,
         priceInCents: productCostInCents,
-        paperFormatName: config.printerConfig.paperFormatName
+        pageFormatId: config.printerConfig.paperFormatId || 0
       });
 
       // Check for errors
       if (!purchaseData.success) {
         console.error('Label purchase failed:', purchaseData);
-        toast.error('Purchase Failed', {
-          description: purchaseData.error || purchaseData.details || 'Failed to purchase label from Deutsche Post.'
+        toast.error(t('toast.purchaseFailed'), {
+          description: purchaseData.error || purchaseData.details || t('toast.purchaseFailedDesc')
         });
         return;
       }
@@ -223,31 +221,31 @@ const Index = () => {
             left: printOptions.cropLeft
           });
           await printLabelDirect(printParams);
-          toast.success('Label Printed', {
-            description: `${product?.name} label sent to printer.`
+          toast.success(t('toast.labelPrinted'), {
+            description: t('toast.labelPrintedDesc', { product: product?.name })
           });
         } catch (printError) {
           console.error('Direct print failed:', printError);
-          toast.error('Print Failed', {
-            description: printError instanceof Error ? printError.message : 'Failed to send to printer. Label saved for retry.'
+          toast.error(t('toast.printFailed'), {
+            description: printError instanceof Error ? printError.message : t('toast.printFailedDesc')
           });
         }
       } else if (printMode === 'download' && savedLabel) {
         // Download the cropped PDF
         try {
           await downloadLabel(savedLabel.id, printOptions.cropTop, printOptions.cropRight, printOptions.cropBottom, printOptions.cropLeft);
-          toast.success('Label Downloaded', {
-            description: `${product?.name} label saved.`
+          toast.success(t('toast.labelDownloaded'), {
+            description: t('toast.labelDownloadedDesc', { product: product?.name })
           });
         } catch (downloadError) {
           console.warn('Download failed:', downloadError);
-          toast.success('Label Purchased', {
-            description: `${product?.name} label saved. Download from history.`
+          toast.success(t('toast.labelPurchased'), {
+            description: t('toast.labelPurchasedDesc', { product: product?.name })
           });
         }
       } else {
-        toast.success('Label Purchased & Saved', {
-          description: `${product?.name} label ready.`
+        toast.success(t('toast.labelPurchasedSaved'), {
+          description: t('toast.labelPurchasedSavedDesc', { product: product?.name })
         });
       }
 
@@ -255,8 +253,8 @@ const Index = () => {
       setSelectedProduct(null);
     } catch (error) {
       console.error('Label purchase error:', error);
-      toast.error('Purchase Failed', {
-        description: error instanceof Error ? error.message : 'Failed to purchase label. Please try again.'
+      toast.error(t('toast.purchaseFailed'), {
+        description: error instanceof Error ? error.message : t('toast.purchaseFailedDesc')
       });
     } finally {
       setIsPrinting(false);
@@ -264,7 +262,7 @@ const Index = () => {
   };
   if (!isLoaded || productsLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="animate-pulse text-muted-foreground">{t('status.loading')}</div>
       </div>;
   }
   return <div className="min-h-screen bg-background">
@@ -275,8 +273,8 @@ const Index = () => {
               <Mail className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-mono text-lg font-bold">Post Pal</h1>
-              <p className="text-xs text-muted-foreground font-mono">Deutsche Post Labels</p>
+              <h1 className="font-mono text-lg font-bold">{t('app.title')}</h1>
+              <p className="text-xs text-muted-foreground font-mono">{t('app.subtitle')}</p>
             </div>
           </div>
           
@@ -284,7 +282,7 @@ const Index = () => {
             <WalletBalance balance={walletBalance} onBalanceChange={setWalletBalance} />
             {!isConfigured && <div className="flex items-center gap-2 text-xs text-amber-500">
                 <AlertCircle className="w-4 h-4" />
-                <span>Setup required</span>
+                <span>{t('status.setupRequired')}</span>
               </div>}
           </div>
         </div>
@@ -295,15 +293,15 @@ const Index = () => {
           <TabsList className="grid w-full max-w-lg grid-cols-3 mb-6">
             <TabsTrigger value="create">
               <Mail className="w-4 h-4 mr-2" />
-              Create Label
+              {t('nav.createLabel')}
             </TabsTrigger>
             <TabsTrigger value="history">
               <History className="w-4 h-4 mr-2" />
-              History ({labels.length})
+              {t('nav.history')} ({labels.length})
             </TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="w-4 h-4 mr-2" />
-              Settings
+              {t('nav.settings')}
             </TabsTrigger>
           </TabsList>
           
@@ -313,13 +311,13 @@ const Index = () => {
             <div className="grid lg:grid-cols-[1fr_280px_280px] gap-6">
               {/* Paste full address field */}
               <div className="bg-card border border-border rounded-lg p-4">
-                <h3 className="text-sm font-medium mb-3">Paste Address</h3>
+                <h3 className="text-sm font-medium mb-3">{t('address.pasteAddress')}</h3>
                 <AddressInput value={recipientAddress} onChange={setRecipientAddress} onPrint={handlePrint} isPrinting={isPrinting} canPrint={canPrint} printMode={printMode} onPrintModeChange={setPrintMode} />
               </div>
 
               {/* Address lines panel - always visible */}
               <div className="bg-card border border-border rounded-lg p-4">
-                <h3 className="text-sm font-medium mb-3">Address Lines</h3>
+                <h3 className="text-sm font-medium mb-3">{t('address.addressLines')}</h3>
                 <ParsedAddressEditor rawAddress={recipientAddress} onAddressChange={setRecipientAddress} onParsedChange={setParsedRecipient} />
               </div>
 
@@ -329,7 +327,7 @@ const Index = () => {
 
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <h2 className="text-sm font-medium mb-4">Select Product</h2>
+              <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
               <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={handleProductSelect} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts || []} />
             </div>
           </TabsContent>
@@ -338,7 +336,7 @@ const Index = () => {
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center gap-2 mb-4">
                 <History className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold text-sm">Print History</h2>
+                <h2 className="font-semibold text-sm">{t('history.printHistory')}</h2>
               </div>
               <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} printOptions={buildPrintOptions(config.printerConfig)} directPrintConfig={buildDirectPrintConfig(config.printerConfig)} />
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Ruler, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface DimensionsPreviewProps {
   cropTop: number;
@@ -16,6 +17,7 @@ interface Dimensions {
 }
 
 export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, disableCropping }: DimensionsPreviewProps) {
+  const { t } = useTranslation();
   const [dimensions, setDimensions] = useState<Dimensions | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, di
       
       const labels = await labelsRes.json();
       if (!labels || labels.length === 0) {
-        setError('No labels available for preview');
+        setError(t('dimensions.noLabels'));
         return;
       }
       
@@ -71,7 +73,7 @@ export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, di
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium flex items-center gap-1">
           <Ruler className="w-3 h-3" />
-          Output Dimensions
+          {t('dimensions.title')}
         </span>
         <Button 
           variant="ghost" 
@@ -83,10 +85,10 @@ export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, di
           {isLoading ? (
             <>
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Calculating...
+              {t('dimensions.calculating')}
             </>
           ) : (
-            'Preview'
+            t('dimensions.preview')
           )}
         </Button>
       </div>
@@ -98,12 +100,12 @@ export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, di
       {dimensions && !error && (
         <div className="text-xs space-y-1">
           <div className="flex justify-between text-muted-foreground">
-            <span>Original:</span>
+            <span>{t('dimensions.original')}</span>
             <span>{dimensions.original.widthMm} × {dimensions.original.heightMm} mm</span>
           </div>
           {dimensions.cropped && (
             <div className="flex justify-between font-medium">
-              <span>Cropped:</span>
+              <span>{t('dimensions.cropped')}</span>
               <span className="text-primary">{dimensions.cropped.widthMm} × {dimensions.cropped.heightMm} mm</span>
             </div>
           )}
@@ -112,7 +114,7 @@ export function DimensionsPreview({ cropTop, cropRight, cropBottom, cropLeft, di
       
       {!dimensions && !error && !isLoading && (
         <p className="text-xs text-muted-foreground">
-          Click "Preview" to see expected label size based on the last printed label.
+          {t('dimensions.hint')}
         </p>
       )}
     </div>

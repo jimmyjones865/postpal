@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Home, Globe } from 'lucide-react';
 import { ShippingProduct } from '@/types/shipping';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface ProductSelectorProps {
   products: ShippingProduct[];
@@ -28,6 +29,7 @@ export function ProductSelector({
   onDoubleClick,
   favoriteProducts,
 }: ProductSelectorProps) {
+  const { t } = useTranslation();
   const [showOther, setShowOther] = useState(false);
   
   // favoriteProducts now acts as an EXCLUSION list (hidden products)
@@ -129,7 +131,7 @@ export function ProductSelector({
             : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
         )}>
           {type === 'domestic' ? <Home className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
-          <span>{type === 'domestic' ? 'Domestic (DE)' : 'International'}</span>
+          <span>{type === 'domestic' ? t('product.domestic') : t('product.international')}</span>
         </div>
         
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -168,7 +170,10 @@ export function ProductSelector({
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {showOther ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {showOther ? 'Hide' : 'Show'} hidden products ({hiddenProducts.length})
+            {showOther 
+              ? t('product.hideProducts', { count: hiddenProducts.length })
+              : t('product.showHidden', { count: hiddenProducts.length })
+            }
           </button>
           
           {showOther && (
@@ -182,7 +187,7 @@ export function ProductSelector({
 
       {visibleProducts.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          All products are hidden. Go to Settings → Products to show some.
+          {t('product.allHidden')}
         </p>
       )}
     </div>

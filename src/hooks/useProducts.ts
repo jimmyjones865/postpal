@@ -22,8 +22,5 @@ export function useProducts() {
       });
   }, []);
 
-  const domesticProducts = products.filter((p) => p.domestic);
-  const internationalProducts = products.filter((p) => !p.domestic);
-
-  return { products, domesticProducts, internationalProducts, isLoading, error };
+  return { products, isLoading, error };
 }

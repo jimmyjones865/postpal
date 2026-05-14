@@ -24,9 +24,9 @@ export interface SenderAddress {
 }
 
 export interface PrinterConfig {
-  paperFormat: string;
   printerName: string;
-  paperFormatName: string; // selection from paper formats file
+  paperFormatName: string; // display name for the UI dropdown
+  paperFormatId: number;   // DHL API format ID, used in purchase calls
   orientation: 'portrait' | 'landscape';
   // 4-direction independent crop margins (in mm)
   cropMarginTop: number;

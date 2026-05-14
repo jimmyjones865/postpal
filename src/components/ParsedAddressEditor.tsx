@@ -5,6 +5,7 @@ import { emptyAddress, ParsedAddress, formatParsedAddress } from '@/lib/address'
 import { useAddressParser } from '@/hooks/useAddressParser';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useDebouncedCallback } from '@/hooks/useDebounce';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface ParsedAddressEditorProps {
   rawAddress: string;
@@ -13,6 +14,7 @@ interface ParsedAddressEditorProps {
 }
 
 export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChange }: ParsedAddressEditorProps) {
+  const { t } = useTranslation();
   const [parsed, setParsed] = useState<ParsedAddress>(emptyAddress);
   const lastRawRef = useRef('');
   const { parseAddress, isLoading } = useAddressParser();
@@ -67,7 +69,7 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
       {isLoading && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Parsing address...</span>
+          <span>{t('parser.parsing')}</span>
         </div>
       )}
 
@@ -77,7 +79,7 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
           {/* Confidence score */}
           {parsed.confidence !== undefined && (
             <div className={`flex items-center gap-2 text-xs ${getConfidenceColor(parsed.confidence)}`}>
-              <span className="font-medium">Confidence: {parsed.confidence}%</span>
+              <span className="font-medium">{t('validation.confidence', { percent: parsed.confidence })}</span>
             </div>
           )}
           
@@ -99,50 +101,50 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
       {hasBothOptionalLines && (
         <div className="flex items-center gap-2 p-2 bg-muted border border-border rounded text-muted-foreground text-xs">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          <span>Only 4 address lines allowed. Remove either Company/c/o or Apt/Floor.</span>
+          <span>{t('validation.onlyFourLinesAllowed')}</span>
         </div>
       )}
 
       {/* Line 1: Name (required) */}
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Name</Label>
+        <Label className="text-xs text-muted-foreground">{t('address.name')}</Label>
         <Input
           value={parsed.name}
           onChange={(e) => handleFieldChange('name', e.target.value)}
-          placeholder="First & Last Name"
+          placeholder={t('address.namePlaceholder')}
           className="h-8 text-sm font-mono"
         />
       </div>
 
       {/* Line 2: Additional Name (optional - Company, c/o) */}
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Company / c/o <span className="opacity-50">(optional)</span></Label>
+        <Label className="text-xs text-muted-foreground">{t('address.company')} <span className="opacity-50">{t('address.optional')}</span></Label>
         <Input
           value={parsed.additionalName}
           onChange={(e) => handleFieldChange('additionalName', e.target.value)}
-          placeholder="Company, c/o, etc."
+          placeholder={t('address.companyPlaceholder')}
           className={`h-8 text-sm font-mono ${hasBothOptionalLines ? 'border-amber-500/50' : ''}`}
         />
       </div>
 
       {/* Line 3: Street & Number (required) */}
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Street & Number</Label>
+        <Label className="text-xs text-muted-foreground">{t('address.street')}</Label>
         <Input
           value={parsed.street}
           onChange={(e) => handleFieldChange('street', e.target.value)}
-          placeholder="Musterstraße 123"
+          placeholder={t('address.streetPlaceholder')}
           className="h-8 text-sm font-mono"
         />
       </div>
 
       {/* Line 4: Address Line 2 (optional - Apt, Floor) */}
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Apt / Floor <span className="opacity-50">(optional)</span></Label>
+        <Label className="text-xs text-muted-foreground">{t('address.apt')} <span className="opacity-50">{t('address.optional')}</span></Label>
         <Input
           value={parsed.addressLine2}
           onChange={(e) => handleFieldChange('addressLine2', e.target.value)}
-          placeholder="Apartment, Floor, etc."
+          placeholder={t('address.aptPlaceholder')}
           className={`h-8 text-sm font-mono ${hasBothOptionalLines ? 'border-amber-500/50' : ''}`}
         />
       </div>
@@ -150,20 +152,20 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
       {/* Line 5: ZIP & City (required) */}
       <div className="grid grid-cols-[100px_1fr] gap-2">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">ZIP</Label>
+          <Label className="text-xs text-muted-foreground">{t('address.zip')}</Label>
           <Input
             value={parsed.zip}
             onChange={(e) => handleFieldChange('zip', e.target.value)}
-            placeholder="12345"
+            placeholder={t('address.zipPlaceholder')}
             className="h-8 text-sm font-mono"
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">City</Label>
+          <Label className="text-xs text-muted-foreground">{t('address.city')}</Label>
           <Input
             value={parsed.city}
             onChange={(e) => handleFieldChange('city', e.target.value)}
-            placeholder="Berlin"
+            placeholder={t('address.cityPlaceholder')}
             className="h-8 text-sm font-mono"
           />
         </div>
@@ -171,11 +173,11 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
 
       {/* Line 6: Country (required, defaults to Deutschland) */}
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Country</Label>
+        <Label className="text-xs text-muted-foreground">{t('address.country')}</Label>
         <Input
           value={parsed.country}
           onChange={(e) => handleFieldChange('country', e.target.value)}
-          placeholder="Deutschland"
+          placeholder={t('address.countryPlaceholder')}
           className="h-8 text-sm font-mono"
         />
       </div>

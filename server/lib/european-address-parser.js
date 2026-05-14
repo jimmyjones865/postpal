@@ -112,6 +112,12 @@ const STREET_SUFFIXES = {
 // Flatten all suffixes for quick lookup
 const ALL_STREET_SUFFIXES = Object.values(STREET_SUFFIXES).flat();
 
+// Pre-compile street suffix regexes to avoid creating them repeatedly
+const SUFFIX_REGEXES = ALL_STREET_SUFFIXES.map(suffix => {
+  const escaped = suffix.replace('.', '\\.');
+  return new RegExp(`\\b${escaped}\\b|\\b${escaped}\\s|${escaped}$`, 'i');
+});
+
 // ============================================================
 // STREET NUMBER PATTERNS
 // ============================================================
@@ -511,19 +517,17 @@ function looksLikeStreet(line) {
  */
 function hasRecognizedStreetSuffix(line) {
   const lineLower = line.toLowerCase();
-  for (const suffix of ALL_STREET_SUFFIXES) {
-    // Check as word boundary or at end of word
-    const regex = new RegExp(`\\b${suffix.replace('.', '\\.')}\\b|\\.?${suffix.replace('.', '\\.')}\\s|${suffix.replace('.', '\\.')}$`, 'i');
-    if (regex.test(lineLower)) return true;
-  }
-  return false;
+  return SUFFIX_REGEXES.some(regex => regex.test(lineLower));
 }
+
+// Pre-compiled whitespace regex for normalization
+const NORMALIZE_WHITESPACE = /\s+/g;
 
 /**
  * Normalize street format
  */
 function normalizeStreet(line) {
-  return line.replace(/\s+/g, ' ').trim();
+  return line.replace(NORMALIZE_WHITESPACE, ' ').trim();
 }
 
 /**

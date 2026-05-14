@@ -11,7 +11,7 @@ import { cropPdfWithPadding, renderPdfToImage } from '../lib/pdf-cropper.js';
  * @param {Function} getCredentials - Function to get API credentials
  * @returns {express.Router} Labels router
  */
-export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, getCredentials) {
+export function createLabelsRouter(storage, dhlClient, getCredentials) {
   const router = express.Router();
 
   /**
@@ -135,7 +135,7 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
    */
   router.post('/purchase', async (req, res) => {
     try {
-      const { sender, receiver, productCode, priceInCents, pageFormatName } = req.body;
+      const { sender, receiver, productCode, priceInCents, pageFormatId } = req.body;
       const credentials = getCredentials();
 
       if (!sender || !receiver || !productCode || priceInCents === undefined) {
@@ -143,14 +143,14 @@ export function createLabelsRouter(storage, dhlClient, getPageFormatIdByName, ge
       }
 
       const tokenData = await dhlClient.getAccessToken(credentials);
-      const pageFormatId = getPageFormatIdByName(pageFormatName) || 176;
+      const formatId = parseInt(pageFormatId) || 176;
 
       const payload = dhlClient.buildPurchasePayload({
         sender,
         receiver,
         productCode,
         priceInCents,
-        pageFormatId
+        pageFormatId: formatId
       });
 
       const result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);

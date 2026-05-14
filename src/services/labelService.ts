@@ -38,7 +38,7 @@ export interface PurchaseParams {
   };
   productCode: string;
   priceInCents: number;
-  paperFormatName: string;
+  pageFormatId: number;
 }
 
 /**

@@ -1,5 +1,4 @@
 // Address types and formatting utilities
-// Parsing is done server-side via libpostal
 
 export interface ParsedAddress {
   name: string;           // First & last name

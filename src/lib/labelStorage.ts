@@ -43,8 +43,7 @@ export async function getLabels(): Promise<StoredLabel[]> {
   return response.json();
 }
 
-export async function getLabelPdfUrl(id: string): Promise<string> {
-  // Returns original PDF URL (no cropping)
+export function getLabelPdfUrl(id: string): string {
   return `${API_BASE}/labels/${id}/pdf`;
 }
 
@@ -55,8 +54,7 @@ export interface PrintOptions {
   cropLeft?: number;
 }
 
-export async function getLabelPdfUrlForPrint(id: string, options?: PrintOptions): Promise<string> {
-  // Returns cropped PDF URL for printing with 4-direction margins
+function getLabelPdfUrlForPrint(id: string, options?: PrintOptions): string {
   const cropTop = options?.cropTop ?? 5;
   const cropRight = options?.cropRight ?? 5;
   const cropBottom = options?.cropBottom ?? 5;
@@ -75,7 +73,7 @@ export async function deleteLabel(id: string): Promise<void> {
 }
 
 export async function printLabel(id: string, options?: PrintOptions): Promise<void> {
-  const url = await getLabelPdfUrlForPrint(id, options);
+  const url = getLabelPdfUrlForPrint(id, options);
   
   // Open PDF in new window for printing
   const printWindow = window.open(url, '_blank');

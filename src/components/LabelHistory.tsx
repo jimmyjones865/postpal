@@ -9,6 +9,7 @@ import { printLabelDirect, buildPrintParams } from '@/services/labelService';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface LabelHistoryProps {
   labels: StoredLabel[];
@@ -21,6 +22,7 @@ interface LabelHistoryProps {
 }
 
 export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
+  const { t } = useTranslation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -58,8 +60,8 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     }
   };
 
-  const handleDownload = async (label: StoredLabel) => {
-    const url = await getLabelPdfUrl(label.id);
+  const handleDownload = (label: StoredLabel) => {
+    const url = getLabelPdfUrl(label.id);
     const a = document.createElement('a');
     a.href = url;
     a.download = label.filename;
@@ -70,10 +72,10 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     const success = await copyToClipboard(id);
     if (success) {
       setCopiedId(labelId);
-      toast.success('Copied to clipboard');
+      toast.success(t('toast.copiedToClipboard'));
       setTimeout(() => setCopiedId(null), 300);
     } else {
-      toast.error('Failed to copy to clipboard');
+      toast.error(t('toast.copyFailed'));
     }
   };
 
@@ -81,7 +83,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     return (
       <div className="flex items-center justify-center h-48 text-muted-foreground">
         <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-        Loading history...
+        {t('history.loadingHistory')}
       </div>
     );
   }
@@ -92,7 +94,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
         <p>{error}</p>
         <Button variant="outline" size="sm" onClick={onRefresh}>
           <RefreshCw className="w-4 h-4 mr-2" />
-          Retry
+          {t('history.retry')}
         </Button>
       </div>
     );
@@ -102,7 +104,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     return (
       <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
         <History className="w-8 h-8 opacity-50" />
-        <p>No labels printed yet</p>
+        <p>{t('history.noLabels')}</p>
       </div>
     );
   }
@@ -110,7 +112,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{labels.length} labels</span>
+        <span className="text-xs text-muted-foreground">{t('history.labels', { count: labels.length })}</span>
         <Button variant="ghost" size="sm" onClick={onRefresh}>
           <RefreshCw className="w-3 h-3" />
         </Button>
@@ -180,7 +182,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                     className="h-7 px-2"
                     onClick={() => handleDownload(label)}
                   >
-                    Download
+                    {t('print.download')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -190,7 +192,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                     disabled={printingId === label.id}
                   >
                     <Printer className="w-3 h-3 mr-1" />
-                    Print
+                    {t('print.print')}
                   </Button>
                   <Button
                     variant="ghost"

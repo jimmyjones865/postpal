@@ -8,6 +8,7 @@ import { printLabel } from '@/lib/labelStorage';
 import { cn } from '@/lib/utils';
 import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from 'sonner';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface LabelResultProps {
   parsedRecipient: ParsedAddress;
@@ -67,6 +68,7 @@ export function LabelResult({
   printOptions,
   directPrintConfig
 }: LabelResultProps) {
+  const { t } = useTranslation();
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -128,7 +130,7 @@ export function LabelResult({
       setCopied(true);
       setTimeout(() => setCopied(false), 300);
     } else {
-      toast.error('Failed to copy to clipboard');
+      toast.error(t('toast.copyFailed'));
     }
   };
 
@@ -136,15 +138,15 @@ export function LabelResult({
     <div className="space-y-3">
       {/* Section 1: Parsed recipient address */}
       <div className="bg-card border border-border rounded-lg p-3">
-        <div className="text-xs text-muted-foreground mb-1">Recipient</div>
+        <div className="text-xs text-muted-foreground mb-1">{t('address.recipient')}</div>
         <pre className="font-mono text-sm whitespace-pre-wrap leading-relaxed min-h-[80px]">
-          {hasAddress ? formattedAddress : 'Enter address to preview'}
+          {hasAddress ? formattedAddress : t('address.enterToPreview')}
         </pre>
       </div>
 
       {/* Section 2: Purchased label PDF */}
       <div className="bg-card border border-border rounded-lg p-3">
-        <div className="text-xs text-muted-foreground mb-2">Purchased Label</div>
+        <div className="text-xs text-muted-foreground mb-2">{t('print.printLabel')}</div>
         {imageUrl ? (
           <img 
             src={imageUrl}
@@ -157,7 +159,7 @@ export function LabelResult({
             className="flex items-center justify-center text-muted-foreground text-sm border border-dashed border-border/50 rounded bg-muted/20"
             style={previewStyle}
           >
-            Label appears after purchase
+            {t('label.afterPurchase')}
           </div>
         )}
       </div>
@@ -172,7 +174,7 @@ export function LabelResult({
           onClick={handleDownload}
         >
           <Download className="w-4 h-4 mr-1" />
-          {isDownloading ? 'Downloading...' : 'Download'}
+          {isDownloading ? t('print.downloading') : t('print.download')}
         </Button>
         <Button
           variant="outline"
@@ -182,7 +184,7 @@ export function LabelResult({
           onClick={handlePrint}
         >
           <Printer className="w-4 h-4 mr-1" />
-          {isPrinting ? 'Printing...' : 'Print'}
+          {isPrinting ? t('print.printing') : t('print.print')}
         </Button>
       </div>
 
@@ -202,7 +204,7 @@ export function LabelResult({
       >
         <span className="text-xs text-muted-foreground mr-2">ID:</span>
         <span className="truncate flex-1 text-left">
-          {displayId || 'After purchase'}
+          {displayId || t('label.afterPurchase')}
         </span>
         {displayId && <Copy className="w-4 h-4 ml-2 flex-shrink-0 text-muted-foreground" />}
       </button>

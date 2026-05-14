@@ -14,6 +14,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppConfig, ShippingProduct } from '@/types/shipping';
 import { DimensionsPreview } from './DimensionsPreview';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SettingsPanelProps {
   config: AppConfig;
@@ -51,6 +52,7 @@ export function SettingsPanel({
   onUpdateSenderAddress,
   onUpdateFavoriteProducts
 }: SettingsPanelProps) {
+  const { t } = useTranslation();
 
   // --- PAPER FORMATS STATE AND EFFECT ---
   const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
@@ -99,49 +101,49 @@ export function SettingsPanel({
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-4">
         <Settings className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm">Settings</h2>
+        <h2 className="font-semibold text-sm">{t('settings.title')}</h2>
       </div>
 
       <Tabs defaultValue="sender" className="w-full">
         <TabsList className="w-full grid grid-cols-3 mb-4">
           <TabsTrigger value="sender" className="text-xs gap-1">
-            <User className="w-3 h-3" /> Sender
+            <User className="w-3 h-3" /> {t('settings.sender')}
           </TabsTrigger>
           <TabsTrigger value="printer" className="text-xs gap-1">
-            <Printer className="w-3 h-3" /> Printer
+            <Printer className="w-3 h-3" /> {t('settings.printer')}
           </TabsTrigger>
           <TabsTrigger value="products" className="text-xs gap-1">
-            <Package className="w-3 h-3" /> Products
+            <Package className="w-3 h-3" /> {t('settings.products')}
           </TabsTrigger>
         </TabsList>
 
         {/* ----- SENDER TAB ----- */}
         <TabsContent value="sender" className="space-y-3 mt-0">
           <div className="config-field">
-            <Label className="config-label">Name</Label>
+            <Label className="config-label">{t('settings.fullName')}</Label>
             <Input 
               type="text"
-              placeholder="Full Name"
+              placeholder={t('settings.fullNamePlaceholder')}
               value={config.senderAddress.name}
               onChange={e => onUpdateSenderAddress({ name: e.target.value })}
               className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
-            <Label className="config-label">Company (optional)</Label>
+            <Label className="config-label">{t('settings.companyOptional')}</Label>
             <Input
               type="text"
-              placeholder="Company Name"
+              placeholder={t('settings.companyPlaceholder')}
               value={config.senderAddress.company || ''}
               onChange={e => onUpdateSenderAddress({ company: e.target.value })}
               className="h-9 text-sm"
             />
           </div>
           <div className="config-field">
-            <Label className="config-label">Street & Number</Label>
+            <Label className="config-label">{t('settings.streetNumber')}</Label>
             <Input
               type="text"
-              placeholder="Musterstraße 123"
+              placeholder={t('address.streetPlaceholder')}
               value={config.senderAddress.street}
               onChange={e => onUpdateSenderAddress({ street: e.target.value })}
               className="h-9 text-sm"
@@ -149,20 +151,20 @@ export function SettingsPanel({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="config-field">
-              <Label className="config-label">Postal Code</Label>
+              <Label className="config-label">{t('settings.postalCode')}</Label>
               <Input
                 type="text"
-                placeholder="12345"
+                placeholder={t('address.zipPlaceholder')}
                 value={config.senderAddress.postalCode}
                 onChange={e => onUpdateSenderAddress({ postalCode: e.target.value })}
                 className="h-9 text-sm"
               />
             </div>
             <div className="config-field col-span-2">
-              <Label className="config-label">City</Label>
+              <Label className="config-label">{t('address.city')}</Label>
               <Input
                 type="text"
-                placeholder="Berlin"
+                placeholder={t('address.cityPlaceholder')}
                 value={config.senderAddress.city}
                 onChange={e => onUpdateSenderAddress({ city: e.target.value })}
                 className="h-9 text-sm"
@@ -170,7 +172,7 @@ export function SettingsPanel({
             </div>
           </div>
           <div className="config-field">
-            <Label className="config-label">Country</Label>
+            <Label className="config-label">{t('address.country')}</Label>
             <Input
               type="text"
               placeholder="DE"
@@ -184,22 +186,23 @@ export function SettingsPanel({
         {/* ----- PRINTER TAB ----- */}
         <TabsContent value="printer" className="space-y-3 mt-0">
           <div className="config-field">
-            <Label className="config-label">Paper Format</Label>
+            <Label className="config-label">{t('settings.paperFormat')}</Label>
             {paperFormatsError ? (
               <p className="text-xs text-destructive">{paperFormatsError}</p>
             ) : (
               <Select
-                value={config.printerConfig.paperFormatName || ''}
-                onValueChange={value =>
-                  onUpdatePrinterConfig({ paperFormatName: value })
-                }
+                value={config.printerConfig.paperFormatId ? String(config.printerConfig.paperFormatId) : ''}
+                onValueChange={value => {
+                  const fmt = paperFormats.find(f => f.id === parseInt(value));
+                  onUpdatePrinterConfig({ paperFormatName: fmt?.name ?? '', paperFormatId: parseInt(value) });
+                }}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select paper format" />
+                  <SelectValue placeholder={t('settings.selectPaperFormat')} />
                 </SelectTrigger>
                 <SelectContent>
                   {paperFormats.map(format => (
-                    <SelectItem key={format.id} value={format.name}>
+                    <SelectItem key={format.id} value={String(format.id)}>
                       {format.name}
                     </SelectItem>
                   ))}
@@ -209,7 +212,7 @@ export function SettingsPanel({
 
             {(() => {
               const selected = paperFormats.find(
-                f => f.name === config.printerConfig.paperFormatName
+                f => f.id === config.printerConfig.paperFormatId
               );
               if (!selected) return null;
 
@@ -220,14 +223,16 @@ export function SettingsPanel({
                   <div>{selected.description}</div>
                   {isRoll ? (
                     <div>
-                      Endless roll · Width {selected.roll!.widthMm} mm
+                      {t('settings.endlessRoll', { width: selected.roll!.widthMm })}
                     </div>
                   ) : (
                     <div>
-                      Sheet {selected.pageLayout.size.x}×
-                      {selected.pageLayout.size.y} mm ·{' '}
-                      {selected.pageLayout.labelCount?.labelX ?? 1}×
-                      {selected.pageLayout.labelCount?.labelY ?? 1} labels
+                      {t('settings.sheetInfo', {
+                        width: selected.pageLayout.size.x,
+                        height: selected.pageLayout.size.y,
+                        labelX: selected.pageLayout.labelCount?.labelX ?? 1,
+                        labelY: selected.pageLayout.labelCount?.labelY ?? 1
+                      })}
                     </div>
                   )}
                 </div>
@@ -236,7 +241,7 @@ export function SettingsPanel({
           </div>
 
           <div className="config-field">
-            <Label className="config-label">Orientation</Label>
+            <Label className="config-label">{t('settings.orientation')}</Label>
             <Select
               value={config.printerConfig.orientation}
               onValueChange={(value: 'portrait' | 'landscape') =>
@@ -244,27 +249,27 @@ export function SettingsPanel({
               }
             >
               <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Select orientation" />
+                <SelectValue placeholder={t('settings.orientation')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="portrait">Portrait</SelectItem>
-                <SelectItem value="landscape">Landscape</SelectItem>
+                <SelectItem value="portrait">{t('settings.portrait')}</SelectItem>
+                <SelectItem value="landscape">{t('settings.landscape')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Use Landscape to rotate labels 90° for narrow rolls.
+              {t('settings.landscapeHint')}
             </p>
           </div>
 
           {/* Paper Size Section */}
           <div className="border-t border-border pt-3 mt-3">
             <Label className="config-label mb-2 block">
-              Paper Size
+              {t('settings.paperSize')}
             </Label>
             
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="config-field">
-                <Label className="config-label text-xs">Paper width (mm)</Label>
+                <Label className="config-label text-xs">{t('settings.paperWidth')}</Label>
                 <Input
                   type="number"
                   min={10}
@@ -277,7 +282,7 @@ export function SettingsPanel({
                 />
               </div>
               <div className="config-field">
-                <Label className="config-label text-xs">Paper height (mm)</Label>
+                <Label className="config-label text-xs">{t('settings.paperHeight')}</Label>
                 <Input
                   type="number"
                   min={10}
@@ -299,25 +304,25 @@ export function SettingsPanel({
                   onUpdatePrinterConfig({ endlessRoll: checked === true })
                 }
               />
-              <span className="text-sm">Endless roll (height from content)</span>
+              <span className="text-sm">{t('settings.endlessRollLabel')}</span>
             </label>
             
             <p className="text-xs text-muted-foreground mt-2">
-              When using endless roll, height is calculated automatically from the cropped label content.
+              {t('settings.endlessRollHint')}
             </p>
           </div>
 
           {/* CUPS Direct Printing Section */}
           <div className="border-t border-border pt-3 mt-3">
             <Label className="config-label mb-2 block">
-              Direct Printing (CUPS)
+              {t('settings.directPrinting')}
             </Label>
             
             <div className="config-field mb-3">
-              <Label className="config-label text-xs">CUPS Server URL</Label>
+              <Label className="config-label text-xs">{t('settings.cupsServerUrl')}</Label>
               <Input
                 type="text"
-                placeholder="http://192.168.1.100:631"
+                placeholder={t('settings.cupsPlaceholder')}
                 value={config.printerConfig.cupsUrl || ''}
                 onChange={e => onUpdatePrinterConfig({ cupsUrl: e.target.value })}
                 className="h-9 text-sm"
@@ -331,31 +336,31 @@ export function SettingsPanel({
                   onUpdatePrinterConfig({ enableDirectPrint: checked === true })
                 }
               />
-              <span className="text-sm">Enable direct print to CUPS</span>
+              <span className="text-sm">{t('settings.enableDirectPrint')}</span>
             </label>
             
             <p className="text-xs text-muted-foreground mt-2">
-              When enabled, labels will be sent directly to the CUPS server via IPP protocol without opening the browser print dialog.
+              {t('settings.cupsHint')}
             </p>
           </div>
 
           <div className="config-field">
-            <Label className="config-label">Printer Name</Label>
+            <Label className="config-label">{t('settings.printerName')}</Label>
             <Input
               type="text"
-              placeholder="DYMO_LabelWriter_450"
+              placeholder={t('settings.printerNamePlaceholder')}
               value={config.printerConfig.printerName}
               onChange={e => onUpdatePrinterConfig({ printerName: e.target.value })}
               className="h-9 text-sm"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              The printer queue name as shown in CUPS (e.g., DYMO_LabelWriter_450)
+              {t('settings.printerNameHint')}
             </p>
           </div>
 
           <div className="border-t border-border pt-3 mt-3">
             <Label className="config-label mb-2 block">
-              Label Cropping (minimize paper usage)
+              {t('settings.labelCropping')}
             </Label>
             
             <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -365,20 +370,20 @@ export function SettingsPanel({
                   onUpdatePrinterConfig({ disableCropping: checked === true })
                 }
               />
-              <span className="text-sm">Disable cropping (use original PDF)</span>
+              <span className="text-sm">{t('settings.disableCropping')}</span>
             </label>
             
             {!config.printerConfig.disableCropping && (
               <>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Crops whitespace from labels, keeping the specified margins around the content.
+                  {t('settings.croppingHint')}
                 </p>
                 
                 <div className="grid grid-cols-3 gap-2 items-center">
                   {/* Top - centered */}
                   <div />
                   <div className="config-field">
-                    <Label className="config-label text-xs text-center block">Top</Label>
+                    <Label className="config-label text-xs text-center block">{t('settings.top')}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -392,7 +397,7 @@ export function SettingsPanel({
                   
                   {/* Left and Right */}
                   <div className="config-field">
-                    <Label className="config-label text-xs text-center block">Left</Label>
+                    <Label className="config-label text-xs text-center block">{t('settings.left')}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -406,7 +411,7 @@ export function SettingsPanel({
                     <Ruler className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div className="config-field">
-                    <Label className="config-label text-xs text-center block">Right</Label>
+                    <Label className="config-label text-xs text-center block">{t('settings.right')}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -420,7 +425,7 @@ export function SettingsPanel({
                   {/* Bottom - centered */}
                   <div />
                   <div className="config-field">
-                    <Label className="config-label text-xs text-center block">Bottom</Label>
+                    <Label className="config-label text-xs text-center block">{t('settings.bottom')}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -448,11 +453,11 @@ export function SettingsPanel({
         {/* ----- PRODUCTS TAB ----- */}
         <TabsContent value="products" className="space-y-4 mt-0">
           <p className="text-xs text-muted-foreground">
-            Uncheck products to hide them from the main screen
+            {t('settings.uncheckToHide')}
           </p>
 
           <div>
-            <Label className="config-label mb-2 block">Domestic (DE)</Label>
+            <Label className="config-label mb-2 block">{t('product.domestic')}</Label>
             <div className="space-y-2">
               {domesticProducts.map(product => {
                 const isExcluded = (config.favoriteProducts || []).includes(product.code);
@@ -471,7 +476,7 @@ export function SettingsPanel({
           </div>
 
           <div>
-            <Label className="config-label mb-2 block">International</Label>
+            <Label className="config-label mb-2 block">{t('product.international')}</Label>
             <div className="space-y-2">
               {internationalProducts.map(product => {
                 const isExcluded = (config.favoriteProducts || []).includes(product.code);

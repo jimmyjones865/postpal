@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Wallet, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -11,6 +12,7 @@ interface WalletBalanceProps {
 }
 
 export function WalletBalance({ balance: externalBalance, onBalanceChange }: WalletBalanceProps) {
+  const { t } = useTranslation();
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [internalBalance, setInternalBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +62,8 @@ export function WalletBalance({ balance: externalBalance, onBalanceChange }: Wal
       const message =
         err instanceof Error ? err.message : 'Failed to fetch balance';
       setError(message);
+      setInternalBalance(null);
+      onBalanceChange?.(null);
       console.error('Wallet balance error:', err);
     } finally {
       setIsLoading(false);
@@ -89,7 +93,7 @@ export function WalletBalance({ balance: externalBalance, onBalanceChange }: Wal
       <div className="flex items-center gap-2">
         {isConfigured === false ? (
           <span className="text-sm text-muted-foreground">
-            Not configured
+            {t('wallet.notConfigured')}
           </span>
         ) : balance !== null ? (
           <span
@@ -103,7 +107,7 @@ export function WalletBalance({ balance: externalBalance, onBalanceChange }: Wal
         ) : error ? (
           <span className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="w-3 h-3" />
-            Error
+            {t('wallet.error')}
           </span>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>
@@ -117,8 +121,8 @@ export function WalletBalance({ balance: externalBalance, onBalanceChange }: Wal
           disabled={isLoading || isConfigured !== true}
           title={
             isConfigured
-              ? 'Refresh balance'
-              : 'Configure API credentials first'
+              ? t('wallet.refreshBalance')
+              : t('wallet.configureFirst')
           }
         >
           <RefreshCw

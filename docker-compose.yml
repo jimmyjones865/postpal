@@ -3,24 +3,42 @@ services:
     build: .
     container_name: postpal
     ports:
-      - "3001:3000"
+      - "3002:3000"
     volumes:
       - labels-data:/data/labels
       # products.json holds the available Deutsche Post shipping product list, incl. their prices. Adjust as needed, then reload the container
       - ./public/products.json:/app/public/products.json:ro
     environment:
-      # Server configuration
       - PORT=3000
-      - LOG_LEVEL=info                # debug | info | warn | none
+      - LANGUAGE=${LANGUAGE:-de}
+      - LOG_LEVEL=info
       - PDF_STORAGE_PATH=/data/labels
-      # Retention days governs how long pdf files of purchased labels are kept in local storage; they are then deleted
       - RETENTION_DAYS=60
       - STATIC_PATH=/app/public
-      # DHL credentials - set values here or create a .env file
-      - DHL_API_KEY=$DHL_API_KEY
-      - DHL_API_SECRET=$DHL_API_SECRET
-      - DHL_PORTOKASSE_LOGIN=$DHL_PORTOKASSE_LOGIN
-      - DHL_PORTOKASSE_PASSWORD=$DHL_PORTOKASSE_PASSWORD
+      # Set DHL credentials and optional server config via .env file (see .env.example)
+      - DHL_API_KEY=${DHL_API_KEY}
+      - DHL_API_SECRET=${DHL_API_SECRET}
+      - DHL_PORTOKASSE_LOGIN=${DHL_PORTOKASSE_LOGIN}
+      - DHL_PORTOKASSE_PASSWORD=${DHL_PORTOKASSE_PASSWORD}
+      - SENDER_NAME=${SENDER_NAME}
+      - SENDER_COMPANY=${SENDER_COMPANY}
+      - SENDER_STREET=${SENDER_STREET}
+      - SENDER_CITY=${SENDER_CITY}
+      - SENDER_POSTAL_CODE=${SENDER_POSTAL_CODE}
+      - SENDER_COUNTRY=${SENDER_COUNTRY}
+      - CUPS_URL=${CUPS_URL}
+      - CUPS_PRINTER_NAME=${CUPS_PRINTER_NAME}
+      - PAPER_FORMAT_ID=${PAPER_FORMAT_ID}
+      - PRINTER_ORIENTATION=${PRINTER_ORIENTATION}
+      - CROP_MARGIN_TOP=${CROP_MARGIN_TOP}
+      - CROP_MARGIN_RIGHT=${CROP_MARGIN_RIGHT}
+      - CROP_MARGIN_BOTTOM=${CROP_MARGIN_BOTTOM}
+      - CROP_MARGIN_LEFT=${CROP_MARGIN_LEFT}
+      - DISABLE_CROPPING=${DISABLE_CROPPING}
+      - ENABLE_DIRECT_PRINT=${ENABLE_DIRECT_PRINT}
+      - PAPER_WIDTH_MM=${PAPER_WIDTH_MM}
+      - PAPER_HEIGHT_MM=${PAPER_HEIGHT_MM}
+      - ENDLESS_ROLL=${ENDLESS_ROLL}
     restart: unless-stopped
 
 volumes:

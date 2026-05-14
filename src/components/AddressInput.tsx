@@ -3,6 +3,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { validateAddress, getValidationSummary, MAX_LINE_LENGTH } from '@/lib/addressValidation';
 import { useMemo } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export type PrintMode = 'print' | 'download';
 
@@ -17,6 +18,7 @@ interface AddressInputProps {
 }
 
 export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint, printMode, onPrintModeChange }: AddressInputProps) {
+  const { t } = useTranslation();
   const validation = useMemo(() => validateAddress(value), [value]);
   const validationSummary = useMemo(() => getValidationSummary(validation), [validation]);
   
@@ -34,14 +36,11 @@ export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint, p
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
         <MapPin className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm">Recipient Address</h2>
-        <span className="text-xs text-muted-foreground ml-auto">max {MAX_LINE_LENGTH} chars/line</span>
+        <h2 className="font-semibold text-sm">{t('address.recipientAddress')}</h2>
+        <span className="text-xs text-muted-foreground ml-auto">{t('address.maxCharsPerLine', { max: MAX_LINE_LENGTH })}</span>
       </div>
       <Textarea
-        placeholder={`Max Mustermann
-Musterstraße 123
-12345 Berlin
-Deutschland`}
+        placeholder={t('address.placeholder')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -83,7 +82,7 @@ Deutschland`}
             }`}
           >
             <Printer className="w-3 h-3" />
-            Print
+            {t('print.print')}
           </button>
           <button
             type="button"
@@ -95,14 +94,14 @@ Deutschland`}
             }`}
           >
             <Download className="w-3 h-3" />
-            Download
+            {t('print.download')}
           </button>
         </div>
       </div>
       
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Ctrl+Enter to {printMode === 'print' ? 'print' : 'download'}
+          {t('print.ctrlEnter', { action: printMode === 'print' ? t('print.print').toLowerCase() : t('print.download').toLowerCase() })}
         </p>
         <Button
           onClick={onPrint}
@@ -113,7 +112,7 @@ Deutschland`}
           {isPrinting ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin">⏳</span>
-              {printMode === 'print' ? 'Printing...' : 'Downloading...'}
+              {printMode === 'print' ? t('print.printing') : t('print.downloading')}
             </span>
           ) : (
             <span className="flex items-center gap-2">
@@ -122,7 +121,7 @@ Deutschland`}
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              {printMode === 'print' ? 'Print Label' : 'Download Label'}
+              {printMode === 'print' ? t('print.printLabel') : t('print.downloadLabel')}
             </span>
           )}
         </Button>

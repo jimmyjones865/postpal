@@ -11,9 +11,9 @@ const defaultConfig: AppConfig = {
     portokassePassword: '',
   },
   printerConfig: {
-    paperFormat: 'a6',
     printerName: '',
     paperFormatName: '',
+    paperFormatId: 0,
     orientation: 'portrait',
     cropMarginTop: 5,
     cropMarginRight: 5,
@@ -37,10 +37,80 @@ const defaultConfig: AppConfig = {
   favoriteProducts: ['brief-standard', 'brief-gross', 'paket'],
 };
 
+// Apply server-provided defaults for fields where localStorage still holds the
+// hardcoded code default (i.e. the user hasn't explicitly changed that field).
+function applyServerDefaults<T extends Record<string, unknown>>(
+  local: T,
+  server: Partial<T>,
+  codeDefault: T
+): T {
+  const result = { ...local };
+  for (const key of Object.keys(server) as Array<keyof T>) {
+    if (server[key] === undefined) continue;
+    if (local[key] === codeDefault[key]) {
+      result[key] = server[key] as T[keyof T];
+    }
+  }
+  return result;
+}
+
 export function useConfig() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
   const [isLoaded, setIsLoaded] = useState(false);
   const [serverCredentialsConfigured, setServerCredentialsConfigured] = useState<boolean | null>(null);
+
+  // Load server defaults and merge with localStorage
+  useEffect(() => {
+    async function loadConfig() {
+      // Load localStorage first
+      const stored = localStorage.getItem(STORAGE_KEY);
+      let localConfig = defaultConfig;
+      if (stored) {
+        try {
+          localConfig = JSON.parse(stored);
+        } catch (e) {
+          console.error('Failed to parse config:', e);
+        }
+      }
+
+      // Load server defaults and merge field-by-field.
+      // Server value wins only where localStorage still holds the hardcoded default
+      // (meaning the user hasn't explicitly changed that field).
+      try {
+        const response = await fetch('/api/config/defaults');
+        if (response.ok) {
+          const serverDefaults = await response.json();
+          const merged = { ...localConfig };
+
+          if (serverDefaults.senderAddress) {
+            merged.senderAddress = applyServerDefaults(
+              localConfig.senderAddress,
+              serverDefaults.senderAddress,
+              defaultConfig.senderAddress
+            );
+          }
+          if (serverDefaults.printerConfig) {
+            merged.printerConfig = applyServerDefaults(
+              localConfig.printerConfig,
+              serverDefaults.printerConfig,
+              defaultConfig.printerConfig
+            );
+          }
+
+          setConfig(merged);
+        } else {
+          setConfig(localConfig);
+        }
+      } catch (e) {
+        console.error('Failed to load server config:', e);
+        setConfig(localConfig);
+      }
+
+      setIsLoaded(true);
+    }
+
+    loadConfig();
+  }, []);
 
   // Check if server has credentials configured
   useEffect(() => {
@@ -59,18 +129,6 @@ export function useConfig() {
       }
     }
     checkServerCredentials();
-  }, []);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setConfig(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to parse config:', e);
-      }
-    }
-    setIsLoaded(true);
   }, []);
 
   const updateConfig = useCallback((updates: Partial<AppConfig>) => {
@@ -113,32 +171,6 @@ export function useConfig() {
     });
   }, []);
 
-  // Check for server-provided CUPS defaults (for docker-compose.cups.yml users)
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    async function checkCupsDefaults() {
-      try {
-        const response = await fetch('/api/cups/defaults');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.configured && data.cupsUrl) {
-            // Only apply if no CUPS URL is currently configured
-            setConfig(prev => {
-              if (prev.printerConfig.cupsUrl) return prev;
-              const newConfig = { ...prev, printerConfig: { ...prev.printerConfig, cupsUrl: data.cupsUrl } };
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
-              return newConfig;
-            });
-          }
-        }
-      } catch {
-        // Silently ignore - CUPS defaults are optional
-      }
-    }
-    
-    checkCupsDefaults();
-  }, [isLoaded]);
 
   // isConfigured now checks server-side credentials
   const isConfigured = Boolean(
