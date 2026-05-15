@@ -33,53 +33,55 @@
 
 @layer base {
   :root {
-    /* Nord Dark defaults */
-    --background: 220 16% 22%;
-    --foreground: 220 27% 90%;
+    /* Nord Polar Night */
+    /* nord0 #2e3440 */ --background: 220 16% 22%;
+    /* nord1 #3b4252 */ --card: 222 16% 28%;
+    /* nord2 #434c5e */ --secondary: 220 17% 32%;
+    /* nord3 #4c566a */ --border: 220 16% 36%;
 
-    --card: 220 16% 26%;
-    --card-foreground: 220 27% 90%;
+    --card-foreground: 218 27% 94%;
+    --popover: 222 16% 28%;
+    --popover-foreground: 218 27% 94%;
 
-    --popover: 220 16% 26%;
-    --popover-foreground: 220 27% 90%;
+    /* nord6 #eceff4 → main text, nord4 #d8dee9 → muted text */
+    --foreground: 218 27% 94%;
+    --muted: 220 17% 32%;
+    --muted-foreground: 219 28% 88%;
 
-    --primary: 213 32% 52%;
-    --primary-foreground: 220 27% 96%;
+    --secondary-foreground: 218 27% 94%;
 
-    --secondary: 220 16% 32%;
-    --secondary-foreground: 220 27% 90%;
+    /* Nord Frost */
+    /* nord9 #81a1c1 */ --primary: 210 34% 63%;
+    --primary-foreground: 220 16% 22%;
+    /* nord8 #88c0d0 */ --accent: 193 43% 67%;
+    --accent-foreground: 220 16% 22%;
 
-    --muted: 220 16% 32%;
-    --muted-foreground: 220 12% 65%;
+    /* Nord Aurora */
+    /* nord11 #bf616a */ --destructive: 354 42% 56%;
+    --destructive-foreground: 218 27% 94%;
 
-    --accent: 193 43% 67%;
-    --accent-foreground: 220 27% 96%;
-
-    --destructive: 355 65% 65%;
-    --destructive-foreground: 220 27% 96%;
-
-    --border: 220 16% 32%;
-    --input: 220 16% 32%;
-    --ring: 213 32% 52%;
+    /* nord3 #4c566a for inputs (user specified) */
+    --input: 220 16% 36%;
+    --ring: 210 34% 63%;
 
     --radius: 0.375rem;
 
     /* Sidebar */
     --sidebar-background: 220 16% 22%;
-    --sidebar-foreground: 220 27% 90%;
-    --sidebar-primary: 213 32% 52%;
-    --sidebar-primary-foreground: 220 27% 96%;
-    --sidebar-accent: 220 16% 32%;
-    --sidebar-accent-foreground: 220 27% 90%;
-    --sidebar-border: 220 16% 32%;
-    --sidebar-ring: 213 32% 52%;
+    --sidebar-foreground: 218 27% 94%;
+    --sidebar-primary: 210 34% 63%;
+    --sidebar-primary-foreground: 220 16% 22%;
+    --sidebar-accent: 220 17% 32%;
+    --sidebar-accent-foreground: 218 27% 94%;
+    --sidebar-border: 220 16% 36%;
+    --sidebar-ring: 210 34% 63%;
 
-    /* Charts */
-    --chart-1: 213 32% 52%;
-    --chart-2: 193 43% 67%;
-    --chart-3: 179 25% 65%;
-    --chart-4: 92 28% 67%;
-    --chart-5: 40 71% 75%;
+    /* Charts — Aurora + Frost */
+    /* nord10 */ --chart-1: 213 32% 52%;
+    /* nord7  */ --chart-2: 179 25% 65%;
+    /* nord14 */ --chart-3: 92 28% 65%;
+    /* nord13 */ --chart-4: 40 71% 73%;
+    /* nord11 */ --chart-5: 354 42% 56%;
 
     --shadow-2xs: 0 1px 2px hsl(220 16% 10% / 0.4);
     --shadow-xs: 0 1px 3px hsl(220 16% 10% / 0.4);
