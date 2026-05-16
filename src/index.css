@@ -2,32 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Julia Mono font-face declarations */
+/* Inter Variable font-face declarations */
 @font-face {
-  font-family: 'JuliaMono';
-  font-weight: 300;
-  src: url("https://cdn.jsdelivr.net/gh/cormullion/juliamono-webfonts/JuliaMono-Light.woff2") format("woff2");
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-style: normal;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'JuliaMono';
-  font-weight: 400;
-  src: url("https://cdn.jsdelivr.net/gh/cormullion/juliamono-webfonts/JuliaMono-Regular.woff2") format("woff2");
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JuliaMono';
-  font-weight: 500;
-  src: url("https://cdn.jsdelivr.net/gh/cormullion/juliamono-webfonts/JuliaMono-Medium.woff2") format("woff2");
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JuliaMono';
-  font-weight: 700;
-  src: url("https://cdn.jsdelivr.net/gh/cormullion/juliamono-webfonts/JuliaMono-Bold.woff2") format("woff2");
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-style: italic;
+  src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
   font-display: swap;
 }
 

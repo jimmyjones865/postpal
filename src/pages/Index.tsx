@@ -73,11 +73,6 @@ const Index = () => {
 
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
-  const selectedFormat = paperFormats.find(f => f.name === config.printerConfig.paperFormatName);
-  const previewDimensions = selectedFormat
-    ? { widthMm: selectedFormat.pageLayout.size.x, heightMm: selectedFormat.pageLayout.size.y }
-    : null;
-
   const selectedProductData = products.find(p => p.code === selectedProduct) || null;
   const handleProductSelect = (productCode: string) => {
     setSelectedProduct(productCode);
@@ -322,7 +317,7 @@ const Index = () => {
               </div>
 
               {/* Result panel */}
-              <LabelResult parsedRecipient={parsedRecipient} purchasedLabelId={purchasedLabelId} voucherId={voucherId} trackId={trackId} paperFormat={previewDimensions} printOptions={buildPrintOptions(config.printerConfig)} directPrintConfig={buildDirectPrintConfig(config.printerConfig)} />
+              <LabelResult parsedRecipient={parsedRecipient} purchasedLabelId={purchasedLabelId} voucherId={voucherId} trackId={trackId} printOptions={buildPrintOptions(config.printerConfig)} directPrintConfig={buildDirectPrintConfig(config.printerConfig)} />
             </div>
 
             {/* Product selector */}

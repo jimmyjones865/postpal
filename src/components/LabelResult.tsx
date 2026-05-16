@@ -15,7 +15,6 @@ interface LabelResultProps {
   purchasedLabelId: string | null;
   voucherId: string | null;
   trackId: string | null;
-  paperFormat: { widthMm: number; heightMm: number } | null;
   printOptions: PrintOptions;
   directPrintConfig: DirectPrintConfig;
 }
@@ -42,29 +41,11 @@ function formatRecipientForDisplay(parsed: ParsedAddress): string {
   return lines.join('\n');
 }
 
-/**
- * Computes preview container style for landscape orientation (longer axis horizontal).
- */
-function computePreviewStyle(format: { widthMm: number; heightMm: number } | null): React.CSSProperties {
-  if (!format) return { height: '120px' };
-  
-  // Display with longer axis horizontal
-  const isLandscape = format.widthMm >= format.heightMm;
-  const aspectRatio = isLandscape 
-    ? format.widthMm / format.heightMm 
-    : format.heightMm / format.widthMm;
-  
-  return { aspectRatio: String(aspectRatio) };
-}
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
 export function LabelResult({
   parsedRecipient,
   purchasedLabelId,
   voucherId,
   trackId,
-  paperFormat,
   printOptions,
   directPrintConfig
 }: LabelResultProps) {
@@ -76,16 +57,8 @@ export function LabelResult({
   const formattedAddress = formatRecipientForDisplay(parsedRecipient);
   const hasAddress = formattedAddress.trim().length > 0;
   
-  // Image URL for preview (rendered from PDF on server)
-  const imageUrl = purchasedLabelId 
-    ? `${API_BASE}/labels/${purchasedLabelId}/image` 
-    : null;
-  
   // Display ID (trackId preferred, else voucherId)
   const displayId = trackId || voucherId;
-  
-  // Compute landscape dimensions for preview
-  const previewStyle = computePreviewStyle(paperFormat);
 
   const handleDownload = async () => {
     if (!purchasedLabelId) return;
@@ -144,27 +117,7 @@ export function LabelResult({
         </pre>
       </div>
 
-      {/* Section 2: Purchased label PDF */}
-      <div className="bg-card border border-border rounded-lg p-3">
-        <div className="text-xs text-muted-foreground mb-2">{t('print.printLabel')}</div>
-        {imageUrl ? (
-          <img 
-            src={imageUrl}
-            alt="Purchased shipping label"
-            className="w-full rounded border border-border bg-white object-contain"
-            style={previewStyle}
-          />
-        ) : (
-          <div 
-            className="flex items-center justify-center text-muted-foreground text-sm border border-dashed border-border/50 rounded bg-muted/20"
-            style={previewStyle}
-          >
-            {t('label.afterPurchase')}
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: Action buttons */}
+      {/* Section 2: Action buttons */}
       <div className="flex gap-2">
         <Button
           variant="outline"

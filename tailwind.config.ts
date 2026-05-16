@@ -19,9 +19,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['JuliaMono'], // global sans font
-        mono: ['JuliaMono'], // global mono font
-        serif: ['ui-serif','Georgia','Cambria','Times New Roman','Times','serif'] // optional
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        serif: ['ui-serif','Georgia','Cambria','Times New Roman','Times','serif']
       },
       colors: {
         border: 'hsl(var(--border))',
