@@ -150,7 +150,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                         type="button"
                         onClick={() => handleCopyId(label.trackId || label.voucherId!, label.id)}
                         className={cn(
-                          "font-mono truncate hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[100px]",
+                          "font-mono hover:bg-muted px-1 rounded flex items-center gap-1 max-w-[220px]",
                           copiedId === label.id && "animate-flash"
                         )}
                         title="Click to copy ID"

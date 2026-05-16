@@ -121,12 +121,12 @@ export function SettingsPanel({
         <TabsContent value="sender" className="space-y-3 mt-0">
           <div className="config-field">
             <Label className="config-label">{t('settings.fullName')}</Label>
-            <Input 
+            <Input
               type="text"
               placeholder={t('settings.fullNamePlaceholder')}
               value={config.senderAddress.name}
               onChange={e => onUpdateSenderAddress({ name: e.target.value })}
-              className="h-9 text-sm"
+              className="h-9 text-sm font-mono"
             />
           </div>
           <div className="config-field">
@@ -136,7 +136,7 @@ export function SettingsPanel({
               placeholder={t('settings.companyPlaceholder')}
               value={config.senderAddress.company || ''}
               onChange={e => onUpdateSenderAddress({ company: e.target.value })}
-              className="h-9 text-sm"
+              className="h-9 text-sm font-mono"
             />
           </div>
           <div className="config-field">
@@ -146,7 +146,7 @@ export function SettingsPanel({
               placeholder={t('address.streetPlaceholder')}
               value={config.senderAddress.street}
               onChange={e => onUpdateSenderAddress({ street: e.target.value })}
-              className="h-9 text-sm"
+              className="h-9 text-sm font-mono"
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -157,7 +157,7 @@ export function SettingsPanel({
                 placeholder={t('address.zipPlaceholder')}
                 value={config.senderAddress.postalCode}
                 onChange={e => onUpdateSenderAddress({ postalCode: e.target.value })}
-                className="h-9 text-sm"
+                className="h-9 text-sm font-mono"
               />
             </div>
             <div className="config-field col-span-2">
@@ -167,7 +167,7 @@ export function SettingsPanel({
                 placeholder={t('address.cityPlaceholder')}
                 value={config.senderAddress.city}
                 onChange={e => onUpdateSenderAddress({ city: e.target.value })}
-                className="h-9 text-sm"
+                className="h-9 text-sm font-mono"
               />
             </div>
           </div>
@@ -178,7 +178,7 @@ export function SettingsPanel({
               placeholder="DE"
               value={config.senderAddress.country}
               onChange={e => onUpdateSenderAddress({ country: e.target.value })}
-              className="h-9 text-sm"
+              className="h-9 text-sm font-mono"
             />
           </div>
         </TabsContent>

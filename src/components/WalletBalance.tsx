@@ -98,7 +98,7 @@ export function WalletBalance({ balance: externalBalance, onBalanceChange }: Wal
         ) : balance !== null ? (
           <span
             className={cn(
-              'font-mono text-sm font-medium',
+              'text-sm font-medium',
               balance < 500 ? 'text-destructive' : 'text-foreground'
             )}
           >

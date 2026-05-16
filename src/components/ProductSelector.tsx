@@ -89,7 +89,7 @@ export function ProductSelector({
       >
         {/* Top row: Price and tracked indicator */}
         <div className="flex justify-between items-start mb-2">
-          <span className="text-lg font-bold font-mono">
+          <span className="text-lg font-bold">
             {product.cost.toFixed(2)} €
           </span>
           {product.tracked && (
@@ -103,7 +103,7 @@ export function ProductSelector({
         </div>
         
         {/* Weight in bottom right */}
-        <div className="absolute bottom-2 right-3 text-xs text-muted-foreground font-mono">
+        <div className="absolute bottom-2 right-3 text-xs text-muted-foreground">
           {formatWeight(product.maxWeight)}
         </div>
       </button>
