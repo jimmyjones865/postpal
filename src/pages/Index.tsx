@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import { useState } from 'react';
 import { AlertCircle, History, Mail, Settings } from 'lucide-react';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
 import { useLabelHistory } from '@/hooks/useLabelHistory';
+import { useLabelPurchase } from '@/hooks/useLabelPurchase';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput, PrintMode } from '@/components/AddressInput';
@@ -12,11 +12,8 @@ import { LabelHistory } from '@/components/LabelHistory';
 import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
 import { WalletBalance } from '@/components/WalletBalance';
 import { validateAddress } from '@/lib/addressValidation';
-import { saveLabel } from '@/lib/labelStorage';
 import { ParsedAddress, emptyAddress } from '@/lib/address';
-import { getCountryCode } from '@/lib/countryCodes';
 import { buildDirectPrintConfig, buildPrintOptions } from '@/lib/printConfig';
-import { purchaseLabel, fetchPdfAsBase64, printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -45,216 +42,25 @@ const Index = () => {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [parsedRecipient, setParsedRecipient] = useState<ParsedAddress>(emptyAddress());
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const [isPrinting, setIsPrinting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [printMode, setPrintMode] = useState<PrintMode>('print');
 
-  // Purchase result state
-  const [purchasedLabelId, setPurchasedLabelId] = useState<string | null>(null);
-  const [voucherId, setVoucherId] = useState<string | null>(null);
-  const [trackId, setTrackId] = useState<string | null>(null);
-
-  // Paper formats for image preview aspect ratio
-  interface PaperFormat { name: string; pageLayout: { size: { x: number; y: number } } }
-  const [paperFormats, setPaperFormats] = useState<PaperFormat[]>([]);
-  useEffect(() => {
-    fetch('/paper-formats.json').then(res => res.json()).then(data => {
-      const all = Object.values(data).flat().filter(Boolean) as PaperFormat[];
-      setPaperFormats(all);
-    }).catch(() => {});
-  }, []);
-
-  // Clear purchase results when address changes
-  useEffect(() => {
-    setPurchasedLabelId(null);
-    setVoucherId(null);
-    setTrackId(null);
-  }, [recipientAddress]);
+  const { purchasedLabelId, voucherId, trackId, isPrinting, purchase } = useLabelPurchase(
+    config, products, isConfigured, recipientAddress
+  );
 
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
-  const selectedProductData = products.find(p => p.code === selectedProduct) || null;
-  const handleProductSelect = (productCode: string) => {
-    setSelectedProduct(productCode);
-  };
-  const handlePrint = async () => {
-    if (!isConfigured) {
-      toast.error(t('toast.configRequired'), {
-        description: t('toast.configRequiredDesc')
-      });
-      return;
-    }
 
-    // Auto-select product if none selected (default to standard letter based on country)
-    let productToUse = selectedProduct;
-    if (!productToUse) {
-      const recipientCountry = getCountryCode(parsedRecipient.country) || '';
-      const isDomestic = !recipientCountry || recipientCountry === 'DE' || recipientCountry === 'DEU';
-
-      // Find first standard letter product (domestic or international)
-      const defaultProduct = products.find(p => p.group === 'standard' && p.domestic === isDomestic);
-      if (defaultProduct) {
-        productToUse = defaultProduct.code;
-        setSelectedProduct(productToUse);
-      } else {
-        toast.error(t('toast.productRequired'), {
-          description: t('toast.productRequiredDesc')
-        });
-        return;
-      }
-    }
-    const product = products.find(p => p.code === productToUse);
-    // walletBalance is in cents from API, product.cost is in EUR
-    const productCostInCents = product ? Math.round(product.cost * 100) : 0;
-    if (product && walletBalance !== null && walletBalance < productCostInCents) {
-      toast.error(t('toast.insufficientBalance'), {
-        description: t('toast.insufficientBalanceDesc', { 
-          balance: (walletBalance / 100).toFixed(2), 
-          cost: product.cost.toFixed(2) 
-        })
-      });
-      return;
-    }
-    if (!recipientAddress.trim()) {
-      toast.error(t('toast.addressRequired'), {
-        description: t('toast.addressRequiredDesc')
-      });
-      return;
-    }
-    if (!validation.isValid) {
-      toast.error(t('toast.addressInvalid'), {
-        description: t('toast.addressInvalidDesc')
-      });
-      return;
-    }
-    setIsPrinting(true);
-    try {
-      // Build receiver object from parsed address
-      const receiver = {
-        name: parsedRecipient.name,
-        additionalName: parsedRecipient.additionalName || undefined,
-        addressLine1: parsedRecipient.street,
-        addressLine2: parsedRecipient.addressLine2 || undefined,
-        postalCode: parsedRecipient.zip,
-        city: parsedRecipient.city,
-        country: getCountryCode(parsedRecipient.country) || ''
-      };
-
-      // Convert sender country to ISO code
-      const senderCountryCode = getCountryCode(config.senderAddress.country) || config.senderAddress.country;
-
-      // Call the purchase API via service
-      const purchaseData = await purchaseLabel({
-        sender: {
-          name: config.senderAddress.name,
-          additionalName: config.senderAddress.company || undefined,
-          addressLine1: config.senderAddress.street,
-          postalCode: config.senderAddress.postalCode,
-          city: config.senderAddress.city,
-          country: senderCountryCode
-        },
-        receiver,
-        productCode: productToUse!,
-        priceInCents: productCostInCents,
-        pageFormatId: config.printerConfig.paperFormatId || 0
-      });
-
-      // Check for errors
-      if (!purchaseData.success) {
-        console.error('Label purchase failed:', purchaseData);
-        toast.error(t('toast.purchaseFailed'), {
-          description: purchaseData.error || purchaseData.details || t('toast.purchaseFailedDesc')
-        });
-        return;
-      }
-      console.log('Label purchased successfully:', purchaseData);
-
-      // Update wallet balance if returned
-      if (purchaseData.newBalance !== undefined) {
-        setWalletBalance(purchaseData.newBalance);
-      }
-
-      // Save the label to storage (original, uncropped PDF)
-      let savedLabel;
-      try {
-        // If we have a PDF URL, fetch it via our proxy (WITHOUT cropping) and convert to base64
-        let pdfBase64 = '';
-        if (purchaseData.pdfUrl) {
-          try {
-            pdfBase64 = await fetchPdfAsBase64(purchaseData.pdfUrl);
-          } catch (pdfError) {
-            console.warn('Could not fetch PDF:', pdfError);
-          }
-        }
-        savedLabel = await saveLabel({
-          pdfBase64,
-          recipientAddress,
-          productCode: productToUse!,
-          productName: product?.name || productToUse!,
-          voucherId: purchaseData.voucherId,
-          trackId: purchaseData.trackingNumber
-        });
-        addLabel(savedLabel);
-        // Set purchase result state
-        setPurchasedLabelId(savedLabel.id);
-        setVoucherId(purchaseData.voucherId || null);
-        setTrackId(purchaseData.trackingNumber || null);
-      } catch (saveError) {
-        console.warn('Could not save label to storage:', saveError);
-      }
-
-      // Handle print mode
-      const printOptions = buildPrintOptions(config.printerConfig);
-      const directPrintConfig = buildDirectPrintConfig(config.printerConfig);
-      if (printMode === 'print' && directPrintConfig.enableDirectPrint && directPrintConfig.cupsUrl && savedLabel) {
-        // Direct print via CUPS
-        try {
-          const printParams = buildPrintParams(savedLabel.id, directPrintConfig, {
-            top: printOptions.cropTop,
-            right: printOptions.cropRight,
-            bottom: printOptions.cropBottom,
-            left: printOptions.cropLeft
-          });
-          await printLabelDirect(printParams);
-          toast.success(t('toast.labelPrinted'), {
-            description: t('toast.labelPrintedDesc', { product: product?.name })
-          });
-        } catch (printError) {
-          console.error('Direct print failed:', printError);
-          toast.error(t('toast.printFailed'), {
-            description: printError instanceof Error ? printError.message : t('toast.printFailedDesc')
-          });
-        }
-      } else if (printMode === 'download' && savedLabel) {
-        // Download the cropped PDF
-        try {
-          await downloadLabel(savedLabel.id, printOptions.cropTop, printOptions.cropRight, printOptions.cropBottom, printOptions.cropLeft);
-          toast.success(t('toast.labelDownloaded'), {
-            description: t('toast.labelDownloadedDesc', { product: product?.name })
-          });
-        } catch (downloadError) {
-          console.warn('Download failed:', downloadError);
-          toast.success(t('toast.labelPurchased'), {
-            description: t('toast.labelPurchasedDesc', { product: product?.name })
-          });
-        }
-      } else {
-        toast.success(t('toast.labelPurchasedSaved'), {
-          description: t('toast.labelPurchasedSavedDesc', { product: product?.name })
-        });
-      }
-
-      // Reset product selection to prevent accidental duplicate orders
-      setSelectedProduct(null);
-    } catch (error) {
-      console.error('Label purchase error:', error);
-      toast.error(t('toast.purchaseFailed'), {
-        description: error instanceof Error ? error.message : t('toast.purchaseFailedDesc')
-      });
-    } finally {
-      setIsPrinting(false);
-    }
-  };
+  const handlePrint = () => purchase({
+    parsedRecipient,
+    selectedProduct,
+    printMode,
+    walletBalance,
+    onSelectProduct: setSelectedProduct,
+    onBalanceUpdate: setWalletBalance,
+    onLabelSaved: addLabel,
+  });
   if (!isLoaded || productsLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">{t('status.loading')}</div>
@@ -268,8 +74,8 @@ const Index = () => {
               <Mail className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-mono text-lg font-bold">{t('app.title')}</h1>
-              <p className="text-xs text-muted-foreground font-mono">{t('app.subtitle')}</p>
+              <h1 className="text-lg font-bold">{t('app.title')}</h1>
+              <p className="text-xs text-muted-foreground">{t('app.subtitle')}</p>
             </div>
           </div>
           
@@ -323,7 +129,7 @@ const Index = () => {
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
-              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={handleProductSelect} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts || []} />
+              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts || []} />
             </div>
           </TabsContent>
           

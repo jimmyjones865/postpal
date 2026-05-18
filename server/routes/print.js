@@ -1,6 +1,6 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
-import { cropPdfWithPaddingAndDimensions, rotatePdf, getContentDimensions } from '../lib/pdf-cropper.js';
+import { cropPdfWithPaddingAndDimensions, rotatePdf } from '../lib/pdf-cropper.js';
 import { sendToCups } from '../lib/cups-printer.js';
 
 /**
@@ -163,38 +163,6 @@ export function createPrintRouter(storage) {
     } catch (err) {
       logger.error('[Print] Error:', err);
       res.status(500).json({ error: err.message || 'Print failed' });
-    }
-  });
-
-  /**
-   * POST /labels/:id/dimensions - Get cropped dimensions for a label
-   */
-  router.post('/labels/:id/dimensions', async (req, res) => {
-    try {
-      const { cropTop, cropRight, cropBottom, cropLeft, disableCropping } = req.body;
-      
-      const label = await storage.getLabel(req.params.id);
-      if (!label) {
-        return res.status(404).json({ error: 'Label not found' });
-      }
-      
-      const pdfBuffer = await storage.getLabelPdf(req.params.id);
-      
-      const dimensions = await getContentDimensions(
-        pdfBuffer,
-        parseFloat(cropTop) || 5,
-        parseFloat(cropRight) || 5,
-        parseFloat(cropBottom) || 5,
-        parseFloat(cropLeft) || 5
-      );
-      
-      res.json({
-        original: dimensions.original,
-        cropped: disableCropping ? null : dimensions.cropped
-      });
-    } catch (err) {
-      logger.error('[Dimensions] Error:', err);
-      res.status(500).json({ error: 'Failed to calculate dimensions' });
     }
   });
 

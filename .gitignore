@@ -9,6 +9,7 @@ lerna-debug.log*
 .lovable
 CLAUDE.md
 .env
+PLAN.md
 
 node_modules
 dist

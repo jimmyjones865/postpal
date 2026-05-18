@@ -47,7 +47,7 @@ export function getLabelPdfUrl(id: string): string {
   return `${API_BASE}/labels/${id}/pdf`;
 }
 
-export interface PrintOptions {
+interface PrintOptions {
   cropTop?: number;
   cropRight?: number;
   cropBottom?: number;
