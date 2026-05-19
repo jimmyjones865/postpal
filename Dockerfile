@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -7,7 +7,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production server (using slim for better compatibility)
-FROM node:18-slim
+FROM node:22-slim
 WORKDIR /app
 
 # Copy server files
