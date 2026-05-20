@@ -9,7 +9,7 @@
   "dependencies": {
     "canvas": "^3.0.0",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
+    "express": "^5.0.0",
     "ipp": "^2.0.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174"

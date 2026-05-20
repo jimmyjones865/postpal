@@ -39,22 +39,33 @@ export function createPrintRouter(storage) {
       // Read original PDF
       let pdfBuffer = await storage.getLabelPdf(labelId);
       
-      // Parse 4-direction crop margins (default to 5mm each)
-      const marginTop = parseFloat(cropTop) || 5;
-      const marginRight = parseFloat(cropRight) || 5;
-      const marginBottom = parseFloat(cropBottom) || 5;
-      const marginLeft = parseFloat(cropLeft) || 5;
+      const parseMargin = v => { const n = parseFloat(v); return isNaN(n) ? 5 : n; };
+
+      // Parse 4-direction crop margins as the user intends them (relative to printed orientation)
+      const marginTop = parseMargin(cropTop);
+      const marginRight = parseMargin(cropRight);
+      const marginBottom = parseMargin(cropBottom);
+      const marginLeft = parseMargin(cropLeft);
       const isLandscape = orientation === 'landscape';
-      
+
+      // For landscape, the PDF is rotated 90° CW after cropping, so margins must be remapped
+      // to portrait space so they land on the correct edges after rotation:
+      //   portrait-left → landscape-top, portrait-top → landscape-right,
+      //   portrait-right → landscape-bottom, portrait-bottom → landscape-left
+      const cropT = isLandscape ? marginRight : marginTop;
+      const cropR = isLandscape ? marginBottom : marginRight;
+      const cropB = isLandscape ? marginLeft : marginBottom;
+      const cropL = isLandscape ? marginTop : marginLeft;
+
       // Crop PDF and get dimensions in a single operation (avoids duplicate pixel scanning)
       let croppedDimensions = null;
       let cropFailed = false;
-      
+
       if (!disableCropping) {
         try {
           const cropResult = await cropPdfWithPaddingAndDimensions(
-            pdfBuffer, 
-            marginTop, marginRight, marginBottom, marginLeft
+            pdfBuffer,
+            cropT, cropR, cropB, cropL
           );
           pdfBuffer = cropResult.buffer;
           croppedDimensions = cropResult.dimensions;

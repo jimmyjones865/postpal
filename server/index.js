@@ -25,7 +25,7 @@ app.use('/api', createApiRouter());
 app.use(express.static(STATIC_PATH));
 
 // SPA fallback - serve index.html for all non-API routes
-app.get('*', (req, res) => {
+app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(STATIC_PATH, 'index.html'));
 });
 

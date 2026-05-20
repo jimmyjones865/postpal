@@ -70,12 +70,13 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
       // Apply 4-direction cropping for print mode
       if (print === '1') {
         try {
+          const parseMargin = v => { const n = parseFloat(v); return isNaN(n) ? 5 : n; };
           pdfBuffer = await cropPdfWithPadding(
-            pdfBuffer, 
-            parseFloat(cropTop) || 5,
-            parseFloat(cropRight) || 5,
-            parseFloat(cropBottom) || 5,
-            parseFloat(cropLeft) || 5
+            pdfBuffer,
+            parseMargin(cropTop),
+            parseMargin(cropRight),
+            parseMargin(cropBottom),
+            parseMargin(cropLeft)
           );
           logger.info('[Labels] PDF cropped for printing');
         } catch (err) {
