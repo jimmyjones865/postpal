@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Inter Variable font-face declarations */
+/* All fonts served locally from public/fonts/ */
 @font-face {
   font-family: 'Inter';
   font-weight: 100 900;
@@ -16,6 +16,34 @@
   font-weight: 100 900;
   font-style: italic;
   src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JuliaMono';
+  font-weight: 300;
+  src: url("/fonts/JuliaMono-Light.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JuliaMono';
+  font-weight: 400;
+  src: url("/fonts/JuliaMono-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JuliaMono';
+  font-weight: 500;
+  src: url("/fonts/JuliaMono-Medium.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JuliaMono';
+  font-weight: 700;
+  src: url("/fonts/JuliaMono-Bold.woff2") format("woff2");
   font-display: swap;
 }
 

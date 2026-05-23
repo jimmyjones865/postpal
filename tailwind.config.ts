@@ -20,7 +20,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: ['JuliaMono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         serif: ['ui-serif','Georgia','Cambria','Times New Roman','Times','serif']
       },
       colors: {
