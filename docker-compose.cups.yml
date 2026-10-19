@@ -10,6 +10,7 @@ services:
   app:
     build: .
     container_name: postpal
+    stop_grace_period: 30s
     ports:
       - "3001:3000"
     volumes:

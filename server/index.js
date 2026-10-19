@@ -25,8 +25,21 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(STATIC_PATH, 'index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Serving static files from: ${STATIC_PATH}`);
 });
+
+// Node as container PID 1 ignores SIGTERM by default. Stop accepting connections and let
+// in-flight requests finish — a purchase may be between DHL charge and PDF storage.
+const SHUTDOWN_TIMEOUT_MS = 25_000;
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, () => {
+    logger.info(`[Server] ${signal} received, shutting down`);
+    server.close(() => process.exit(0));
+    setTimeout(() => {
+      logger.warn('[Server] Shutdown timeout, forcing exit');
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS).unref();
+  });
+}

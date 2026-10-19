@@ -3,7 +3,7 @@
 Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express (ESM JS). They talk only via `/api/*`.
 
 ## Server (`server/`)
-- `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback. No CORS (same-origin only).
+- `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback. No CORS (same-origin only). SIGTERM/SIGINT drain in-flight requests (25s cap, so compose `stop_grace_period` is 30s).
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, parse-address; daily retention cleanup.
 - `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/purchase` (buy → download PDF → store).
 - `routes/print.js` — `POST /print`: crop → media size → rotate (landscape) → CUPS.
