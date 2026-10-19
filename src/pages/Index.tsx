@@ -13,7 +13,6 @@ import { ParsedAddressEditor } from '@/components/ParsedAddressEditor';
 import { WalletBalance } from '@/components/WalletBalance';
 import { validateAddress } from '@/lib/addressValidation';
 import { ParsedAddress, emptyAddress } from '@/lib/address';
-import { buildDirectPrintConfig, buildPrintOptions } from '@/lib/printConfig';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -23,6 +22,7 @@ const Index = () => {
     config,
     isLoaded,
     isConfigured,
+    credentialsConfigured,
     updatePrinterConfig,
     updateSenderAddress,
     updateFavoriteProducts
@@ -80,7 +80,7 @@ const Index = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <WalletBalance balance={walletBalance} onBalanceChange={setWalletBalance} />
+            <WalletBalance balance={walletBalance} onBalanceChange={setWalletBalance} isConfigured={credentialsConfigured} />
             {!isConfigured && <div className="flex items-center gap-2 text-xs text-amber-500">
                 <AlertCircle className="w-4 h-4" />
                 <span>{t('status.setupRequired')}</span>
@@ -123,13 +123,13 @@ const Index = () => {
               </div>
 
               {/* Result panel */}
-              <LabelResult parsedRecipient={parsedRecipient} purchasedLabelId={purchasedLabelId} voucherId={voucherId} trackId={trackId} printOptions={buildPrintOptions(config.printerConfig)} directPrintConfig={buildDirectPrintConfig(config.printerConfig)} />
+              <LabelResult parsedRecipient={parsedRecipient} purchasedLabelId={purchasedLabelId} voucherId={voucherId} trackId={trackId} printerConfig={config.printerConfig} />
             </div>
 
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
-              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts || []} />
+              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts} />
             </div>
           </TabsContent>
           
@@ -139,7 +139,7 @@ const Index = () => {
                 <History className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-sm">{t('history.printHistory')}</h2>
               </div>
-              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} printOptions={buildPrintOptions(config.printerConfig)} directPrintConfig={buildDirectPrintConfig(config.printerConfig)} />
+              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} printerConfig={config.printerConfig} />
             </div>
           </TabsContent>
           

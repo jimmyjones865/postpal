@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Download, Printer, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ParsedAddress } from '@/lib/address';
-import { PrintOptions, DirectPrintConfig } from '@/lib/printConfig';
-import { printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
-import { printLabel } from '@/lib/labelStorage';
+import { PrinterConfig } from '@/types/shipping';
+import { printLabel, downloadLabel } from '@/services/labelService';
 import { cn } from '@/lib/utils';
 import { copyToClipboard } from '@/lib/clipboard';
 import { toast } from 'sonner';
@@ -15,8 +14,7 @@ interface LabelResultProps {
   purchasedLabelId: string | null;
   voucherId: string | null;
   trackId: string | null;
-  printOptions: PrintOptions;
-  directPrintConfig: DirectPrintConfig;
+  printerConfig: PrinterConfig;
 }
 
 /**
@@ -46,8 +44,7 @@ export function LabelResult({
   purchasedLabelId,
   voucherId,
   trackId,
-  printOptions,
-  directPrintConfig
+  printerConfig
 }: LabelResultProps) {
   const { t } = useTranslation();
   const [isPrinting, setIsPrinting] = useState(false);
@@ -64,13 +61,9 @@ export function LabelResult({
     if (!purchasedLabelId) return;
     setIsDownloading(true);
     try {
-      await downloadLabel(
-        purchasedLabelId, 
-        printOptions.cropTop ?? 5,
-        printOptions.cropRight ?? 5,
-        printOptions.cropBottom ?? 5,
-        printOptions.cropLeft ?? 5
-      );
+      await downloadLabel(purchasedLabelId, printerConfig);
+    } catch (err) {
+      toast.error(t('toast.downloadFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setIsDownloading(false);
     }
@@ -80,17 +73,9 @@ export function LabelResult({
     if (!purchasedLabelId) return;
     setIsPrinting(true);
     try {
-      if (directPrintConfig.enableDirectPrint && directPrintConfig.cupsUrl) {
-        const params = buildPrintParams(purchasedLabelId, directPrintConfig, {
-          top: printOptions.cropTop ?? 5,
-          right: printOptions.cropRight ?? 5,
-          bottom: printOptions.cropBottom ?? 5,
-          left: printOptions.cropLeft ?? 5
-        });
-        await printLabelDirect(params);
-      } else {
-        await printLabel(purchasedLabelId, printOptions);
-      }
+      await printLabel(purchasedLabelId, printerConfig);
+    } catch (err) {
+      toast.error(t('toast.printFailed'), { description: err instanceof Error ? err.message : t('toast.printFailedDesc') });
     } finally {
       setIsPrinting(false);
     }

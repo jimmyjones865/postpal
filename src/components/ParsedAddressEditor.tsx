@@ -29,7 +29,6 @@ export function ParsedAddressEditor({ rawAddress, onAddressChange, onParsedChang
     }
     
     const result = await parseAddress(address);
-    console.log('Parse result:', result);
     if (result) {
       setParsed(result);
       onParsedChange?.(result);

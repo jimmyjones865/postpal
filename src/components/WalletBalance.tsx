@@ -3,81 +3,39 @@ import { Wallet, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import { getWalletBalance } from '@/services/labelService';
 
 interface WalletBalanceProps {
-  balance?: number | null;
-  onBalanceChange?: (balance: number | null) => void;
+  balance: number | null;
+  onBalanceChange: (balance: number | null) => void;
+  /** Server-side DHL credentials present; null while unknown */
+  isConfigured: boolean | null;
 }
 
-export function WalletBalance({ balance: externalBalance, onBalanceChange }: WalletBalanceProps) {
+export function WalletBalance({ balance, onBalanceChange, isConfigured }: WalletBalanceProps) {
   const { t } = useTranslation();
-  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
-  const [internalBalance, setInternalBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Use external balance if provided, otherwise use internal state
-  const balance = externalBalance !== undefined ? externalBalance : internalBalance;
-
-  /**
-   * Fetch server-side configuration status
-   */
-  useEffect(() => {
-    fetch(`${API_BASE}/credentials/status`)
-      .then(r => r.json())
-      .then(data => setIsConfigured(Boolean(data.configured)))
-      .catch(() => setIsConfigured(false));
-  }, []);
-
-  /**
-   * Explicit balance refresh (requests new token server-side)
-   */
   const fetchBalance = useCallback(async () => {
-    if (!isConfigured) {
-      return;
-    }
+    if (!isConfigured) return;
 
     setIsLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(`${API_BASE}/wallet/balance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // balance may legitimately be null (unknown)
-      setInternalBalance(data.balance ?? null);
-      onBalanceChange?.(data.balance ?? null);
+      onBalanceChange(await getWalletBalance());
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to fetch balance';
-      setError(message);
-      setInternalBalance(null);
-      onBalanceChange?.(null);
+      setError(err instanceof Error ? err.message : 'Failed to fetch balance');
+      onBalanceChange(null);
       console.error('Wallet balance error:', err);
     } finally {
       setIsLoading(false);
     }
   }, [isConfigured, onBalanceChange]);
 
-  /**
-   * Initial balance fetch once configuration is known
-   */
   useEffect(() => {
-    if (isConfigured === true) {
-      fetchBalance();
-    }
-  }, [isConfigured, fetchBalance]);
+    fetchBalance();
+  }, [fetchBalance]);
 
   const formatBalance = (amountInCents: number) => {
     return new Intl.NumberFormat('de-DE', {

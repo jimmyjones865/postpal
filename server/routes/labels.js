@@ -2,43 +2,29 @@ import express from 'express';
 import { logger } from '../lib/logger.js';
 import { cropPdfWithPadding } from '../lib/pdf-cropper.js';
 
+const DHL_PDF_ORIGIN = 'https://internetmarke.deutschepost.de/';
+
 /**
  * Creates the labels router for CRUD and purchase operations.
  * 
  * @param {Object} storage - Label storage instance
  * @param {Object} dhlClient - DHL API client instance
- * @param {Function} getPageFormatIdByName - Paper format lookup function
  * @param {Function} getCredentials - Function to get API credentials
  * @returns {express.Router} Labels router
  */
 export function createLabelsRouter(storage, dhlClient, getCredentials) {
   const router = express.Router();
 
-  /**
-   * POST /labels - Save a new label
-   */
-  router.post('/', async (req, res) => {
-    try {
-      const { pdfBase64, recipientAddress, productCode, productName, voucherId, trackId } = req.body;
-
-      if (!pdfBase64 || !recipientAddress || !productCode) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
-
-      const labelInfo = await storage.saveLabel(pdfBase64, {
-        recipientAddress,
-        productCode,
-        productName,
-        voucherId: voucherId || null,
-        trackId: trackId || null
-      });
-
-      res.json({ success: true, label: labelInfo });
-    } catch (err) {
-      logger.error('[Labels] Save error:', err);
-      res.status(500).json({ error: 'Failed to save label' });
+  async function fetchDhlPdf(url) {
+    if (!url?.startsWith(DHL_PDF_ORIGIN)) {
+      throw new Error(`Unexpected PDF URL: ${url}`);
     }
-  });
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) {
+      throw new Error(`PDF download failed: HTTP ${response.status}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
 
   /**
    * GET /labels - List all labels
@@ -65,7 +51,7 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
         return res.status(404).json({ error: 'Label not found' });
       }
 
-      let pdfBuffer = await storage.getLabelPdf(req.params.id);
+      let pdfBuffer = await storage.getLabelPdf(label);
 
       // Apply 4-direction cropping for print mode
       if (print === '1') {
@@ -110,26 +96,25 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
   });
 
   /**
-   * POST /labels/purchase - Purchase a new label from DHL
+   * POST /labels/purchase - Purchase a label from DHL, download its PDF and store it
    */
   router.post('/purchase', async (req, res) => {
     try {
-      const { sender, receiver, productCode, priceInCents, pageFormatId } = req.body;
+      const { sender, receiver, productCode, productName, priceInCents, pageFormatId, recipientAddress } = req.body;
       const credentials = getCredentials();
 
-      if (!sender || !receiver || !productCode || priceInCents === undefined) {
+      if (!sender || !receiver || !productCode || priceInCents === undefined || !recipientAddress) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
       const tokenData = await dhlClient.getAccessToken(credentials);
-      const formatId = parseInt(pageFormatId) || 176;
 
       const payload = dhlClient.buildPurchasePayload({
         sender,
         receiver,
         productCode,
         priceInCents,
-        pageFormatId: formatId
+        pageFormatId: parseInt(pageFormatId)
       });
 
       const result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);
@@ -142,7 +127,27 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
         });
       }
 
-      res.json(result);
+      // From here on the label is paid for — any failure must surface the DHL link
+      let label;
+      try {
+        label = await storage.saveLabel(await fetchDhlPdf(result.pdfUrl), {
+          recipientAddress,
+          productCode,
+          productName: productName || productCode,
+          voucherId: result.voucherId,
+          trackId: result.trackId
+        });
+      } catch (err) {
+        logger.error('[Labels] Purchased but could not store PDF:', err.message, result.pdfUrl);
+        return res.status(502).json({
+          error: 'Label purchased, but the PDF could not be stored',
+          details: `${err.message}. PDF: ${result.pdfUrl}`,
+          paid: true,
+          newBalance: result.newBalance
+        });
+      }
+
+      res.json({ success: true, label, newBalance: result.newBalance });
     } catch (err) {
       logger.error('[Labels] Purchase error:', err);
       res.status(500).json({ error: err.message || 'Failed to purchase label' });

@@ -100,38 +100,3 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
     });
   });
 }
-
-/**
- * Get printer status from CUPS
- * 
- * @param {string} cupsUrl - CUPS server URL
- * @param {string} printerName - Printer queue name
- * @returns {Promise<{online: boolean, state?: string, error?: string}>}
- */
-export async function getPrinterStatus(cupsUrl, printerName) {
-  const baseUrl = cupsUrl.replace(/\/$/, '');
-  const printerUri = `${baseUrl}/printers/${printerName}`;
-  
-  return new Promise((resolve) => {
-    const printer = ipp.Printer(printerUri);
-    
-    printer.execute('Get-Printer-Attributes', null, (err, res) => {
-      if (err) {
-        logger.error('[CUPS] Status check error:', err.message);
-        resolve({
-          online: false,
-          error: err.message
-        });
-        return;
-      }
-      
-      const attrs = res['printer-attributes-tag'] || {};
-      const state = attrs['printer-state-message'] || attrs['printer-state'];
-      
-      resolve({
-        online: true,
-        state: String(state)
-      });
-    });
-  });
-}

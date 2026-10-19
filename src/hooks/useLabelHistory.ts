@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StoredLabel, getLabels, deleteLabel } from '@/lib/labelStorage';
+import { StoredLabel, getLabels, deleteLabel } from '@/services/labelService';
 
 export function useLabelHistory() {
   const [labels, setLabels] = useState<StoredLabel[]>([]);

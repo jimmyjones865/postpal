@@ -95,24 +95,6 @@ export function createDhlClient() {
   }
 
   /**
-   * Gets the cached wallet balance.
-   * 
-   * @returns {number|null} Balance in cents or null
-   */
-  function getWalletBalance() {
-    return cachedToken.walletBalance;
-  }
-
-  /**
-   * Updates the cached wallet balance.
-   * 
-   * @param {number} balance - New balance in cents
-   */
-  function updateWalletBalance(balance) {
-    cachedToken.walletBalance = balance;
-  }
-
-  /**
    * Builds a DHL-formatted address object.
    * 
    * @param {Object} addr - Address with name, additionalName, addressLine1, etc.
@@ -183,10 +165,9 @@ export function createDhlClient() {
     return {
       success: true,
       pdfUrl: data.link || data.pdfUrl || data.url,
-      trackingNumber: trackId || voucherId,
+      trackId,
       voucherId,
-      newBalance: cachedToken.walletBalance,
-      rawResponse: data
+      newBalance: cachedToken.walletBalance
     };
   }
 
@@ -218,11 +199,7 @@ export function createDhlClient() {
   }
 
   return {
-    authenticate,
     getAccessToken,
-    getWalletBalance,
-    updateWalletBalance,
-    buildAddressObject,
     buildPurchasePayload,
     purchaseLabel
   };

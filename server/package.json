@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "canvas": "^3.0.0",
-    "cors": "^2.8.5",
     "express": "^5.0.0",
     "ipp": "^2.0.1",
     "pdf-lib": "^1.17.1",

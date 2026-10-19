@@ -4,12 +4,6 @@ import { AppConfig } from '@/types/shipping';
 const STORAGE_KEY = 'dp-label-config';
 
 const defaultConfig: AppConfig = {
-  apiCredentials: {
-    apiKey: '',
-    apiSecret: '',
-    portokasseLogin: '',
-    portokassePassword: '',
-  },
   printerConfig: {
     printerName: '',
     paperFormatName: '',
@@ -37,9 +31,18 @@ const defaultConfig: AppConfig = {
   favoriteProducts: ['brief-standard', 'brief-gross', 'paket'],
 };
 
+// Stored config may predate newer fields or carry removed ones — keep only known keys, fill gaps from defaults.
+function withDefaults(stored: Partial<AppConfig>): AppConfig {
+  return {
+    printerConfig: { ...defaultConfig.printerConfig, ...stored.printerConfig },
+    senderAddress: { ...defaultConfig.senderAddress, ...stored.senderAddress },
+    favoriteProducts: stored.favoriteProducts ?? defaultConfig.favoriteProducts,
+  };
+}
+
 // Apply server-provided defaults for fields where localStorage still holds the
 // hardcoded code default (i.e. the user hasn't explicitly changed that field).
-function applyServerDefaults<T extends Record<string, unknown>>(
+function applyServerDefaults<T extends object>(
   local: T,
   server: Partial<T>,
   codeDefault: T
@@ -67,7 +70,7 @@ export function useConfig() {
       let localConfig = defaultConfig;
       if (stored) {
         try {
-          localConfig = JSON.parse(stored);
+          localConfig = withDefaults(JSON.parse(stored));
         } catch (e) {
           console.error('Failed to parse config:', e);
         }
@@ -131,22 +134,6 @@ export function useConfig() {
     checkServerCredentials();
   }, []);
 
-  const updateConfig = useCallback((updates: Partial<AppConfig>) => {
-    setConfig(prev => {
-      const newConfig = { ...prev, ...updates };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
-      return newConfig;
-    });
-  }, []);
-
-  const updateApiCredentials = useCallback((creds: Partial<AppConfig['apiCredentials']>) => {
-    setConfig(prev => {
-      const newConfig = { ...prev, apiCredentials: { ...prev.apiCredentials, ...creds } };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
-      return newConfig;
-    });
-  }, []);
-
   const updatePrinterConfig = useCallback((printer: Partial<AppConfig['printerConfig']>) => {
     setConfig(prev => {
       const newConfig = { ...prev, printerConfig: { ...prev.printerConfig, ...printer } };
@@ -171,8 +158,6 @@ export function useConfig() {
     });
   }, []);
 
-
-  // isConfigured now checks server-side credentials
   const isConfigured = Boolean(
     serverCredentialsConfigured &&
     config.senderAddress.name &&
@@ -185,9 +170,7 @@ export function useConfig() {
     config,
     isLoaded,
     isConfigured,
-    serverCredentialsConfigured,
-    updateConfig,
-    updateApiCredentials,
+    credentialsConfigured: serverCredentialsConfigured,
     updatePrinterConfig,
     updateSenderAddress,
     updateFavoriteProducts,

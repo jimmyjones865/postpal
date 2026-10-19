@@ -63,11 +63,18 @@ export function createLabelStorage(storagePath) {
   }
 
   /**
-   * Queues a metadata write to ensure sequential execution.
+   * Runs load → mutate → save as one queued step so concurrent writers can't
+   * overwrite each other's changes. `mutate` may return a value, which is passed through.
    */
-  async function saveMetadata(metadata) {
-    writeQueue = writeQueue.then(() => atomicWriteJson(metadataFile, metadata));
-    return writeQueue;
+  function updateMetadata(mutate) {
+    const run = writeQueue.then(async () => {
+      const metadata = await loadMetadata();
+      const result = await mutate(metadata);
+      await atomicWriteJson(metadataFile, metadata);
+      return result;
+    });
+    writeQueue = run.catch(() => {});
+    return run;
   }
 
   /**
@@ -94,37 +101,28 @@ export function createLabelStorage(storagePath) {
 
   /**
    * Saves a new label PDF and updates metadata atomically.
-   * 
-   * @param {string} pdfBase64 - Base64-encoded PDF content
-   * @param {Object} info - Label metadata (recipientAddress, productCode, productName, voucherId, trackId, etc.)
+   *
+   * @param {Buffer} pdfBuffer - PDF content
+   * @param {Object} info - Label metadata (recipientAddress, productCode, productName, voucherId, trackId)
    * @returns {Object} The saved label info including id
    */
-  async function saveLabel(pdfBase64, info) {
+  async function saveLabel(pdfBuffer, info) {
     await ensureDir();
-    
+
     const now = new Date();
     const timestamp = formatTimestamp(now);
     const namePart = extractRecipientName(info.recipientAddress);
     const idPart = info.trackId || info.voucherId || 'noid';
-    
-    const id = `label_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const id = `label_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     const filename = `${timestamp}_${namePart}_${idPart}.pdf`;
-    const filepath = path.join(storagePath, filename);
-    
+
     // Write PDF first (can fail without corrupting metadata)
-    await fs.writeFile(filepath, Buffer.from(pdfBase64, 'base64'));
-    
-    // Then update metadata atomically
-    const metadata = await loadMetadata();
-    const labelInfo = { 
-      id, 
-      filename, 
-      ...info, 
-      createdAt: now.toISOString() 
-    };
-    metadata.labels.unshift(labelInfo);
-    await saveMetadata(metadata);
-    
+    await fs.writeFile(path.join(storagePath, filename), pdfBuffer);
+
+    const labelInfo = { id, filename, ...info, createdAt: now.toISOString() };
+    await updateMetadata(metadata => { metadata.labels.unshift(labelInfo); });
+
     logger.info(`[Storage] Saved label: ${filename}`);
     return labelInfo;
   }
@@ -137,26 +135,21 @@ export function createLabelStorage(storagePath) {
    * @returns {boolean} True if label was found and deleted
    */
   async function deleteLabel(id) {
-    const metadata = await loadMetadata();
-    const idx = metadata.labels.findIndex(l => l.id === id);
-    if (idx === -1) {
-      return false;
-    }
-    
-    const filename = metadata.labels[idx].filename;
-    
-    // Update metadata first (most important - source of truth)
-    metadata.labels.splice(idx, 1);
-    await saveMetadata(metadata);
-    
-    // Then try to delete file (non-critical if fails)
+    // Update metadata first (source of truth), then the file (non-critical if it fails)
+    const filename = await updateMetadata(metadata => {
+      const idx = metadata.labels.findIndex(l => l.id === id);
+      if (idx === -1) return null;
+      return metadata.labels.splice(idx, 1)[0].filename;
+    });
+    if (!filename) return false;
+
     try {
       await fs.unlink(path.join(storagePath, filename));
       logger.info(`[Storage] Deleted label file: ${filename}`);
     } catch (err) {
       logger.warn(`[Storage] Could not delete file ${filename}:`, err.message);
     }
-    
+
     return true;
   }
 
@@ -182,31 +175,13 @@ export function createLabelStorage(storagePath) {
   }
 
   /**
-   * Gets the PDF buffer for a label.
-   * 
-   * @param {string} id - Label id
-   * @returns {Buffer|null} PDF buffer or null if not found
+   * Reads the PDF buffer for a label returned by getLabel().
+   *
+   * @param {Object} label - Label info
+   * @returns {Promise<Buffer>} PDF buffer
    */
-  async function getLabelPdf(id) {
-    const label = await getLabel(id);
-    if (!label) {
-      return null;
-    }
+  function getLabelPdf(label) {
     return fs.readFile(path.join(storagePath, label.filename));
-  }
-
-  /**
-   * Gets the full file path for a label PDF.
-   * 
-   * @param {string} id - Label id
-   * @returns {string|null} File path or null if not found
-   */
-  async function getLabelFilePath(id) {
-    const label = await getLabel(id);
-    if (!label) {
-      return null;
-    }
-    return path.join(storagePath, label.filename);
   }
 
   /**
@@ -219,26 +194,16 @@ export function createLabelStorage(storagePath) {
   async function cleanupOldLabels(retentionDays) {
     logger.info(`[Cleanup] Running for labels older than ${retentionDays} days...`);
     
-    const metadata = await loadMetadata();
     const maxAge = retentionDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    
-    const toKeep = [];
-    const toDelete = [];
-    
-    for (const label of metadata.labels) {
-      const age = now - new Date(label.createdAt).getTime();
-      if (age > maxAge) {
-        toDelete.push(label);
-      } else {
-        toKeep.push(label);
-      }
-    }
-    
+
     // Update metadata first
-    metadata.labels = toKeep;
-    await saveMetadata(metadata);
-    
+    const { toDelete, kept } = await updateMetadata(metadata => {
+      const toDelete = metadata.labels.filter(l => now - new Date(l.createdAt).getTime() > maxAge);
+      metadata.labels = metadata.labels.filter(l => !toDelete.includes(l));
+      return { toDelete, kept: metadata.labels.length };
+    });
+
     // Then delete files
     for (const label of toDelete) {
       try {
@@ -249,19 +214,17 @@ export function createLabelStorage(storagePath) {
       }
     }
     
-    logger.info(`[Cleanup] Complete. Deleted ${toDelete.length}, kept ${toKeep.length}.`);
-    return { deleted: toDelete.length, kept: toKeep.length };
+    logger.info(`[Cleanup] Complete. Deleted ${toDelete.length}, kept ${kept}.`);
+    return { deleted: toDelete.length, kept };
   }
 
   return {
     ensureDir,
-    loadMetadata,
     saveLabel,
     deleteLabel,
     getLabel,
     getAllLabels,
     getLabelPdf,
-    getLabelFilePath,
     cleanupOldLabels
   };
 }

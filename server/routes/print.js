@@ -37,7 +37,7 @@ export function createPrintRouter(storage) {
       }
       
       // Read original PDF
-      let pdfBuffer = await storage.getLabelPdf(labelId);
+      let pdfBuffer = await storage.getLabelPdf(label);
       
       const parseMargin = v => { const n = parseFloat(v); return isNaN(n) ? 5 : n; };
 
@@ -94,48 +94,28 @@ export function createPrintRouter(storage) {
       }
       
       // Calculate media dimensions
+      const rollWidthMm = paperWidthMm || 62;
       let mediaWidthMm, mediaHeightMm;
-      
+
       if (endlessRoll) {
-        // For endless roll, we need cropped dimensions - if detection failed, use original or explicit
-        let contentWidth, contentHeight;
-        
-        if (croppedDimensions?.cropped) {
-          contentWidth = croppedDimensions.cropped.widthMm;
-          contentHeight = croppedDimensions.cropped.heightMm;
-        } else if (croppedDimensions?.original) {
-          // Use original PDF dimensions when detection failed (preferred fallback for endless roll)
-          contentWidth = croppedDimensions.original.widthMm;
-          contentHeight = croppedDimensions.original.heightMm;
-          logger.info(`[Print] Using original PDF dimensions: ${contentWidth}x${contentHeight}mm`);
-        } else {
-          // Final fallback to explicit paper dimensions or defaults
-          contentWidth = paperWidthMm || 62;
-          contentHeight = paperHeightMm || 100;
-          logger.info(`[Print] Using fallback dimensions: ${contentWidth}x${contentHeight}mm`);
+        // Height comes from content: cropped → original page (detection failed) → explicit/default
+        const content = croppedDimensions?.cropped
+          ?? croppedDimensions?.original
+          ?? { widthMm: rollWidthMm, heightMm: paperHeightMm || 100 };
+        if (!croppedDimensions?.cropped) {
+          logger.info(`[Print] Using fallback content size: ${content.widthMm}x${content.heightMm}mm`);
         }
-        
-        if (isLandscape) {
-          mediaWidthMm = paperWidthMm || 62;
-          mediaHeightMm = contentWidth;
-        } else {
-          mediaWidthMm = paperWidthMm || 62;
-          mediaHeightMm = contentHeight;
-        }
-        
+
+        // Landscape is rotated 90° after cropping, so content width runs along the roll
+        mediaWidthMm = rollWidthMm;
+        mediaHeightMm = isLandscape ? content.widthMm : content.heightMm;
+
         logger.info(`[Print] Endless roll ${isLandscape ? 'landscape' : 'portrait'}: width=${mediaWidthMm}mm, height=${mediaHeightMm.toFixed(1)}mm`);
       } else {
-        const fixedWidth = paperWidthMm || 62;
         const fixedHeight = paperHeightMm || 100;
-        
-        if (isLandscape) {
-          mediaWidthMm = fixedHeight;
-          mediaHeightMm = fixedWidth;
-        } else {
-          mediaWidthMm = fixedWidth;
-          mediaHeightMm = fixedHeight;
-        }
-        
+        mediaWidthMm = isLandscape ? fixedHeight : rollWidthMm;
+        mediaHeightMm = isLandscape ? rollWidthMm : fixedHeight;
+
         logger.info(`[Print] Fixed paper ${isLandscape ? 'landscape' : 'portrait'}: ${mediaWidthMm}x${mediaHeightMm}mm`);
       }
       

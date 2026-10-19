@@ -1,51 +1,51 @@
-import { DirectPrintConfig } from '@/lib/printConfig';
+import { PrinterConfig } from '@/types/shipping';
+import { ParsedAddress } from '@/lib/address';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-/**
- * Result of a label purchase operation.
- */
+export interface StoredLabel {
+  id: string;
+  filename: string;
+  recipientAddress: string;
+  productCode: string;
+  productName: string;
+  voucherId?: string;
+  trackId?: string;
+  createdAt: string;
+}
+
+interface DhlAddress {
+  name: string;
+  additionalName?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}
+
+export interface PurchaseParams {
+  sender: DhlAddress;
+  receiver: DhlAddress;
+  productCode: string;
+  productName: string;
+  priceInCents: number;
+  pageFormatId: number;
+  recipientAddress: string;
+}
+
 export interface PurchaseResult {
   success: boolean;
-  pdfUrl?: string;
-  trackingNumber?: string;
-  voucherId?: string;
+  label?: StoredLabel;
+  /** Set on failure after DHL already charged — the label must not be re-bought */
+  paid?: boolean;
   newBalance?: number;
   error?: string;
   details?: string;
 }
 
 /**
- * Parameters for purchasing a label.
- */
-export interface PurchaseParams {
-  sender: {
-    name: string;
-    additionalName?: string;
-    addressLine1: string;
-    postalCode: string;
-    city: string;
-    country: string;
-  };
-  receiver: {
-    name: string;
-    additionalName?: string;
-    addressLine1: string;
-    addressLine2?: string;
-    postalCode: string;
-    city: string;
-    country: string;
-  };
-  productCode: string;
-  priceInCents: number;
-  pageFormatId: number;
-}
-
-/**
- * Purchases a shipping label from the API.
- * 
- * @param params - Purchase parameters
- * @returns Purchase result
+ * Purchases a label; the server downloads and stores the PDF before responding.
  */
 export async function purchaseLabel(params: PurchaseParams): Promise<PurchaseResult> {
   const response = await fetch(`${API_BASE}/labels/purchase`, {
@@ -53,147 +53,119 @@ export async function purchaseLabel(params: PurchaseParams): Promise<PurchaseRes
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params)
   });
-  
-  const data = await response.json();
-  
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok || !data.success) {
-    return { 
-      success: false, 
-      error: data.error || 'Purchase failed',
-      details: data.details 
+    return {
+      success: false,
+      error: data.error || `Purchase failed: HTTP ${response.status}`,
+      details: data.details,
+      paid: data.paid,
+      newBalance: data.newBalance
     };
   }
-  
-  return {
-    success: true,
-    pdfUrl: data.pdfUrl,
-    trackingNumber: data.trackingNumber,
-    voucherId: data.voucherId,
-    newBalance: data.newBalance
-  };
+  return { success: true, label: data.label, newBalance: data.newBalance };
 }
 
-/**
- * Fetches a PDF via proxy and returns as base64.
- * 
- * @param pdfUrl - Original DHL PDF URL
- * @returns Base64-encoded PDF content
- */
-export async function fetchPdfAsBase64(pdfUrl: string): Promise<string> {
-  const proxyUrl = `${API_BASE}/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`;
-  const response = await fetch(proxyUrl);
-  
+export async function getLabels(): Promise<StoredLabel[]> {
+  const response = await fetch(`${API_BASE}/labels`);
   if (!response.ok) {
-    throw new Error(`PDF fetch failed: ${response.status}`);
+    throw new Error('Failed to fetch labels');
   }
-  
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = (reader.result as string).split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  return response.json();
+}
+
+export async function deleteLabel(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/labels/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to delete label');
+  }
+}
+
+/** Original, uncropped PDF. */
+export function getLabelPdfUrl(id: string): string {
+  return `${API_BASE}/labels/${id}/pdf`;
+}
+
+function getCroppedPdfUrl(id: string, config: PrinterConfig): string {
+  const { cropMarginTop, cropMarginRight, cropMarginBottom, cropMarginLeft } = config;
+  return `${API_BASE}/labels/${id}/pdf?print=1&cropTop=${cropMarginTop}&cropRight=${cropMarginRight}&cropBottom=${cropMarginBottom}&cropLeft=${cropMarginLeft}`;
 }
 
 /**
- * Parameters for direct printing (4-direction cropping).
+ * Prints a stored label: direct to CUPS if configured, otherwise via the browser print dialog.
+ *
+ * @throws Error if the CUPS print job fails
  */
-export interface PrintParams {
-  labelId: string;
-  cupsUrl: string;
-  printerName: string;
-  orientation: 'portrait' | 'landscape';
-  cropTop: number;
-  cropRight: number;
-  cropBottom: number;
-  cropLeft: number;
-  disableCropping: boolean;
-  paperWidthMm: number;
-  paperHeightMm: number;
-  endlessRoll: boolean;
-}
+export async function printLabel(labelId: string, config: PrinterConfig): Promise<void> {
+  if (!config.enableDirectPrint || !config.cupsUrl) {
+    const printWindow = window.open(getCroppedPdfUrl(labelId, config), '_blank');
+    printWindow?.addEventListener('load', () => printWindow.print());
+    return;
+  }
 
-/**
- * Sends a label to a CUPS printer.
- * 
- * @param params - Print parameters
- * @throws Error if print fails
- */
-export async function printLabelDirect(params: PrintParams): Promise<void> {
   const response = await fetch(`${API_BASE}/print`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
+    body: JSON.stringify({
+      labelId,
+      cupsUrl: config.cupsUrl,
+      printerName: config.printerName,
+      orientation: config.orientation,
+      cropTop: config.cropMarginTop,
+      cropRight: config.cropMarginRight,
+      cropBottom: config.cropMarginBottom,
+      cropLeft: config.cropMarginLeft,
+      disableCropping: config.disableCropping,
+      paperWidthMm: config.paperWidthMm,
+      paperHeightMm: config.paperHeightMm,
+      endlessRoll: config.endlessRoll
+    })
   });
-  
-  const result = await response.json();
-  
+  const result = await response.json().catch(() => ({}));
+
   if (!response.ok || !result.success) {
     throw new Error(result.error || 'Print failed');
   }
 }
 
 /**
- * Builds print parameters from config.
- * 
- * @param labelId - Label ID to print
- * @param config - Direct print configuration
- * @param cropMargins - 4-direction crop margins in mm
- * @returns Print parameters
+ * Downloads the cropped label PDF.
  */
-export function buildPrintParams(
-  labelId: string, 
-  config: DirectPrintConfig,
-  cropMargins: { top: number; right: number; bottom: number; left: number }
-): PrintParams {
-  return {
-    labelId,
-    cupsUrl: config.cupsUrl,
-    printerName: config.printerName,
-    orientation: config.orientation,
-    cropTop: cropMargins.top,
-    cropRight: cropMargins.right,
-    cropBottom: cropMargins.bottom,
-    cropLeft: cropMargins.left,
-    disableCropping: config.disableCropping,
-    paperWidthMm: config.paperWidthMm,
-    paperHeightMm: config.paperHeightMm,
-    endlessRoll: config.endlessRoll
-  };
-}
-
-/**
- * Downloads a cropped label PDF.
- * 
- * @param labelId - Label ID
- * @param cropTop - Top crop margin in mm
- * @param cropRight - Right crop margin in mm
- * @param cropBottom - Bottom crop margin in mm
- * @param cropLeft - Left crop margin in mm
- */
-export async function downloadLabel(
-  labelId: string, 
-  cropTop: number, 
-  cropRight: number, 
-  cropBottom: number, 
-  cropLeft: number
-): Promise<void> {
-  const pdfUrl = `${API_BASE}/labels/${labelId}/pdf?print=1&cropTop=${cropTop}&cropRight=${cropRight}&cropBottom=${cropBottom}&cropLeft=${cropLeft}`;
-  const response = await fetch(pdfUrl);
-  
+export async function downloadLabel(labelId: string, config: PrinterConfig): Promise<void> {
+  const response = await fetch(getCroppedPdfUrl(labelId, config));
   if (!response.ok) {
     throw new Error('Download failed');
   }
-  
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
+
+  const url = URL.createObjectURL(await response.blob());
   const a = document.createElement('a');
   a.href = url;
   a.download = `label-${labelId}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function parseAddress(address: string): Promise<ParsedAddress> {
+  const response = await fetch(`${API_BASE}/parse-address`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to parse address');
+  }
+  return response.json();
+}
+
+/**
+ * Fetches the Portokasse balance in cents (forces a token refresh server-side).
+ */
+export async function getWalletBalance(): Promise<number | null> {
+  const response = await fetch(`${API_BASE}/wallet/balance`, { method: 'POST' });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+  return data.balance ?? null;
 }

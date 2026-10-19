@@ -1,14 +1,12 @@
 type Translations = Record<string, string>;
 
 let translations: Translations = {};
-let currentLanguage = 'de';
 
 /**
  * Initialize i18n by loading the translation file for the specified language.
  * Falls back to German if the requested language file fails to load.
  */
 export async function initI18n(language: string): Promise<void> {
-  currentLanguage = language;
   try {
     const response = await fetch(`/locales/${language}.json`);
     if (!response.ok) {
@@ -48,11 +46,4 @@ export function t(key: string, params?: Record<string, string | number>): string
   }
   
   return text;
-}
-
-/**
- * Get the currently active language code.
- */
-export function getLanguage(): string {
-  return currentLanguage;
 }

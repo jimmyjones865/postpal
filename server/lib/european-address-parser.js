@@ -48,14 +48,11 @@ const ZIP_PATTERNS = {
   // Greece/Sweden/Finland/Czech/Slovakia: 3+2 format with optional space (123 45)
   nordic_cz: { pattern: /\b(\d{3}\s\d{2})\b/, country: null }, // Ambiguous - need context
   
-  // Germany/France/Italy/Spain: 5 digits (01234-99999)
+  // Germany/France/Italy/Spain/Croatia/Estonia: 5 digits (01234-99999)
   fiveDigit: { pattern: /\b(\d{5})\b/, country: null }, // Ambiguous
   
   // Austria/Switzerland/Belgium/Hungary/Bulgaria/Slovenia/Cyprus: 4 digits
   fourDigit: { pattern: /\b(\d{4})\b/, country: null }, // Ambiguous
-  
-  // Croatia/Estonia: 5 digits (10000)
-  croatian: { pattern: /\b(\d{5})\b/, country: null }, // Same as 5-digit, use context
   
   // Iceland: 3 digits (101-999) - unique in Europe
   icelandic: { pattern: /\b(\d{3})\b/, country: 'Island' },
@@ -544,50 +541,3 @@ function isAdditionalLine(line) {
   
   return false;
 }
-
-// ============================================================
-// UTILITY EXPORTS
-// ============================================================
-
-/**
- * Format a parsed address back to a string
- */
-export function formatAddress(parsed) {
-  const lines = [];
-  
-  if (parsed.name) lines.push(parsed.name);
-  if (parsed.additionalName) lines.push(parsed.additionalName);
-  if (parsed.street) lines.push(parsed.street);
-  if (parsed.addressLine2) lines.push(parsed.addressLine2);
-  if (parsed.zip || parsed.city) {
-    lines.push(`${parsed.zip} ${parsed.city}`.trim());
-  }
-  if (parsed.country && parsed.country !== 'Deutschland') {
-    lines.push(parsed.country);
-  }
-  
-  return lines.join('\n');
-}
-
-/**
- * Create an empty address object
- */
-export function emptyAddress() {
-  return {
-    name: '',
-    additionalName: '',
-    street: '',
-    addressLine2: '',
-    zip: '',
-    city: '',
-    country: 'Deutschland',
-    confidence: 0,
-    warnings: []
-  };
-}
-
-export default {
-  parseAddress,
-  formatAddress,
-  emptyAddress,
-};

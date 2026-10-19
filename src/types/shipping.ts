@@ -8,12 +8,6 @@ export interface ShippingProduct {
   tracked?: boolean;
 }
 
-export interface ShippingAddon {
-  id: string;
-  name: string;
-  price: string;
-}
-
 export interface SenderAddress {
   name: string;
   company?: string;
@@ -42,15 +36,7 @@ export interface PrinterConfig {
   endlessRoll: boolean;   // Height from content (true) or fixed (false)
 }
 
-export interface ApiCredentials {
-  apiKey: string;
-  apiSecret: string;
-  portokasseLogin: string;
-  portokassePassword: string;
-}
-
 export interface AppConfig {
-  apiCredentials: ApiCredentials;
   printerConfig: PrinterConfig;
   senderAddress: SenderAddress;
   favoriteProducts: string[];

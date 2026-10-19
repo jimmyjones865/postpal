@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { AppConfig, ShippingProduct } from '@/types/shipping';
 import { ParsedAddress } from '@/lib/address';
-import { StoredLabel } from '@/lib/labelStorage';
 import { PrintMode } from '@/components/AddressInput';
 import { validateAddress } from '@/lib/addressValidation';
 import { getCountryCode } from '@/lib/countryCodes';
-import { buildDirectPrintConfig, buildPrintOptions } from '@/lib/printConfig';
-import { purchaseLabel, fetchPdfAsBase64, printLabelDirect, buildPrintParams, downloadLabel } from '@/services/labelService';
-import { saveLabel } from '@/lib/labelStorage';
+import { StoredLabel, purchaseLabel, printLabel, downloadLabel } from '@/services/labelService';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface PurchaseParams {
@@ -32,6 +29,8 @@ export function useLabelPurchase(
   const [voucherId, setVoucherId] = useState<string | null>(null);
   const [trackId, setTrackId] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  // Double-click / Ctrl+Enter bypass the disabled button; a ref blocks re-entry before state updates land
+  const inFlight = useRef(false);
 
   useEffect(() => {
     setPurchasedLabelId(null);
@@ -48,6 +47,7 @@ export function useLabelPurchase(
     onBalanceUpdate,
     onLabelSaved,
   }: PurchaseParams) => {
+    if (inFlight.current) return;
     if (!isConfigured) {
       toast.error(t('toast.configRequired'), { description: t('toast.configRequiredDesc') });
       return;
@@ -91,10 +91,20 @@ export function useLabelPurchase(
       return;
     }
 
+    const senderCountry = getCountryCode(config.senderAddress.country);
+    const receiverCountry = getCountryCode(parsedRecipient.country);
+    if (!senderCountry || !receiverCountry) {
+      toast.error(t('toast.countryUnknown'), {
+        description: t('toast.countryUnknownDesc', {
+          country: senderCountry ? parsedRecipient.country : config.senderAddress.country,
+        }),
+      });
+      return;
+    }
+
+    inFlight.current = true;
     setIsPrinting(true);
     try {
-      const senderCountryCode = getCountryCode(config.senderAddress.country) || config.senderAddress.country;
-
       const purchaseData = await purchaseLabel({
         sender: {
           name: config.senderAddress.name,
@@ -102,7 +112,7 @@ export function useLabelPurchase(
           addressLine1: config.senderAddress.street,
           postalCode: config.senderAddress.postalCode,
           city: config.senderAddress.city,
-          country: senderCountryCode,
+          country: senderCountry,
         },
         receiver: {
           name: parsedRecipient.name,
@@ -111,63 +121,38 @@ export function useLabelPurchase(
           addressLine2: parsedRecipient.addressLine2 || undefined,
           postalCode: parsedRecipient.zip,
           city: parsedRecipient.city,
-          country: getCountryCode(parsedRecipient.country) || '',
+          country: receiverCountry,
         },
         productCode: productToUse!,
+        productName: product?.name || productToUse!,
         priceInCents: productCostInCents,
-        pageFormatId: config.printerConfig.paperFormatId || 0,
+        pageFormatId: config.printerConfig.paperFormatId,
+        recipientAddress,
       });
-
-      if (!purchaseData.success) {
-        console.error('Label purchase failed:', purchaseData);
-        toast.error(t('toast.purchaseFailed'), {
-          description: purchaseData.error || purchaseData.details || t('toast.purchaseFailedDesc'),
-        });
-        return;
-      }
 
       if (purchaseData.newBalance !== undefined) {
         onBalanceUpdate(purchaseData.newBalance);
       }
 
-      // Save original uncropped PDF to storage
-      let savedLabel: StoredLabel | undefined;
-      try {
-        let pdfBase64 = '';
-        if (purchaseData.pdfUrl) {
-          try {
-            pdfBase64 = await fetchPdfAsBase64(purchaseData.pdfUrl);
-          } catch (pdfError) {
-            console.warn('Could not fetch PDF:', pdfError);
-          }
-        }
-        savedLabel = await saveLabel({
-          pdfBase64,
-          recipientAddress,
-          productCode: productToUse!,
-          productName: product?.name || productToUse!,
-          voucherId: purchaseData.voucherId,
-          trackId: purchaseData.trackingNumber,
+      if (!purchaseData.success || !purchaseData.label) {
+        console.error('Label purchase failed:', purchaseData);
+        if (purchaseData.paid) onSelectProduct(null);
+        toast.error(t('toast.purchaseFailed'), {
+          description: [purchaseData.error, purchaseData.details].filter(Boolean).join(' — ') || t('toast.purchaseFailedDesc'),
+          duration: Infinity,
         });
-        onLabelSaved(savedLabel);
-        setPurchasedLabelId(savedLabel.id);
-        setVoucherId(purchaseData.voucherId || null);
-        setTrackId(purchaseData.trackingNumber || null);
-      } catch (saveError) {
-        console.warn('Could not save label to storage:', saveError);
+        return;
       }
 
-      const printOptions = buildPrintOptions(config.printerConfig);
-      const directPrintConfig = buildDirectPrintConfig(config.printerConfig);
+      const savedLabel = purchaseData.label;
+      onLabelSaved(savedLabel);
+      setPurchasedLabelId(savedLabel.id);
+      setVoucherId(savedLabel.voucherId || null);
+      setTrackId(savedLabel.trackId || null);
 
-      if (printMode === 'print' && directPrintConfig.enableDirectPrint && directPrintConfig.cupsUrl && savedLabel) {
+      if (printMode === 'print' && config.printerConfig.enableDirectPrint && config.printerConfig.cupsUrl) {
         try {
-          await printLabelDirect(buildPrintParams(savedLabel.id, directPrintConfig, {
-            top: printOptions.cropTop,
-            right: printOptions.cropRight,
-            bottom: printOptions.cropBottom,
-            left: printOptions.cropLeft,
-          }));
+          await printLabel(savedLabel.id, config.printerConfig);
           toast.success(t('toast.labelPrinted'), { description: t('toast.labelPrintedDesc', { product: product?.name }) });
         } catch (printError) {
           console.error('Direct print failed:', printError);
@@ -175,9 +160,9 @@ export function useLabelPurchase(
             description: printError instanceof Error ? printError.message : t('toast.printFailedDesc'),
           });
         }
-      } else if (printMode === 'download' && savedLabel) {
+      } else if (printMode === 'download') {
         try {
-          await downloadLabel(savedLabel.id, printOptions.cropTop, printOptions.cropRight, printOptions.cropBottom, printOptions.cropLeft);
+          await downloadLabel(savedLabel.id, config.printerConfig);
           toast.success(t('toast.labelDownloaded'), { description: t('toast.labelDownloadedDesc', { product: product?.name }) });
         } catch {
           // Download failed but label is purchased — show success without download
@@ -195,6 +180,7 @@ export function useLabelPurchase(
         description: error instanceof Error ? error.message : t('toast.purchaseFailedDesc'),
       });
     } finally {
+      inFlight.current = false;
       setIsPrinting(false);
     }
   };

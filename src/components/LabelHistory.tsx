@@ -3,9 +3,8 @@ import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalL
 import { copyToClipboard } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { StoredLabel, printLabel, getLabelPdfUrl } from '@/lib/labelStorage';
-import { DirectPrintConfig, PrintOptions } from '@/lib/printConfig';
-import { printLabelDirect, buildPrintParams } from '@/services/labelService';
+import { StoredLabel, printLabel, getLabelPdfUrl } from '@/services/labelService';
+import { PrinterConfig } from '@/types/shipping';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -17,11 +16,10 @@ interface LabelHistoryProps {
   error: string | null;
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
-  printOptions?: PrintOptions;
-  directPrintConfig?: DirectPrintConfig;
+  printerConfig: PrinterConfig;
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printOptions, directPrintConfig }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printerConfig }: LabelHistoryProps) {
   const { t } = useTranslation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
@@ -30,22 +28,9 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
   const handlePrint = async (label: StoredLabel) => {
     setPrintingId(label.id);
     try {
-      if (directPrintConfig?.enableDirectPrint && directPrintConfig.cupsUrl) {
-        // Direct print via CUPS using service with 4-direction margins
-        const printParams = buildPrintParams(
-          label.id,
-          directPrintConfig,
-          {
-            top: printOptions?.cropTop ?? 5,
-            right: printOptions?.cropRight ?? 5,
-            bottom: printOptions?.cropBottom ?? 5,
-            left: printOptions?.cropLeft ?? 5
-          }
-        );
-        await printLabelDirect(printParams);
-      } else {
-        await printLabel(label.id, printOptions);
-      }
+      await printLabel(label.id, printerConfig);
+    } catch (err) {
+      toast.error(t('toast.printFailed'), { description: err instanceof Error ? err.message : t('toast.printFailedDesc') });
     } finally {
       setPrintingId(null);
     }
@@ -55,6 +40,8 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
     setDeletingId(id);
     try {
       await onDelete(id);
+    } catch {
+      toast.error(t('toast.deleteFailed'));
     } finally {
       setDeletingId(null);
     }

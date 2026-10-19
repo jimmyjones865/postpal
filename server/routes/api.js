@@ -41,7 +41,7 @@ export function createApiRouter() {
   // Labels: CRUD + purchase
   router.use('/labels', createLabelsRouter(storage, dhlClient, getCredentials));
 
-  // Print: CUPS printing + dimensions
+  // Print: CUPS printing
   router.use('/', createPrintRouter(storage));
 
   // Wallet: balance operations
@@ -108,35 +108,6 @@ export function createApiRouter() {
     } catch (err) {
       logger.error('[ParseAddress] Error:', err);
       res.status(500).json({ error: 'Failed to parse address' });
-    }
-  });
-
-  /**
-   * GET /proxy-pdf - Proxy PDF downloads from DHL
-   */
-  router.get('/proxy-pdf', async (req, res) => {
-    try {
-      const { url } = req.query;
-      if (!url) {
-        return res.status(400).json({ error: 'Missing url parameter' });
-      }
-      if (!url.startsWith('https://internetmarke.deutschepost.de/')) {
-        return res.status(403).json({ error: 'Only DHL URLs allowed' });
-      }
-
-      logger.debug('[ProxyPDF] Fetching:', url);
-      const response = await fetch(url);
-      if (!response.ok) {
-        return res.status(response.status).json({ error: 'Failed to fetch PDF' });
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'inline; filename="label.pdf"');
-      res.send(buffer);
-    } catch (err) {
-      logger.error('[ProxyPDF] Error:', err);
-      res.status(500).json({ error: 'Failed to proxy PDF' });
     }
   });
 

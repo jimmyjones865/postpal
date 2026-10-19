@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppConfig, ShippingProduct } from '@/types/shipping';
-import { DimensionsPreview } from './DimensionsPreview';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface SettingsPanelProps {
@@ -62,9 +61,7 @@ export function SettingsPanel({
     fetch('/paper-formats.json')
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json();
-        console.log('Raw paper-formats.json loaded:', json);
-        return json as PaperFormatsJson;
+        return r.json() as Promise<PaperFormatsJson>;
       })
       .then((data: PaperFormatsJson) => {
         const allFormats = Object.values(data).flat().filter(Boolean) as PaperFormat[];
@@ -75,7 +72,6 @@ export function SettingsPanel({
           seenNames.add(format.name);
           return true;
         });
-        console.log('Processed paper formats array:', formats.length, 'unique formats');
         setPaperFormats(formats);
       })
       .catch(err => {
@@ -89,7 +85,7 @@ export function SettingsPanel({
   const internationalProducts = products.filter(p => !p.domestic);
 
   const toggleFavorite = (productCode: string) => {
-    const current = config.favoriteProducts || [];
+    const current = config.favoriteProducts;
     if (current.includes(productCode)) {
       onUpdateFavoriteProducts(current.filter(code => code !== productCode));
     } else {
@@ -134,7 +130,7 @@ export function SettingsPanel({
             <Input
               type="text"
               placeholder={t('settings.companyPlaceholder')}
-              value={config.senderAddress.company || ''}
+              value={config.senderAddress.company ?? ''}
               onChange={e => onUpdateSenderAddress({ company: e.target.value })}
               className="h-9 text-sm font-mono"
             />
@@ -274,7 +270,7 @@ export function SettingsPanel({
                   type="number"
                   min={10}
                   max={300}
-                  value={config.printerConfig.paperWidthMm ?? 62}
+                  value={config.printerConfig.paperWidthMm}
                   onChange={e =>
                     onUpdatePrinterConfig({ paperWidthMm: parseInt(e.target.value) || 62 })
                   }
@@ -287,7 +283,7 @@ export function SettingsPanel({
                   type="number"
                   min={10}
                   max={500}
-                  value={config.printerConfig.paperHeightMm ?? 100}
+                  value={config.printerConfig.paperHeightMm}
                   onChange={e =>
                     onUpdatePrinterConfig({ paperHeightMm: parseInt(e.target.value) || 100 })
                   }
@@ -299,7 +295,7 @@ export function SettingsPanel({
             
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
-                checked={config.printerConfig.endlessRoll ?? true}
+                checked={config.printerConfig.endlessRoll}
                 onCheckedChange={checked => 
                   onUpdatePrinterConfig({ endlessRoll: checked === true })
                 }
@@ -323,7 +319,7 @@ export function SettingsPanel({
               <Input
                 type="text"
                 placeholder={t('settings.cupsPlaceholder')}
-                value={config.printerConfig.cupsUrl || ''}
+                value={config.printerConfig.cupsUrl}
                 onChange={e => onUpdatePrinterConfig({ cupsUrl: e.target.value })}
                 className="h-9 text-sm"
               />
@@ -331,7 +327,7 @@ export function SettingsPanel({
             
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
-                checked={config.printerConfig.enableDirectPrint || false}
+                checked={config.printerConfig.enableDirectPrint}
                 onCheckedChange={checked => 
                   onUpdatePrinterConfig({ enableDirectPrint: checked === true })
                 }
@@ -365,7 +361,7 @@ export function SettingsPanel({
             
             <label className="flex items-center gap-2 cursor-pointer mb-3">
               <Checkbox
-                checked={config.printerConfig.disableCropping || false}
+                checked={config.printerConfig.disableCropping}
                 onCheckedChange={checked => 
                   onUpdatePrinterConfig({ disableCropping: checked === true })
                 }
@@ -388,7 +384,7 @@ export function SettingsPanel({
                       type="number"
                       min={0}
                       max={50}
-                      value={config.printerConfig.cropMarginTop ?? 5}
+                      value={config.printerConfig.cropMarginTop}
                       onChange={e => onUpdatePrinterConfig({ cropMarginTop: parseInt(e.target.value) || 0 })}
                       className="h-9 text-sm text-center"
                     />
@@ -402,7 +398,7 @@ export function SettingsPanel({
                       type="number"
                       min={0}
                       max={50}
-                      value={config.printerConfig.cropMarginLeft ?? 5}
+                      value={config.printerConfig.cropMarginLeft}
                       onChange={e => onUpdatePrinterConfig({ cropMarginLeft: parseInt(e.target.value) || 0 })}
                       className="h-9 text-sm text-center"
                     />
@@ -416,7 +412,7 @@ export function SettingsPanel({
                       type="number"
                       min={0}
                       max={50}
-                      value={config.printerConfig.cropMarginRight ?? 5}
+                      value={config.printerConfig.cropMarginRight}
                       onChange={e => onUpdatePrinterConfig({ cropMarginRight: parseInt(e.target.value) || 0 })}
                       className="h-9 text-sm text-center"
                     />
@@ -430,7 +426,7 @@ export function SettingsPanel({
                       type="number"
                       min={0}
                       max={50}
-                      value={config.printerConfig.cropMarginBottom ?? 5}
+                      value={config.printerConfig.cropMarginBottom}
                       onChange={e => onUpdatePrinterConfig({ cropMarginBottom: parseInt(e.target.value) || 0 })}
                       className="h-9 text-sm text-center"
                     />
@@ -438,13 +434,6 @@ export function SettingsPanel({
                   <div />
                 </div>
                 
-                <DimensionsPreview 
-                  cropTop={config.printerConfig.cropMarginTop ?? 5}
-                  cropRight={config.printerConfig.cropMarginRight ?? 5}
-                  cropBottom={config.printerConfig.cropMarginBottom ?? 5}
-                  cropLeft={config.printerConfig.cropMarginLeft ?? 5}
-                  disableCropping={config.printerConfig.disableCropping || false}
-                />
               </>
             )}
           </div>
@@ -460,7 +449,7 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">{t('product.domestic')}</Label>
             <div className="space-y-2">
               {domesticProducts.map(product => {
-                const isExcluded = (config.favoriteProducts || []).includes(product.code);
+                const isExcluded = config.favoriteProducts.includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
@@ -479,7 +468,7 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">{t('product.international')}</Label>
             <div className="space-y-2">
               {internationalProducts.map(product => {
-                const isExcluded = (config.favoriteProducts || []).includes(product.code);
+                const isExcluded = config.favoriteProducts.includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
