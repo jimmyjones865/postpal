@@ -7,8 +7,8 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, parse-address; daily retention cleanup.
 - `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/:id/refund` (DHL retoure by voucherId, marks `refund` in metadata), `POST /labels/purchase` (buy → download PDF → store).
 - `routes/print.js` — `POST /print`: crop → media size → rotate (landscape) → CUPS.
-- `routes/wallet.js` — `POST /wallet/balance` (forces token refresh; balance comes with the auth response).
-- `lib/dhl-api.js` — Internetmarke auth with in-memory token cache, purchase payload, purchase call, voucher refund.
+- `routes/wallet.js` — `POST /wallet/balance` (forces token refresh; balance comes with the auth response), `POST /wallet/charge` (Portokasse top-up, 500 € typo cap).
+- `lib/dhl-api.js` — Internetmarke auth with in-memory token cache, purchase payload, purchase call, wallet charge, voucher refund.
 - `lib/label-storage.js` — PDFs + `labels.json` metadata in `PDF_STORAGE_PATH`.
 - `lib/pdf-cropper.js` — pixel-scan content detection + page-box crop; rotation.
 - `lib/cups-printer.js` — IPP Print-Job with explicit media size.
@@ -29,7 +29,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/LabelHistory.tsx` — stored labels: copy ID, tracking link, download (uncropped), print, refund (confirm dialog; hidden once requested), delete.
 - `components/ProductSelector.tsx` — product grid by domestic/international + group.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility.
-- `components/WalletBalance.tsx` — header balance with refresh.
+- `components/WalletBalance.tsx` — header balance with refresh and inline top-up (confirm dialog).
 - `components/ui/` — shadcn primitives.
 - `lib/address.ts` — `ParsedAddress` type, empty value, raw-text formatter.
 - `lib/addressValidation.ts` — Deutsche Post line length + charset rules.

@@ -174,6 +174,29 @@ export function createDhlClient() {
   }
 
   /**
+   * Tops up the Portokasse from its stored payment method.
+   *
+   * @returns {Object} { success, newBalance } or { success: false, status, details }
+   */
+  async function chargeWallet(accessToken, amountCents) {
+    const response = await fetch(`${DHL_API_BASE}/app/wallet?amount=${amountCents}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    const text = await response.text();
+    logger.debug(`[DHL] Charge response status=${response.status}, body=${text}`);
+
+    if (!response.ok) {
+      return { success: false, status: response.status, details: text };
+    }
+
+    const data = JSON.parse(text);
+    if (data.walletBalance !== undefined) cachedToken.walletBalance = data.walletBalance;
+    return { success: true, newBalance: data.walletBalance };
+  }
+
+  /**
    * Requests a refund (retoure) for one voucher. DHL books it asynchronously.
    *
    * @returns {Object} { success, shopRetoureId, retoureTransactionId } or { success: false, status, details }
@@ -237,6 +260,7 @@ export function createDhlClient() {
     getAccessToken,
     buildPurchasePayload,
     purchaseLabel,
+    chargeWallet,
     refundVoucher
   };
 }

@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Wallet, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wallet, RefreshCw, AlertCircle, Plus, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
-import { getWalletBalance } from '@/services/labelService';
+import { getWalletBalance, chargeWallet } from '@/services/labelService';
 
 interface WalletBalanceProps {
   balance: number | null;
@@ -16,6 +18,9 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [isCharging, setIsCharging] = useState(false);
 
   const fetchBalance = useCallback(async () => {
     if (!isConfigured) return;
@@ -42,6 +47,27 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
       style: 'currency',
       currency: 'EUR'
     }).format(amountInCents / 100);
+  };
+
+  const handleTopUp = async () => {
+    const cents = Math.round(parseFloat(topUpAmount.replace(',', '.')) * 100);
+    if (!Number.isFinite(cents) || cents < 1) {
+      toast.error(t('wallet.amountInvalid'));
+      return;
+    }
+    if (!window.confirm(t('wallet.topUpConfirm', { amount: formatBalance(cents) }))) return;
+
+    setIsCharging(true);
+    try {
+      onBalanceChange(await chargeWallet(cents));
+      toast.success(t('toast.topUpDone'));
+      setTopUpOpen(false);
+      setTopUpAmount('');
+    } catch (err) {
+      toast.error(t('toast.topUpFailed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setIsCharging(false);
+    }
   };
 
   return (
@@ -87,6 +113,37 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
             className={cn('w-3 h-3', isLoading && 'animate-spin')}
           />
         </Button>
+
+        {isConfigured === true && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setTopUpOpen(o => !o)}
+            title={t('wallet.topUp')}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        )}
+
+        {topUpOpen && (
+          <form
+            className="flex items-center gap-1"
+            onSubmit={e => { e.preventDefault(); handleTopUp(); }}
+          >
+            <Input
+              autoFocus
+              inputMode="decimal"
+              placeholder="€"
+              value={topUpAmount}
+              onChange={e => setTopUpAmount(e.target.value)}
+              className="h-6 w-20 px-2 text-sm font-mono"
+            />
+            <Button type="submit" variant="ghost" size="icon" className="h-6 w-6" disabled={isCharging} title={t('wallet.topUp')}>
+              <Check className="w-3 h-3" />
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );

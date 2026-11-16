@@ -92,6 +92,20 @@ export async function refundLabel(id: string): Promise<StoredLabel> {
   return data.label;
 }
 
+/** @returns new balance in cents */
+export async function chargeWallet(amountCents: number): Promise<number> {
+  const response = await fetch(`${API_BASE}/wallet/charge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amountCents })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || 'Top-up failed');
+  }
+  return data.balance;
+}
+
 /** Original, uncropped PDF. */
 export function getLabelPdfUrl(id: string): string {
   return `${API_BASE}/labels/${id}/pdf`;

@@ -1,6 +1,9 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
 
+// Typo guard, not a DHL limit
+const MAX_TOPUP_CENTS = 50_000;
+
 /**
  * Creates the wallet router for balance operations.
  * 
@@ -31,6 +34,34 @@ export function createWalletRouter(dhlClient, getCredentials) {
     } catch (err) {
       logger.error('[Wallet] Balance error:', err);
       res.status(500).json({ error: err.message || 'Failed to get wallet balance' });
+    }
+  });
+
+  /**
+   * POST /wallet/charge - Top up the Portokasse by amountCents
+   */
+  router.post('/charge', async (req, res) => {
+    try {
+      const { amountCents } = req.body;
+      if (!Number.isInteger(amountCents) || amountCents < 1 || amountCents > MAX_TOPUP_CENTS) {
+        return res.status(400).json({ error: `Amount must be 0,01–${MAX_TOPUP_CENTS / 100} €` });
+      }
+
+      const tokenData = await dhlClient.getAccessToken(getCredentials());
+      const result = await dhlClient.chargeWallet(tokenData.accessToken, amountCents);
+
+      if (!result.success) {
+        logger.warn('[Wallet] Charge rejected:', result.status, result.details);
+        let title;
+        try { title = JSON.parse(result.details).title; } catch { /* non-JSON body */ }
+        return res.status(result.status || 500).json({ error: title || 'Top-up failed', details: result.details });
+      }
+
+      logger.info(`[Wallet] Charged ${amountCents} ct, new balance ${result.newBalance}`);
+      res.json({ success: true, balance: result.newBalance });
+    } catch (err) {
+      logger.error('[Wallet] Charge error:', err);
+      res.status(500).json({ error: err.message || 'Top-up failed' });
     }
   });
 

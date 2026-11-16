@@ -125,5 +125,10 @@
   "history.refundConfirm": "Erstattung für {id} beantragen? Die Marke wird ungültig.",
   "history.refundRequested": "Erstattung beantragt",
   "toast.refundRequested": "Erstattung beantragt",
-  "toast.refundFailed": "Erstattung fehlgeschlagen"
+  "toast.refundFailed": "Erstattung fehlgeschlagen",
+  "wallet.topUp": "Portokasse aufladen",
+  "wallet.topUpConfirm": "{amount} von der hinterlegten Zahlungsart in die Portokasse laden?",
+  "wallet.amountInvalid": "Betrag ungültig",
+  "toast.topUpDone": "Portokasse aufgeladen",
+  "toast.topUpFailed": "Aufladen fehlgeschlagen"
 }
