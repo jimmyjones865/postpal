@@ -1,8 +1,8 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
 
-// Typo guard, not a DHL limit
-const MAX_TOPUP_CENTS = 50_000;
+const MIN_TOPUP_CENTS = 1000; // DHL minimum; below it DHL answers quotaExceeded
+const MAX_TOPUP_CENTS = Math.round(parseFloat(process.env.TOPUP_MAX_EUR || '50') * 100);
 
 /**
  * Creates the wallet router for balance operations.
@@ -43,8 +43,8 @@ export function createWalletRouter(dhlClient, getCredentials) {
   router.post('/charge', async (req, res) => {
     try {
       const { amountCents } = req.body;
-      if (!Number.isInteger(amountCents) || amountCents < 1 || amountCents > MAX_TOPUP_CENTS) {
-        return res.status(400).json({ error: `Amount must be 0,01–${MAX_TOPUP_CENTS / 100} €` });
+      if (!Number.isInteger(amountCents) || amountCents < MIN_TOPUP_CENTS || amountCents > MAX_TOPUP_CENTS) {
+        return res.status(400).json({ error: `Amount must be ${MIN_TOPUP_CENTS / 100}–${MAX_TOPUP_CENTS / 100} €` });
       }
 
       const tokenData = await dhlClient.getAccessToken(getCredentials());

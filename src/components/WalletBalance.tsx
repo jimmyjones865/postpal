@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Wallet, RefreshCw, AlertCircle, Plus, Check } from 'lucide-react';
+import { Wallet, RefreshCw, AlertCircle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
 import { getWalletBalance, chargeWallet } from '@/services/labelService';
+
+const TOP_UP_EUR = [10, 25, 50];
 
 interface WalletBalanceProps {
   balance: number | null;
@@ -19,8 +20,7 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
-  const [topUpAmount, setTopUpAmount] = useState('');
-  const [isCharging, setIsCharging] = useState(false);
+  const [chargingEur, setChargingEur] = useState<number | null>(null);
 
   const fetchBalance = useCallback(async () => {
     if (!isConfigured) return;
@@ -49,24 +49,16 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
     }).format(amountInCents / 100);
   };
 
-  const handleTopUp = async () => {
-    const cents = Math.round(parseFloat(topUpAmount.replace(',', '.')) * 100);
-    if (!Number.isFinite(cents) || cents < 1) {
-      toast.error(t('wallet.amountInvalid'));
-      return;
-    }
-    if (!window.confirm(t('wallet.topUpConfirm', { amount: formatBalance(cents) }))) return;
-
-    setIsCharging(true);
+  const handleTopUp = async (eur: number) => {
+    setChargingEur(eur);
     try {
-      onBalanceChange(await chargeWallet(cents));
+      onBalanceChange(await chargeWallet(eur * 100));
       toast.success(t('toast.topUpDone'));
       setTopUpOpen(false);
-      setTopUpAmount('');
     } catch (err) {
       toast.error(t('toast.topUpFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
-      setIsCharging(false);
+      setChargingEur(null);
     }
   };
 
@@ -126,24 +118,18 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
           </Button>
         )}
 
-        {topUpOpen && (
-          <form
-            className="flex items-center gap-1"
-            onSubmit={e => { e.preventDefault(); handleTopUp(); }}
+        {topUpOpen && TOP_UP_EUR.map(eur => (
+          <Button
+            key={eur}
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-xs font-mono"
+            onClick={() => handleTopUp(eur)}
+            disabled={chargingEur !== null}
           >
-            <Input
-              autoFocus
-              inputMode="decimal"
-              placeholder="€"
-              value={topUpAmount}
-              onChange={e => setTopUpAmount(e.target.value)}
-              className="h-6 w-20 px-2 text-sm font-mono"
-            />
-            <Button type="submit" variant="ghost" size="icon" className="h-6 w-6" disabled={isCharging} title={t('wallet.topUp')}>
-              <Check className="w-3 h-3" />
-            </Button>
-          </form>
-        )}
+            {chargingEur === eur ? <RefreshCw className="w-3 h-3 animate-spin" /> : `+${eur} €`}
+          </Button>
+        ))}
       </div>
     </div>
   );

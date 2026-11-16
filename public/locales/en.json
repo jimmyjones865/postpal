@@ -127,8 +127,6 @@
   "toast.refundRequested": "Refund requested",
   "toast.refundFailed": "Refund failed",
   "wallet.topUp": "Top up Portokasse",
-  "wallet.topUpConfirm": "Charge {amount} from the stored payment method into the Portokasse?",
-  "wallet.amountInvalid": "Invalid amount",
   "toast.topUpDone": "Portokasse topped up",
   "toast.topUpFailed": "Top-up failed"
 }

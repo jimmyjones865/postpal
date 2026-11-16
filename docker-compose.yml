@@ -15,6 +15,7 @@ services:
       - LOG_LEVEL=info
       - PDF_STORAGE_PATH=/data/labels
       - RETENTION_DAYS=60
+      - TOPUP_MAX_EUR=${TOPUP_MAX_EUR:-50}
       - STATIC_PATH=/app/public
       # Set DHL credentials and optional server config via .env file (see .env.example)
       - DHL_API_KEY=${DHL_API_KEY}
