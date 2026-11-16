@@ -21,7 +21,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JuliaMono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: ['Atkinson Hyperlegible Mono', 'Inter', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         serif: ['ui-serif','Georgia','Cambria','Times New Roman','Times','serif']
       },
       colors: {
