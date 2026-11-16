@@ -120,5 +120,10 @@
   "toast.copiedToClipboard": "In Zwischenablage kopiert",
   "toast.copyFailed": "Kopieren in Zwischenablage fehlgeschlagen",
   "status.loading": "Lädt...",
-  "status.setupRequired": "Einrichtung erforderlich"
+  "status.setupRequired": "Einrichtung erforderlich",
+  "history.refund": "Erstatten",
+  "history.refundConfirm": "Erstattung für {id} beantragen? Die Marke wird ungültig.",
+  "history.refundRequested": "Erstattung beantragt",
+  "toast.refundRequested": "Erstattung beantragt",
+  "toast.refundFailed": "Erstattung fehlgeschlagen"
 }

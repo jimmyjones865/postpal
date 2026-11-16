@@ -5,10 +5,10 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 ## Server (`server/`)
 - `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback. No CORS (same-origin only). SIGTERM/SIGINT drain in-flight requests (25s cap, so compose `stop_grace_period` is 30s).
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, parse-address; daily retention cleanup.
-- `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/purchase` (buy → download PDF → store).
+- `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/:id/refund` (DHL retoure by voucherId, marks `refund` in metadata), `POST /labels/purchase` (buy → download PDF → store).
 - `routes/print.js` — `POST /print`: crop → media size → rotate (landscape) → CUPS.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh; balance comes with the auth response).
-- `lib/dhl-api.js` — Internetmarke auth with in-memory token cache, purchase payload, purchase call.
+- `lib/dhl-api.js` — Internetmarke auth with in-memory token cache, purchase payload, purchase call, voucher refund.
 - `lib/label-storage.js` — PDFs + `labels.json` metadata in `PDF_STORAGE_PATH`.
 - `lib/pdf-cropper.js` — pixel-scan content detection + page-box crop; rotation.
 - `lib/cups-printer.js` — IPP Print-Job with explicit media size.
@@ -26,7 +26,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/AddressInput.tsx` — raw address textarea, print/download toggle, Ctrl+Enter.
 - `components/ParsedAddressEditor.tsx` — debounced parse → editable fields; edits rewrite the raw text.
 - `components/LabelResult.tsx` — recipient preview, reprint/download, copy ID for the last purchase.
-- `components/LabelHistory.tsx` — stored labels: copy ID, tracking link, download (uncropped), print, delete.
+- `components/LabelHistory.tsx` — stored labels: copy ID, tracking link, download (uncropped), print, refund (confirm dialog; hidden once requested), delete.
 - `components/ProductSelector.tsx` — product grid by domestic/international + group.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility.
 - `components/WalletBalance.tsx` — header balance with refresh.

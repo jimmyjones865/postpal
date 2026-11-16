@@ -161,13 +161,48 @@ export function createDhlClient() {
 
     const voucherId = data.shoppingCart?.voucherList?.[0]?.voucherId || null;
     const trackId = data.shoppingCart?.voucherList?.[0]?.trackId || null;
+    const shopOrderId = data.shoppingCart?.shopOrderId || null;
 
     return {
       success: true,
       pdfUrl: data.link || data.pdfUrl || data.url,
       trackId,
       voucherId,
+      shopOrderId,
       newBalance: cachedToken.walletBalance
+    };
+  }
+
+  /**
+   * Requests a refund (retoure) for one voucher. DHL books it asynchronously.
+   *
+   * @returns {Object} { success, shopRetoureId, retoureTransactionId } or { success: false, status, details }
+   */
+  async function refundVoucher(accessToken, { voucherId, shopOrderId }) {
+    const shoppingCart = { voucherList: [{ voucherId }] };
+    if (shopOrderId) shoppingCart.shopOrderId = shopOrderId;
+
+    const response = await fetch(`${DHL_API_BASE}/app/retoure`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ shoppingCart })
+    });
+
+    const text = await response.text();
+    logger.debug(`[DHL] Retoure response status=${response.status}, body=${text}`);
+
+    if (!response.ok) {
+      return { success: false, status: response.status, details: text };
+    }
+
+    const data = JSON.parse(text);
+    return {
+      success: true,
+      shopRetoureId: data.shopRetoureId,
+      retoureTransactionId: data.retoureTransactionId
     };
   }
 
@@ -201,6 +236,7 @@ export function createDhlClient() {
   return {
     getAccessToken,
     buildPurchasePayload,
-    purchaseLabel
+    purchaseLabel,
+    refundVoucher
   };
 }

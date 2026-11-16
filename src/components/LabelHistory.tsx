@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalLink } from 'lucide-react';
+import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalLink, Undo2 } from 'lucide-react';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,13 +16,15 @@ interface LabelHistoryProps {
   error: string | null;
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
+  onRefund: (id: string) => Promise<void>;
   printerConfig: PrinterConfig;
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, printerConfig }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, onRefund, printerConfig }: LabelHistoryProps) {
   const { t } = useTranslation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
@@ -44,6 +46,19 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
       toast.error(t('toast.deleteFailed'));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRefund = async (label: StoredLabel) => {
+    if (!window.confirm(t('history.refundConfirm', { id: label.voucherId! }))) return;
+    setRefundingId(label.id);
+    try {
+      await onRefund(label.id);
+      toast.success(t('toast.refundRequested'));
+    } catch (err) {
+      toast.error(t('toast.refundFailed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setRefundingId(null);
     }
   };
 
@@ -117,6 +132,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                     <Package className="w-3 h-3" />
                     <span className="font-medium">{label.productName}</span>
+                    {label.refund && <span className="text-accent-foreground">· {t('history.refundRequested')}</span>}
                   </div>
                   <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed overflow-hidden text-ellipsis">
                     {label.recipientAddress.split('\n').slice(0, 3).join('\n')}
@@ -181,6 +197,18 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, pr
                     <Printer className="w-3 h-3 mr-1" />
                     {t('print.print')}
                   </Button>
+                  {label.voucherId && !label.refund && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => handleRefund(label)}
+                      disabled={refundingId === label.id}
+                      title={t('history.refund')}
+                    >
+                      <Undo2 className="w-3 h-3" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

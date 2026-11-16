@@ -96,6 +96,45 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
   });
 
   /**
+   * POST /labels/:id/refund - Request a DHL refund for the label's voucher
+   */
+  router.post('/:id/refund', async (req, res) => {
+    try {
+      const label = await storage.getLabel(req.params.id);
+      if (!label) {
+        return res.status(404).json({ error: 'Label not found' });
+      }
+      if (!label.voucherId) {
+        return res.status(400).json({ error: 'Label has no voucher ID' });
+      }
+      if (label.refund) {
+        return res.status(409).json({ error: 'Refund already requested', label });
+      }
+
+      const tokenData = await dhlClient.getAccessToken(getCredentials());
+      const result = await dhlClient.refundVoucher(tokenData.accessToken, label);
+
+      if (!result.success) {
+        logger.warn('[Labels] Refund rejected:', result.status, result.details);
+        return res.status(result.status || 500).json({ error: 'Refund failed', details: result.details });
+      }
+
+      logger.info(`[Labels] Refund requested for ${label.voucherId}: retoure ${result.retoureTransactionId}`);
+      const updated = await storage.updateLabel(label.id, {
+        refund: {
+          shopRetoureId: result.shopRetoureId,
+          retoureTransactionId: result.retoureTransactionId,
+          requestedAt: new Date().toISOString()
+        }
+      });
+      res.json({ success: true, label: updated });
+    } catch (err) {
+      logger.error('[Labels] Refund error:', err);
+      res.status(500).json({ error: err.message || 'Failed to request refund' });
+    }
+  });
+
+  /**
    * POST /labels/purchase - Purchase a label from DHL, download its PDF and store it
    */
   router.post('/purchase', async (req, res) => {
@@ -135,7 +174,8 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
           productCode,
           productName: productName || productCode,
           voucherId: result.voucherId,
-          trackId: result.trackId
+          trackId: result.trackId,
+          shopOrderId: result.shopOrderId
         });
       } catch (err) {
         logger.error('[Labels] Purchased but could not store PDF:', err.message, result.pdfUrl);

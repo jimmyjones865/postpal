@@ -128,6 +128,20 @@ export function createLabelStorage(storagePath) {
   }
 
   /**
+   * Merges fields into a label's metadata.
+   *
+   * @returns {Object|null} Updated label, or null if not found
+   */
+  async function updateLabel(id, fields) {
+    return updateMetadata(metadata => {
+      const label = metadata.labels.find(l => l.id === id);
+      if (!label) return null;
+      Object.assign(label, fields);
+      return label;
+    });
+  }
+
+  /**
    * Deletes a label by id.
    * Updates metadata first (source of truth), then attempts to delete the file.
    * 
@@ -221,6 +235,7 @@ export function createLabelStorage(storagePath) {
   return {
     ensureDir,
     saveLabel,
+    updateLabel,
     deleteLabel,
     getLabel,
     getAllLabels,

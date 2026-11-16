@@ -12,6 +12,7 @@ export interface StoredLabel {
   voucherId?: string;
   trackId?: string;
   createdAt: string;
+  refund?: { shopRetoureId: string; retoureTransactionId: string; requestedAt: string };
 }
 
 interface DhlAddress {
@@ -80,6 +81,15 @@ export async function deleteLabel(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error('Failed to delete label');
   }
+}
+
+export async function refundLabel(id: string): Promise<StoredLabel> {
+  const response = await fetch(`${API_BASE}/labels/${id}/refund`, { method: 'POST' });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.details || data.error || 'Refund failed');
+  }
+  return data.label;
 }
 
 /** Original, uncropped PDF. */

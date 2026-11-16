@@ -37,6 +37,7 @@ const Index = () => {
     error: labelsError,
     refresh: refreshLabels,
     removeLabel,
+    refund: refundLabel,
     addLabel
   } = useLabelHistory();
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -139,7 +140,7 @@ const Index = () => {
                 <History className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-sm">{t('history.printHistory')}</h2>
               </div>
-              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} printerConfig={config.printerConfig} />
+              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} onRefund={refundLabel} printerConfig={config.printerConfig} />
             </div>
           </TabsContent>
           
