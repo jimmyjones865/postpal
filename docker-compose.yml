@@ -4,7 +4,7 @@ services:
     container_name: postpal
     stop_grace_period: 30s
     ports:
-      - "3002:3000"
+      - "3001:3000"
     volumes:
       - labels-data:/data/labels
       # products.json holds the available Deutsche Post shipping product list, incl. their prices. Adjust as needed, then reload the container
