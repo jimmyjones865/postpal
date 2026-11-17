@@ -7,6 +7,7 @@ import { createDhlClient } from '../lib/dhl-api.js';
 import { createLabelsRouter } from './labels.js';
 import { createPrintRouter } from './print.js';
 import { createWalletRouter } from './wallet.js';
+import { startCmIntake } from '../lib/cm-intake.js';
 
 /**
  * Creates the main API router with all sub-routes.
@@ -117,6 +118,7 @@ export function createApiRouter() {
     storage.cleanupOldLabels(RETENTION_DAYS);
     // Schedule daily cleanup
     setInterval(() => storage.cleanupOldLabels(RETENTION_DAYS), 24 * 60 * 60 * 1000);
+    startCmIntake({ storage, dhlClient, getCredentials, storagePath: PDF_STORAGE_PATH });
   });
 
   return router;

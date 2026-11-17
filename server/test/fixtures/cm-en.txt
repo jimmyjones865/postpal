@@ -1,0 +1,47 @@
+Subject: Shipment 1300000001 for Buyer123: Please ship
+
+Hello Jan Hendrik,
+
+Buyer123 has paid for shipment 1300000001. Please ship the shipment as soon as possible with the indicated shipment method and CONFIRM SHIPPING on Cardmarket.
+
+If you do not ship and confirm shipping within 7 days (or within 7 days after release date, if the shipment contains presale articles), the buyer will be able to cancel the shipment.
+
+The Cardmarket team
+
+
+Shipment 1300000001
+Seller: TURBOFOIL
+Buyer: Buyer123
+Status: Paid
+
+Renée Strauß
+Brühlstraße 12
+67069 Ludwigshafen
+Germany
+
+Tracking:
+
+Total sale price: 11,20 EUR
+Commission: 0,50 EUR
+Net sale price: 10,70 EUR
+
+Contents:
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+1x Academy Manufactor (V.1) (Secret Lair Drop Series) - R - English... 9,95 EUR
+Shipping 1,25 EUR
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Total 11,20 EUR
+
+
+Sammelkartenmarkt GmbH & Co. KG
+Nordkapstr. 4, 10439 Berlin, Germany
+
+______
+Cardmarket is operated by the Sammelkartenmarkt GmbH & Co. KG, which is represented by its personally liable partner:
+Sammelkartenmarkt Verwaltungs GmbH, Nordkapstr. 4, 10439 Berlin, Amtsgericht Berlin (Charlottenburg), HRB 205929 B.
+This in turn is represented by its managing director Robert Giel.
+______
+This e-mail may contain confidential and/or privileged information. If you are not the intended recipient or have received this e-mail in error, please notify the sender immediately and delete this e-mail. Any unauthorized copying, disclosure or distribution of the material in this e-mail is strictly forbidden.
+
+### This is an automated message ###

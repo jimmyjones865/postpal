@@ -9,6 +9,8 @@ services:
       - labels-data:/data/labels
       # products.json holds the available Deutsche Post shipping product list, incl. their prices. Adjust as needed, then reload the container
       - ./public/products.json:/app/public/products.json:ro
+      # Cardmarket shipping cost → product code; edit, then recreate the container
+      - ./server/cm-shipping.json:/app/cm-shipping.json:ro
     environment:
       - PORT=3000
       - LANGUAGE=${LANGUAGE:-de}
@@ -41,6 +43,17 @@ services:
       - PAPER_WIDTH_MM=${PAPER_WIDTH_MM}
       - PAPER_HEIGHT_MM=${PAPER_HEIGHT_MM}
       - ENDLESS_ROLL=${ENDLESS_ROLL}
+      # Cardmarket email intake (off unless MAIL_* set)
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT:-993}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FOLDER=${MAIL_FOLDER:-INBOX}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - CM_DRY_RUN=${CM_DRY_RUN:-true}
+      - CM_MAX_PRICE_EUR=${CM_MAX_PRICE_EUR:-6}
+      - CM_DAILY_CAP=${CM_DAILY_CAP:-30}
+      - CM_POLL_SECONDS=${CM_POLL_SECONDS:-120}
     restart: unless-stopped
 
 volumes:
