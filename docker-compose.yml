@@ -54,6 +54,8 @@ services:
       - CM_MAX_PRICE_EUR=${CM_MAX_PRICE_EUR:-6}
       - CM_DAILY_CAP=${CM_DAILY_CAP:-30}
       - CM_POLL_SECONDS=${CM_POLL_SECONDS:-120}
+      - AUTO_TOPUP_EUR=${AUTO_TOPUP_EUR:-0}
+      - AUTO_TOPUP_DAILY_MAX_EUR=${AUTO_TOPUP_DAILY_MAX_EUR:-}
     restart: unless-stopped
 
 volumes:
