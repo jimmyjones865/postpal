@@ -1,11 +1,7 @@
-// Address validation for Deutsche Post requirements
-// Max 50 chars per line, German alphabet + specific altered letters (e.g., í, â) + specific special characters only
+// Deutsche Post line length + charset rules. Characters the server sanitizes away (ł → l, ń → n, …) are not errors.
+import { invalidChars, MAX_LINE_LENGTH } from '../../server/lib/address-rules.js';
 
-// Allowed characters: German alphanumeric + aeiou altered by ´`^ + , . - & / ( ) ` +
-// German alphabet includes: a-z A-Z äöüß ÄÖÜ 0-9
-const ALLOWED_PATTERN = /^[a-zA-ZäöüßÄÖÜáàÁÀéèÉÈíìÍÌóòÓÒúùÚÙâÂêÊîÎôÔûÛøØ0-9\s,.\-&/()'`+]*$/;
-
-export const MAX_LINE_LENGTH = 50;
+export { MAX_LINE_LENGTH };
 
 export interface AddressValidationError {
   type: 'line_too_long' | 'invalid_characters';
@@ -17,16 +13,6 @@ export interface AddressValidationError {
 export interface AddressValidationResult {
   isValid: boolean;
   errors: AddressValidationError[];
-}
-
-function findInvalidCharacters(text: string): string[] {
-  const invalid: string[] = [];
-  for (const char of text) {
-    if (!ALLOWED_PATTERN.test(char) && !invalid.includes(char)) {
-      invalid.push(char);
-    }
-  }
-  return invalid;
 }
 
 export function validateAddress(address: string): AddressValidationResult {
@@ -48,13 +34,13 @@ export function validateAddress(address: string): AddressValidationResult {
     }
 
     // Check for invalid characters
-    if (trimmedLine && !ALLOWED_PATTERN.test(trimmedLine)) {
-      const invalidChars = findInvalidCharacters(trimmedLine);
+    const badChars = trimmedLine ? invalidChars(trimmedLine) : [];
+    if (badChars.length) {
       errors.push({
         type: 'invalid_characters',
         lineNumber,
         line: trimmedLine,
-        details: `Line ${lineNumber} contains invalid characters: ${invalidChars.map(c => `"${c}"`).join(', ')}`,
+        details: `Line ${lineNumber} contains invalid characters: ${badChars.map(c => `"${c}"`).join(', ')}`,
       });
     }
   });

@@ -5,9 +5,12 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 ## Server (`server/`)
 - `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback. No CORS (same-origin only). SIGTERM/SIGINT drain in-flight requests (25s cap, so compose `stop_grace_period` is 30s).
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, parse-address; daily retention cleanup.
-- `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/:id/refund` (DHL retoure by voucherId, marks `refund` in metadata), `POST /labels/purchase` (buy → download PDF → store).
+- `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/:id/refund` (DHL retoure by voucherId, marks `refund` in metadata), `POST /labels/purchase` (→ `lib/purchase.js`).
 - `routes/print.js` — `POST /print`: crop → media size → rotate (landscape) → CUPS.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh; balance comes with the auth response), `POST /wallet/charge` (Portokasse top-up, 10 € DHL min, `TOPUP_MAX_EUR` cap).
+- `lib/purchase.js` — `buyLabel`: `prepareReceiver` → DHL buy → download PDF → store. Shared by the UI route and CM intake.
+- `lib/address-rules.js` — charset allowlist, sanitize (replacement map + NFD strip), field limits, name/additionalName swap. Imported by the frontend too.
+- `lib/country-codes.js` — country name/ISO3 → ISO3. Imported by the frontend too.
 - `lib/dhl-api.js` — Internetmarke auth with in-memory token cache, purchase payload, purchase call, wallet charge, voucher refund.
 - `lib/label-storage.js` — PDFs + `labels.json` metadata in `PDF_STORAGE_PATH`.
 - `lib/pdf-cropper.js` — pixel-scan content detection + page-box crop; rotation.
@@ -32,8 +35,8 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/WalletBalance.tsx` — header balance with refresh and top-up chips (10/25/50 €).
 - `components/ui/` — shadcn primitives.
 - `lib/address.ts` — `ParsedAddress` type, empty value, raw-text formatter.
-- `lib/addressValidation.ts` — Deutsche Post line length + charset rules.
-- `lib/countryCodes.ts` — country name/ISO3 → ISO3.
+- `lib/addressValidation.ts` — line length + charset per line, via `server/lib/address-rules.js`.
+- `lib/countryCodes.ts` — re-export of `server/lib/country-codes.js`.
 - `lib/i18n.ts` — loads `public/locales/<lang>.json`, `t()` with `{param}` substitution.
 - `lib/clipboard.ts`, `lib/utils.ts` — copy with Safari fallback; `cn()`.
 - `types/shipping.ts` — product + config types.
@@ -50,4 +53,6 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `label-storage.js`: every metadata change goes through `updateMetadata` (one queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
 - Purchase is not idempotent and money moves at the DHL call; after that the route must always return the PDF link, even on failure.
 - `favoriteProducts` in config is a list of **hidden** products (legacy name, kept for localStorage compatibility).
-- Parser emits German country names; `countryCodes.ts` must cover each of them or the purchase is blocked.
+- `server/lib/address-rules.js` and `country-codes.js` are bundled into the frontend: no Node imports there.
+- Every purchase sanitizes and swaps server-side (`prepareReceiver`): DHL prints `additionalName` above `name`, so input line 1 (person) goes to `additionalName` when both exist. Don't run it twice on the same receiver.
+- Parser emits German country names; `country-codes.js` must cover each of them or the purchase is blocked.
