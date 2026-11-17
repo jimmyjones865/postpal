@@ -23,7 +23,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     port: envNum('MAIL_PORT', 993),
     user: process.env.MAIL_USERNAME,
     pass: process.env.MAIL_PASSWORD,
-    folder: process.env.MAIL_FOLDER || 'INBOX',
+    // Mail is moved to Archive quickly, so both are watched by default
+    folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
     dryRun: process.env.CM_DRY_RUN !== 'false',
     maxPriceCents: Math.round(envNum('CM_MAX_PRICE_EUR', 6) * 100),
     dailyCap: envNum('CM_DAILY_CAP', 30),
@@ -36,7 +37,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
 
   const statePath = path.join(storagePath, 'cm-orders.json');
   const costTablePath = process.env.CM_SHIPPING_PATH || new URL('../cm-shipping.json', import.meta.url).pathname;
-  const productsPath = path.join(process.env.STATIC_PATH || new URL('../../public', import.meta.url).pathname, 'products.json');
+  const productsPath = path.join(process.env.STATIC_PATH || new URL('../public', import.meta.url).pathname, 'products.json');
   let state;
   let running = false;
   let failing = false;
@@ -74,9 +75,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     await saveState();
   }
 
-  async function processMail(subjectOrderId, text) {
-    const costTable = JSON.parse(await fs.readFile(costTablePath, 'utf8'));
-    const products = JSON.parse(await fs.readFile(productsPath, 'utf8'));
+  async function processMail(subjectOrderId, text, { costTable, products }) {
     const parsed = { subjectOrderId, ...parseBody(text) };
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), maxPriceCents: cfg.maxPriceCents, dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
@@ -164,28 +163,50 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     client.on('error', err => logger.warn('[CM] IMAP error:', err.message));
     try {
       await client.connect();
-      const lock = await client.getMailboxLock(cfg.folder, { readOnly: true });
-      try {
-        const startedAt = new Date(state.startedAt);
-        const uids = await client.search({ since: startedAt }, { uid: true });
-        const candidates = [];
-        if (uids?.length) {
-          for await (const msg of client.fetch(uids, { envelope: true, internalDate: true }, { uid: true })) {
-            const orderId = matchSubject(msg.envelope?.subject);
-            if (orderId && !state.orders[orderId] && msg.internalDate >= startedAt) {
-              candidates.push({ uid: msg.uid, orderId });
+      const tables = {
+        costTable: JSON.parse(await fs.readFile(costTablePath, 'utf8')),
+        products: JSON.parse(await fs.readFile(productsPath, 'utf8'))
+      };
+      const startedAt = new Date(state.startedAt);
+      // 7-day lookback bounds the search as the archive grows; covers up to a week of downtime
+      const since = new Date(Math.max(startedAt, Date.now() - 7 * 86_400_000));
+      for (const folder of cfg.folders) {
+        const lock = await client.getMailboxLock(folder, { readOnly: true });
+        try {
+          const uids = await client.search(
+            { since, or: [{ subject: 'Bitte versenden' }, { subject: 'Please ship' }] },
+            { uid: true }
+          ) || [];
+          const candidates = [];
+          // Chunked: servers cap command length (4096 bytes seen)
+          for (let i = 0; i < uids.length; i += 200) {
+            for await (const msg of client.fetch(uids.slice(i, i + 200), { envelope: true, internalDate: true }, { uid: true })) {
+              const orderId = matchSubject(msg.envelope?.subject);
+              if (orderId && !state.orders[orderId] && msg.internalDate >= startedAt) {
+                candidates.push({ uid: msg.uid, orderId });
+              }
             }
           }
+          for (const { uid, orderId } of candidates) {
+            if (state.orders[orderId]) continue; // same order mailed twice in one poll
+            const msg = await client.fetchOne(uid, { source: true }, { uid: true });
+            if (!msg?.source) continue; // moved to another folder since the search; found there next poll
+            logger.info(`[CM] Processing order ${orderId} (${folder})`);
+            try {
+              const mail = await simpleParser(msg.source);
+              await processMail(orderId, mail.text, tables);
+            } catch (err) {
+              // Recorded so one broken mail can't block every later order
+              logger.error(`[CM] Order ${orderId} failed:`, err);
+              if (!state.orders[orderId] || state.orders[orderId].status === 'processing') {
+                await record(orderId, 'error', { error: err.message });
+              }
+              await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
+            }
+          }
+        } finally {
+          lock.release();
         }
-        for (const { uid, orderId } of candidates) {
-          if (state.orders[orderId]) continue; // same order mailed twice in one poll
-          const msg = await client.fetchOne(uid, { source: true }, { uid: true });
-          const mail = await simpleParser(msg.source);
-          logger.info(`[CM] Processing order ${orderId}`);
-          await processMail(orderId, mail.text);
-        }
-      } finally {
-        lock.release();
       }
       await client.logout();
       if (failing) await notify('✅ CM mail polling recovered.');
@@ -202,7 +223,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
 
   loadState()
     .then(() => {
-      logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folder} every ${cfg.pollMs / 1000}s, since ${state.startedAt}`);
+      logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}`);
       poll();
       setInterval(poll, cfg.pollMs);
     })

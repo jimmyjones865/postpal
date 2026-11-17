@@ -80,6 +80,8 @@ test('swap puts the first input line on top (DHL prints additionalName above nam
 
 test('sanitize', () => {
   assert.equal(sanitizeText('Łódź – Søren’s ñ ç'), "Lódz - Søren's n c");
+  assert.equal(sanitizeText('Calle Mayor 3° 2ª, Nº 5'), 'Calle Mayor 3. 2., N. 5');
+  assert.equal(sanitizeText('a\u00a0b'), 'a b');
   assert.deepEqual(invalidChars('Müller ąę'), []);
   assert.deepEqual(invalidChars('東京'), ['東', '京']);
 });

@@ -12,7 +12,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/purchase.js` — `buyLabel`: `prepareReceiver` → DHL buy → download PDF → store. Shared by the UI route and CM intake.
 - `lib/address-rules.js` — charset allowlist, sanitize (replacement map + NFD strip), field limits, name/additionalName swap. Imported by the frontend too.
 - `lib/country-codes.js` — country name/ISO3 → ISO3. Imported by the frontend too.
-- `lib/cm-intake.js` — Cardmarket email intake: read-only IMAP poll, state in `PDF_STORAGE_PATH/cm-orders.json`, buy → print → Discord. Off unless `MAIL_*` set; `CM_DRY_RUN` defaults true.
+- `lib/cm-intake.js` — Cardmarket email intake: read-only IMAP poll of `MAIL_FOLDER` (default `INBOX,Archive` — mail gets archived fast), server-side subject search, 7-day lookback, chunked fetch. State in `PDF_STORAGE_PATH/cm-orders.json`, buy → print → Discord. Off unless `MAIL_*` set; `CM_DRY_RUN` defaults true.
 - `lib/cm-email.js` — subject filter, body parse (order ID, address block, shipping cost), `decide` = all no-buy rules. Pure, tested.
 - `lib/discord.js` — webhook notice, never throws.
 - `cm-shipping.json` — CM shipping cost (EUR) → product code; unlisted cost = no label. Volume-mounted read-only.
@@ -58,7 +58,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `pdf-cropper.js` detection thresholds and retry passes were tuned against real DHL labels — change only with real labels to test against. Crop math assumes the source MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (its `NodeCanvasFactory._createCanvas` hack is v3-specific).
 - `label-storage.js`: every metadata change goes through `updateMetadata` (one queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
 - Purchase is not idempotent and money moves at the DHL call; after that the route must always return the PDF link, even on failure.
-- CM intake: an order is written as `processing` before the DHL call; on restart those become `interrupted` (Discord, no retry). Never delete `cm-orders.json` while live — `startedAt` resets to now, which is safe, but dedupe history is gone.
+- CM intake dedupes by order ID only: CM sometimes sends the same ship mail twice minutes apart (3× in 2026), and mail moves INBOX → Archive. An order is written as `processing` before the DHL call; on restart those become `interrupted` (Discord, no retry). Unexpected per-order errors → `error`, no retry; config errors (`cm-shipping.json`, `products.json`) fail the poll without recording. Never delete `cm-orders.json` while live — `startedAt` resets to now, which is safe, but dedupe history is gone.
 - CM intake prints with `.env` printer settings (`loadServerConfig`), not the browser's localStorage settings.
 - `favoriteProducts` in config is a list of **hidden** products (legacy name, kept for localStorage compatibility).
 - `server/lib/address-rules.js` and `country-codes.js` are bundled into the frontend: no Node imports there.

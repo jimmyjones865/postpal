@@ -9,7 +9,8 @@ const REPLACEMENTS = {
   'ł': 'l', 'Ł': 'L', 'đ': 'd', 'Đ': 'D', 'ð': 'd', 'Ð': 'D', 'þ': 'th', 'Þ': 'Th',
   'æ': 'ae', 'Æ': 'AE', 'œ': 'oe', 'Œ': 'OE', 'ı': 'i', 'ħ': 'h', 'Ħ': 'H',
   '’': "'", '‘': "'", '´': "'", 'ʼ': "'", '“': '', '”': '', '„': '', '"': '',
-  '–': '-', '—': '-', '‐': '-', ' ': ' ',
+  '–': '-', '—': '-', '‐': '-', '\u00a0': ' ',
+  '°': '.', 'º': '.', 'ª': '.',
 };
 
 export const MAX_LINE_LENGTH = 50;
@@ -19,8 +20,8 @@ const FIELD_LIMITS = { name: 50, additionalName: 40, addressLine1: 50, addressLi
 export function sanitizeText(text) {
   let out = '';
   for (const ch of text) {
-    if (ALLOWED.test(ch)) { out += ch; continue; }
     if (ch in REPLACEMENTS) { out += REPLACEMENTS[ch]; continue; }
+    if (ALLOWED.test(ch)) { out += ch; continue; }
     const stripped = ch.normalize('NFD').replace(/\p{M}/gu, '');
     out += stripped && [...stripped].every(c => ALLOWED.test(c)) ? stripped : ch;
   }
