@@ -9,7 +9,8 @@ export async function notify(text) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: text.slice(0, 2000) }),
+      // Buyer text is posted verbatim: no @everyone/@user pings from it
+      body: JSON.stringify({ content: text.slice(0, 2000), allowed_mentions: { parse: [] } }),
       signal: AbortSignal.timeout(10_000)
     });
     if (!res.ok) logger.warn('[Discord] Webhook failed:', res.status, await res.text());
