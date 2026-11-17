@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { matchSubject, parseBody, decide, topHeader, senderProblem } from '../lib/cm-email.js';
+import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } from '../lib/cm-email.js';
 import { prepareReceiver, sanitizeText, invalidChars } from '../lib/address-rules.js';
 
 const fixture = name => fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -28,6 +28,7 @@ test('EN email → domestic Standardbrief', () => {
     orderId: '1300000001',
     addressLines: ['Renée Strauß', 'Brühlstraße 12', '67069 Ludwigshafen', 'Germany'],
     costEur: '1.25',
+    items: [{ qty: 1, name: 'Academy Manufactor (V.1) (Secret Lair Drop Series)', price: '9,95' }],
     itemCount: 1,
     totalEur: '11,20'
   });
@@ -44,6 +45,7 @@ test('DE email → international, Polish letters sanitized', () => {
   const body = parseBody(text);
   assert.equal(body.costEur, '1.55');
   assert.equal(body.itemCount, 4);
+  assert.deepEqual(body.items, [{ qty: 4, name: 'Tekuthal, Inquiry Dominus (Commander: Edge of Eternities)', price: '1,72' }]);
   assert.equal(body.totalEur, '8,43');
   const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
@@ -59,6 +61,8 @@ test('real mails pad the cost column with spaces', () => {
   const { text } = split(fixture('cm-en.txt'));
   const padded = text.replace('Shipping 1,25 EUR', 'Shipping' + ' '.repeat(66) + '1,25 EUR');
   assert.equal(parseBody(padded).costEur, '1.25');
+  const big = parseBody('2x Box (Set) - English              650,00 EUR\nTotal                1.314,18 EUR');
+  assert.deepEqual([big.items[0].price, big.totalEur], ['650,00', '1.314,18']);
 });
 
 test('no-buy rules', () => {
@@ -110,4 +114,13 @@ test('topHeader takes the first (receiving server) instance, unfolded', () => {
   assert.equal(topHeader(raw, 'authentication-results'), 'mx; dkim=pass header.d=cardmarket.com');
   assert.equal(topHeader(Buffer.from('\r\n'), 'authentication-results'), null);
   assert.equal(topHeader(undefined, 'authentication-results'), null);
+});
+
+test('item block caps at 5 lines', () => {
+  const items = Array.from({ length: 7 }, (_, i) => ({ qty: 1, name: `Card \`${i}`, price: '0,10' }));
+  const block = itemBlock(items);
+  assert.equal(block.split('\n').length, 9); // leading newline, ```, 5 items, more, ```
+  assert.match(block, /^\n```\n1× Card '0 0,10\n/);
+  assert.match(block, /… \+2 more\n```$/);
+  assert.equal(itemBlock([]), '');
 });

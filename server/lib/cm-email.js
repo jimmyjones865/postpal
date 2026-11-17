@@ -41,7 +41,7 @@ export function senderProblem(fromAddress, authResults) {
 
 /**
  * Extracts order ID, address lines, shipping cost, item count (sum of quantities) and total from the plain-text body.
- * Returns { orderId, addressLines, costEur, itemCount, totalEur } with null for anything not found.
+ * Returns { orderId, addressLines, costEur, items, itemCount, totalEur } with null for anything not found (items: []).
  */
 export function parseBody(text) {
   const body = (text || '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim()).join('\n');
@@ -51,11 +51,26 @@ export function parseBody(text) {
   const addressLines = block ? block.split('\n').filter(Boolean) : null;
   const cost = body.match(/^(?:Shipping|Versandkosten)\s+(\d+),(\d{2}) EUR$/m);
   const costEur = cost ? `${cost[1]}.${cost[2]}` : null;
-  const qtys = [...body.matchAll(/^(\d+)x .* \d+,\d{2} EUR$/gm)].map(m => Number(m[1]));
-  const itemCount = qtys.length ? qtys.reduce((a, b) => a + b) : null;
-  const totalEur = body.match(/^(?:Total|Gesamtbetrag) (\d+,\d{2}) EUR$/m)?.[1] ?? null;
+  // Columns are space-padded. "4x Name (Set) - M - English...": CM cuts long lines with "..."; rarity onward dropped
+  const items = [...body.matchAll(/^(\d+)x (.+?) +(\d{1,3}(?:\.\d{3})*,\d{2}) EUR$/gm)].map(m => ({
+    qty: Number(m[1]),
+    name: m[2].replace(/(?: - [A-Z]{1,3} - .*| ?-?\.\.\.)$/, '').trim(),
+    price: m[3]
+  }));
+  const itemCount = items.length ? items.reduce((sum, i) => sum + i.qty, 0) : null;
+  const totalEur = body.match(/^(?:Total|Gesamtbetrag) +(\d{1,3}(?:\.\d{3})*,\d{2}) EUR$/m)?.[1] ?? null;
 
-  return { orderId, addressLines: addressLines?.length ? addressLines : null, costEur, itemCount, totalEur };
+  return { orderId, addressLines: addressLines?.length ? addressLines : null, costEur, items, itemCount, totalEur };
+}
+
+const MAX_ITEM_LINES = 5;
+
+/** Item lines as a Discord code block (first 5, then "+N more"), '' if none parsed. */
+export function itemBlock(items) {
+  if (!items?.length) return '';
+  const lines = items.slice(0, MAX_ITEM_LINES).map(i => `${i.qty}× ${i.name.replaceAll('`', "'")} ${i.price}`);
+  if (items.length > MAX_ITEM_LINES) lines.push(`… +${items.length - MAX_ITEM_LINES} more`);
+  return `\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 
 /**

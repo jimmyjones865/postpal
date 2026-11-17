@@ -5,7 +5,7 @@ import path from 'path';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { logger } from './logger.js';
-import { matchSubject, parseBody, decide, topHeader, senderProblem } from './cm-email.js';
+import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
 import { loadServerConfig, envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
@@ -165,7 +165,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     const parsed = { subjectOrderId, ...parseBody(text) };
     const n = parsed.itemCount ?? '?';
     const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €`;
-    const say = line => notify(`${summary}\n${line}`);
+    const itemList = itemBlock(parsed.items);
+    const say = line => notify(`${summary}\n${line}${itemList}`);
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), maxPriceCents: cfg.maxPriceCents, dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
 
@@ -188,7 +189,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
 
     // Persisted before the DHL call; shopOrderId added once reserved, so a crash or lost response can be looked up
     const prev = state.orders[subjectOrderId];
-    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, summary, attempts: prev?.attempts || 0 };
+    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, summary, itemList, attempts: prev?.attempts || 0 };
     let shopOrderId = prev?.status === 'retry' ? prev.shopOrderId : undefined;
     await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
@@ -255,7 +256,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       }).catch(err => ({ success: false, error: err.message }));
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
-    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}`);
+    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${base.itemList ?? ''}`);
   }
 
   /**
