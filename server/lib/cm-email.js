@@ -40,8 +40,8 @@ export function senderProblem(fromAddress, authResults) {
 }
 
 /**
- * Extracts order ID, address lines and shipping cost from the plain-text body.
- * Returns { orderId, addressLines, costEur } with null for anything not found.
+ * Extracts order ID, address lines, shipping cost, item count (sum of quantities) and total from the plain-text body.
+ * Returns { orderId, addressLines, costEur, itemCount, totalEur } with null for anything not found.
  */
 export function parseBody(text) {
   const body = (text || '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim()).join('\n');
@@ -51,8 +51,11 @@ export function parseBody(text) {
   const addressLines = block ? block.split('\n').filter(Boolean) : null;
   const cost = body.match(/^(?:Shipping|Versandkosten)\s+(\d+),(\d{2}) EUR$/m);
   const costEur = cost ? `${cost[1]}.${cost[2]}` : null;
+  const qtys = [...body.matchAll(/^(\d+)x .* \d+,\d{2} EUR$/gm)].map(m => Number(m[1]));
+  const itemCount = qtys.length ? qtys.reduce((a, b) => a + b) : null;
+  const totalEur = body.match(/^(?:Total|Gesamtbetrag) (\d+,\d{2}) EUR$/m)?.[1] ?? null;
 
-  return { orderId, addressLines: addressLines?.length ? addressLines : null, costEur };
+  return { orderId, addressLines: addressLines?.length ? addressLines : null, costEur, itemCount, totalEur };
 }
 
 /**

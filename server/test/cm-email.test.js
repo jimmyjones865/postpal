@@ -27,7 +27,9 @@ test('EN email → domestic Standardbrief', () => {
   assert.deepEqual(body, {
     orderId: '1300000001',
     addressLines: ['Renée Strauß', 'Brühlstraße 12', '67069 Ludwigshafen', 'Germany'],
-    costEur: '1.25'
+    costEur: '1.25',
+    itemCount: 1,
+    totalEur: '11,20'
   });
   const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
@@ -41,6 +43,8 @@ test('DE email → international, Polish letters sanitized', () => {
   const { subject, text } = split(fixture('cm-de.txt'));
   const body = parseBody(text);
   assert.equal(body.costEur, '1.55');
+  assert.equal(body.itemCount, 4);
+  assert.equal(body.totalEur, '8,43');
   const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
   assert.equal(d.product.code, '10001');

@@ -162,14 +162,16 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
   }
 
   async function processMail(subjectOrderId, buyer, text, { costTable, products }) {
-    const who = `\n👤 ${buyer}`;
     const parsed = { subjectOrderId, ...parseBody(text) };
+    const n = parsed.itemCount ?? '?';
+    const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €`;
+    const say = line => notify(`${summary}\n${line}`);
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), maxPriceCents: cfg.maxPriceCents, dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
 
     if (!decision.ok) {
       await record(subjectOrderId, 'skipped', { reason: decision.reason });
-      await notify(`🛑 CM ${subjectOrderId}: no label — ${decision.reason}${who}\n\`\`\`\n${rawAddress}\n\`\`\``);
+      await say(`🛑 CM ${subjectOrderId}: no label — ${decision.reason}\n\`\`\`\n${rawAddress}\n\`\`\``);
       return;
     }
 
@@ -180,13 +182,13 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       const topupNote = t.error ? `, top-up check failed: ${t.error}`
         : t.unknown ? ', balance unknown (no top-up)'
         : t.needed ? `, would top up ${eur(cfg.topupCents)} € (balance ${eur(t.balance)} €)` : '';
-      await notify(`🧪 CM ${subjectOrderId}: would buy ${product.name} (${product.cost} €)${topupNote}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      await say(`🧪 CM ${subjectOrderId}: would buy ${product.name} (${product.cost} €)${topupNote}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
     // Persisted before the DHL call; shopOrderId added once reserved, so a crash or lost response can be looked up
     const prev = state.orders[subjectOrderId];
-    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, attempts: prev?.attempts || 0 };
+    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, summary, attempts: prev?.attempts || 0 };
     let shopOrderId = prev?.status === 'retry' ? prev.shopOrderId : undefined;
     await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
@@ -224,7 +226,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
         : shopOrderId ? `label may be paid — looking up order ${shopOrderId} automatically, don't buy it manually`
         : 'label may be paid — check Portokasse/history before buying manually';
       await record(subjectOrderId, status, { ...base, shopOrderId, error: result.error });
-      await notify(`${status === 'failed' ? '🛑' : '⏳'} CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      await say(`${status === 'failed' ? '🛑' : '⏳'} CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
@@ -253,7 +255,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       }).catch(err => ({ success: false, error: err.message }));
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
-    await notify(`✅ CM ${orderId}: ${what}${balance}, ${printNote}\n👤 ${base.buyer}`);
+    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}`);
   }
 
   /**
@@ -265,7 +267,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     for (const [orderId, o] of Object.entries(state.orders)) {
       if (stopping) return;
       if (!RECOVER.has(o.status) || !o.productCode || Date.now() - Date.parse(o.at) < RECOVER_AFTER_MS) continue;
-      const who = `\n👤 ${o.buyer}`;
+      const say = line => notify(`${o.summary ?? o.buyer}\n${line}`);
       const keep = { ...o };
       delete keep.status;
       delete keep.at;
@@ -273,17 +275,17 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       if (!o.shopOrderId && o.checkoutSent) {
         // Direct checkout with a lost response: may be paid, no id to look up
         await record(orderId, 'check-manually', keep);
-        await notify(`⚠️ CM ${orderId}: label may be paid but can't be looked up — check Portokasse/history, buy manually only if missing.${who}\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
+        await say(`⚠️ CM ${orderId}: label may be paid but can't be looked up — check Portokasse/history, buy manually only if missing.\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
         continue;
       }
       if (!o.shopOrderId) {
         // No checkout sent
         if (o.attempts < 1) {
           await record(orderId, 'retry', { ...keep, attempts: o.attempts + 1 });
-          await notify(`🔁 CM ${orderId}: nothing was sent to DHL, buying on the next poll.${who}`);
+          await say(`🔁 CM ${orderId}: nothing was sent to DHL, buying on the next poll.`);
         } else {
           await record(orderId, 'failed', { ...keep, error: 'stopped before checkout twice' });
-          await notify(`🛑 CM ${orderId}: stopped before checkout twice, nothing bought. Buy it manually.${who}`);
+          await say(`🛑 CM ${orderId}: stopped before checkout twice, nothing bought. Buy it manually.`);
         }
         continue;
       }
@@ -295,15 +297,15 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       } else if (r.notFound && o.status !== 'bought-unstored') {
         if (o.attempts < 1) {
           await record(orderId, 'retry', { ...keep, attempts: o.attempts + 1 });
-          await notify(`🔁 CM ${orderId}: not bought at DHL (order ${o.shopOrderId}), retrying on the next poll.${who}`);
+          await say(`🔁 CM ${orderId}: not bought at DHL (order ${o.shopOrderId}), retrying on the next poll.`);
         } else {
           await record(orderId, 'failed', { ...keep, error: 'not bought after retry' });
-          await notify(`🛑 CM ${orderId}: not bought at DHL after a retry (order ${o.shopOrderId}). Buy it manually.${who}\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
+          await say(`🛑 CM ${orderId}: not bought at DHL after a retry (order ${o.shopOrderId}). Buy it manually.\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
         }
       } else if (!o.recoveryNotified) {
         o.recoveryNotified = true;
         await saveState();
-        await notify(`⚠️ CM ${orderId}: lookup of order ${o.shopOrderId} failed — ${[r.error, r.details].filter(Boolean).join(' — ')}. Retrying each poll.${who}`);
+        await say(`⚠️ CM ${orderId}: lookup of order ${o.shopOrderId} failed — ${[r.error, r.details].filter(Boolean).join(' — ')}. Retrying each poll.`);
       }
     }
   }
@@ -379,7 +381,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
                 const { status: _s, at: _a, ...keep } = prev || {};
                 await record(orderId, 'error', { ...keep, error: err.message });
               }
-              await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.\n👤 ${buyer}`);
+              await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
             }
           }
         } finally {
