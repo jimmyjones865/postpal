@@ -6,7 +6,8 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback. No CORS (same-origin only). SIGTERM/SIGINT drain in-flight requests (25s cap, so compose `stop_grace_period` is 30s).
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, parse-address; daily retention cleanup.
 - `routes/labels.js` — `GET /labels`, `GET /labels/:id/pdf` (`?print=1` → cropped), `DELETE /labels/:id`, `POST /labels/:id/refund` (DHL retoure by voucherId, marks `refund` in metadata), `POST /labels/purchase` (→ `lib/purchase.js`).
-- `routes/print.js` — `POST /print`: crop → media size → rotate (landscape) → CUPS.
+- `routes/print.js` — `POST /print` → `lib/print-label.js`.
+- `lib/print-label.js` — `printStoredLabel`: crop → media size → rotate (landscape) → CUPS. Shared by `/print` and CM intake.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh; balance comes with the auth response), `POST /wallet/charge` (Portokasse top-up, 10 € DHL min, `TOPUP_MAX_EUR` cap).
 - `lib/purchase.js` — `buyLabel`: `prepareReceiver` → DHL buy → download PDF → store. Shared by the UI route and CM intake.
 - `lib/address-rules.js` — charset allowlist, sanitize (replacement map + NFD strip), field limits, name/additionalName swap. Imported by the frontend too.
@@ -48,7 +49,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 
 ## Key wiring
 - Stored PDFs are always the original; cropping happens per request. Endless-roll height comes from the crop result, so endless roll + crop failure = print error by design.
-- Landscape: `print.js` remaps margins into portrait space before cropping, because the PDF is rotated 90° CW afterwards. Change one side and the other must change too.
+- Landscape: `print-label.js` remaps margins into portrait space before cropping, because the PDF is rotated 90° CW afterwards. Change one side and the other must change too.
 - `pdf-cropper.js` detection thresholds and retry passes were tuned against real DHL labels — change only with real labels to test against. Crop math assumes the source MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (its `NodeCanvasFactory._createCanvas` hack is v3-specific).
 - `label-storage.js`: every metadata change goes through `updateMetadata` (one queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
 - Purchase is not idempotent and money moves at the DHL call; after that the route must always return the PDF link, even on failure.
