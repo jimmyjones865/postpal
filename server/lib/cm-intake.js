@@ -351,11 +351,12 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
             const query = { envelope: true, internalDate: true, headers: ['authentication-results'] };
             for await (const msg of client.fetch(uids.slice(i, i + 200), query, { uid: true })) {
               const { orderId, buyer } = matchSubject(msg.envelope?.subject) || {};
-              const known = state.orders[orderId];
-              if (!orderId || (known && known.status !== 'retry') || msg.internalDate < startedAt) continue;
+              if (!orderId || msg.internalDate < startedAt) continue;
+              // Sender before dedupe: a fake reusing a known order ID still gets its notice
               const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
-              if (problem) foreign.push({ msg, orderId, problem });
-              else candidates.push({ uid: msg.uid, orderId, buyer });
+              if (problem) { foreign.push({ msg, orderId, problem }); continue; }
+              const known = state.orders[orderId];
+              if (!known || known.status === 'retry') candidates.push({ uid: msg.uid, orderId, buyer });
             }
           }
           for (const { msg, orderId, problem } of foreign) await rejectForeign(msg, folder, orderId, problem);
