@@ -60,6 +60,10 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
     return { ok: false, reason: `${product.name} does not fit destination ${country}` };
   }
 
+  // Email path only (UI can override): catches a house number typed onto the postcode line
+  if (!/\p{L}/u.test(parsed.city)) return { ok: false, reason: `city "${parsed.city}" has no letters` };
+  if (!/\d/.test(parsed.street)) return { ok: false, reason: `street "${parsed.street}" has no house number` };
+
   // buyLabel prepares (sanitize + swap) again; checked here too so dry runs report bad addresses
   const receiver = {
     name: parsed.name,

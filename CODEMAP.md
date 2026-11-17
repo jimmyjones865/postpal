@@ -13,7 +13,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/address-rules.js` — charset allowlist, sanitize (replacement map + NFD strip), field limits, name/additionalName swap. Imported by the frontend too.
 - `lib/country-codes.js` — country name/ISO3 → ISO3. Imported by the frontend too.
 - `lib/cm-intake.js` — Cardmarket email intake: read-only IMAP poll of `MAIL_FOLDER` (default `INBOX,Archive` — mail gets archived fast), server-side subject search, 7-day lookback, chunked fetch. State in `PDF_STORAGE_PATH/cm-orders.json`, buy → print → Discord. Off unless `MAIL_*` set; `CM_DRY_RUN` defaults true.
-- `lib/cm-email.js` — subject filter, body parse (order ID, address block, shipping cost), `decide` = all no-buy rules. Pure, tested.
+- `lib/cm-email.js` — subject filter (order ID + buyer), body parse (order ID, address block, shipping cost), `decide` = all no-buy rules incl. email-only city-has-letter / street-has-digit. Pure, tested.
 - `lib/discord.js` — webhook notice, never throws.
 - `cm-shipping.json` — CM shipping cost (EUR) → product code; unlisted cost = no label. Volume-mounted read-only.
 - `test/` — `npm test` (node:test) on `cm-email.js` + `address-rules.js` with anonymized fixtures.

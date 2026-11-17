@@ -67,6 +67,8 @@ test('no-buy rules', () => {
   assert.match(reason({ costEur: '1.55' }), /does not fit destination DEU/);
   assert.match(reason({}, { ...limits, boughtToday: 30 }), /daily cap/);
   assert.match(reason({ costEur: '5.90', addressLines: ['A B', 'Długa 7', '42-300 Myszków', 'Polen'] }, { ...limits, maxPriceCents: 500 }), /> max 5/);
+  assert.match(reason({ addressLines: ['A B', 'Musterallee', '81739 59', 'Germany'] }), /city "59" has no letters/);
+  assert.match(reason({ addressLines: ['A B', 'Musterallee', '81739 München', 'Germany'] }), /street "Musterallee" has no house number/);
   assert.match(reason({ addressLines: ['Jan 王', 'Hauptstraße 1', '10115 Berlin', 'Germany'] }), /invalid characters: 王/);
 });
 
