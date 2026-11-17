@@ -9,6 +9,16 @@ function env(key) {
   return val && val.trim() ? val.trim() : undefined;
 }
 
+/** Numeric env var, or fallback when unset or not a number. */
+export function envNum(key, fallback) {
+  const n = parseFloat(process.env[key]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+const berlinFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' });
+/** YYYY-MM-DD of the Berlin calendar day; daily caps reset at local midnight. */
+export const berlinDay = (date = new Date()) => berlinFmt.format(new Date(date));
+
 export function loadServerConfig() {
   const config = {};
 

@@ -18,6 +18,27 @@ export function matchSubject(subject) {
   return null;
 }
 
+const CM_DOMAIN = /^(?:[\w-]+\.)*cardmarket\.com$/i;
+
+/** First (= added by the receiving server) instance of a header from a raw header block, unfolded. */
+export function topHeader(raw, name) {
+  const text = (raw?.toString() || '').replace(/\r?\n[ \t]+/g, ' ');
+  return text.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'im'))?.[1] ?? null;
+}
+
+/**
+ * Null if the mail is from Cardmarket, else the reason. Domain, not full address: CM may change the sender.
+ * DKIM is checked only when the receiving server added Authentication-Results.
+ */
+export function senderProblem(fromAddress, authResults) {
+  const domain = (fromAddress || '').split('@').pop();
+  if (!fromAddress?.includes('@') || !CM_DOMAIN.test(domain)) return `sender ${fromAddress || '(none)'} is not cardmarket.com`;
+  if (authResults && !/\bdkim=pass\b[^;]*\bheader\.d=(?:[\w-]+\.)*cardmarket\.com(?=[\s;]|$)/i.test(authResults)) {
+    return 'no DKIM pass for cardmarket.com';
+  }
+  return null;
+}
+
 /**
  * Extracts order ID, address lines and shipping cost from the plain-text body.
  * Returns { orderId, addressLines, costEur } with null for anything not found.

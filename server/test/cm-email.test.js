@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { matchSubject, parseBody, decide } from '../lib/cm-email.js';
+import { matchSubject, parseBody, decide, topHeader, senderProblem } from '../lib/cm-email.js';
 import { prepareReceiver, sanitizeText, invalidChars } from '../lib/address-rules.js';
 
 const fixture = name => fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -86,4 +86,24 @@ test('sanitize', () => {
   assert.equal(sanitizeText('a\u00a0b'), 'a b');
   assert.deepEqual(invalidChars('Müller ąę'), []);
   assert.deepEqual(invalidChars('東京'), ['東', '京']);
+});
+
+test('sender: cardmarket.com domain, DKIM when Authentication-Results present', () => {
+  const ar = 'mail.example.cc; dkim=pass header.d=cardmarket.com header.s=x header.b=y; dkim=pass header.d=amazonses.com; dmarc=pass header.from=cardmarket.com';
+  assert.equal(senderProblem('noreply@cardmarket.com', ar), null);
+  assert.equal(senderProblem('orders@mail.cardmarket.com', null), null);
+  assert.equal(senderProblem('NoReply@CardMarket.com', null), null);
+  assert.match(senderProblem('noreply@cardmarket.com.evil.org', null), /not cardmarket/);
+  assert.match(senderProblem('noreply@evilcardmarket.com', null), /not cardmarket/);
+  assert.match(senderProblem(undefined, null), /not cardmarket/);
+  assert.match(senderProblem('noreply@cardmarket.com', 'mx; dkim=fail header.d=cardmarket.com; spf=pass'), /DKIM/);
+  assert.match(senderProblem('noreply@cardmarket.com', 'mx; dkim=pass header.d=cardmarket.com.evil.org'), /DKIM/);
+  assert.match(senderProblem('noreply@cardmarket.com', 'mx; dkim=fail header.d=cardmarket.com; dkim=pass header.d=amazonses.com'), /DKIM/);
+});
+
+test('topHeader takes the first (receiving server) instance, unfolded', () => {
+  const raw = Buffer.from('Authentication-Results: mx;\r\n\tdkim=pass header.d=cardmarket.com\r\nAuthentication-Results: forged; dkim=pass\r\n\r\n');
+  assert.equal(topHeader(raw, 'authentication-results'), 'mx; dkim=pass header.d=cardmarket.com');
+  assert.equal(topHeader(Buffer.from('\r\n'), 'authentication-results'), null);
+  assert.equal(topHeader(undefined, 'authentication-results'), null);
 });

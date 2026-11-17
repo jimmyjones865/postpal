@@ -5,19 +5,31 @@ import path from 'path';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { logger } from './logger.js';
-import { matchSubject, parseBody, decide } from './cm-email.js';
+import { matchSubject, parseBody, decide, topHeader, senderProblem } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
-import { loadServerConfig } from './config.js';
+import { loadServerConfig, envNum, berlinDay } from './config.js';
 import { buyLabel } from './purchase.js';
 import { printStoredLabel } from './print-label.js';
 import { notify } from './discord.js';
+import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
 
-const envNum = (key, fallback) => {
-  const n = parseFloat(process.env[key]);
-  return Number.isFinite(n) ? n : fallback;
-};
+// Dedupe needs entries back to the 7-day lookback (IMAP SINCE is day-granular); 14 leaves margin
+const KEEP_MS = 14 * 86_400_000;
+// Statuses where DHL definitely took no money; everything else with a product counts toward the cap
+const NOT_SPENT = new Set(['dry-run', 'failed']);
 
-export function startCmIntake({ storage, dhlClient, getCredentials, storagePath }) {
+let stopping = false;
+let current = Promise.resolve();
+let timer;
+
+/** Stops polling; resolves once an in-flight poll has finished its current order. */
+export function stopCmIntake() {
+  stopping = true;
+  clearInterval(timer);
+  return current;
+}
+
+export function startCmIntake({ storage, dhlClient, getCredentials, topups, storagePath }) {
   const cfg = {
     host: process.env.MAIL_SERVER,
     port: envNum('MAIL_PORT', 993),
@@ -33,9 +45,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
   };
   // Default = one top-up per day: a mistake (loop, wrong price) costs at most one charge
   cfg.topupDailyMaxCents = Math.round(envNum('AUTO_TOPUP_DAILY_MAX_EUR', cfg.topupCents / 100) * 100);
-  const topupMaxCents = Math.round(envNum('TOPUP_MAX_EUR', 50) * 100);
-  if (cfg.topupCents && (cfg.topupCents < 1000 || cfg.topupCents > topupMaxCents)) {
-    logger.warn(`[CM] AUTO_TOPUP_EUR must be 10–${topupMaxCents / 100} (DHL min, TOPUP_MAX_EUR); auto top-up off`);
+  if (cfg.topupCents && (cfg.topupCents < MIN_TOPUP_CENTS || cfg.topupCents > TOPUP_MAX_CENTS)) {
+    logger.warn(`[CM] AUTO_TOPUP_EUR must be ${MIN_TOPUP_CENTS / 100}–${TOPUP_MAX_CENTS / 100} (DHL min, TOPUP_MAX_EUR); auto top-up off`);
     cfg.topupCents = 0;
   }
   if (!cfg.host || !cfg.user || !cfg.pass) {
@@ -50,7 +61,23 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
   let running = false;
   let failing = false;
 
+  /** What live mode needs that is missing; checked once so a bad config can't top up and then fail every order. */
+  function liveConfigProblems() {
+    const c = getCredentials();
+    const s = loadServerConfig().senderAddress || {};
+    const missing = [
+      ...['apiKey', 'apiSecret', 'portokasseLogin', 'portokassePassword'].filter(k => !c[k]).map(k => `DHL ${k}`),
+      ...['name', 'street', 'postalCode', 'city'].filter(k => !s[k]).map(k => `SENDER ${k}`)
+    ];
+    if (!getCountryCode(s.country)) missing.push(`SENDER_COUNTRY "${s.country ?? ''}"`);
+    return missing;
+  }
+
   async function saveState() {
+    const cutoff = Date.now() - KEEP_MS;
+    for (const map of [state.orders, state.foreign]) {
+      for (const [id, o] of Object.entries(map)) if (Date.parse(o.at) < cutoff) delete map[id];
+    }
     const tmp = `${statePath}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(state, null, 2));
     await fs.rename(tmp, statePath);
@@ -63,19 +90,21 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
       if (err.code !== 'ENOENT') throw err;
       // First start: only mail arriving from now on, never backfill
       state = { startedAt: new Date().toISOString(), orders: {} };
-      await saveState();
     }
+    state.foreign ||= {};
+    delete state.topups; // moved to topups.json
     const interrupted = Object.entries(state.orders).filter(([, o]) => o.status === 'processing');
     for (const [id, order] of interrupted) {
       order.status = 'interrupted';
       await notify(`⚠️ CM ${id}: restart during purchase — check Portokasse/history, no retry.`);
     }
-    if (interrupted.length) await saveState();
+    await saveState();
   }
 
   function boughtToday() {
-    const today = new Date().toISOString().slice(0, 10);
-    return Object.values(state.orders).filter(o => o.status === 'bought' && o.at.startsWith(today)).length;
+    const today = berlinDay();
+    return Object.values(state.orders)
+      .filter(o => o.productCode && !NOT_SPENT.has(o.status) && berlinDay(o.at) === today).length;
   }
 
   async function record(orderId, status, detail) {
@@ -83,44 +112,48 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     await saveState();
   }
 
-  const day = () => new Date().toISOString().slice(0, 10);
-  const toppedUpToday = () => (state.topups || []).filter(t => t.at.startsWith(day())).reduce((sum, t) => sum + t.cents, 0);
   const eur = cents => (cents / 100).toFixed(2);
 
-  /** Balance too low for this label? Returns { needed, balance }. */
+  /** Balance too low for this label? Returns { needed, balance, accessToken }. Unknown balance → not needed + unknown. */
   async function topupCheck(priceCents) {
     if (!cfg.topupCents) return { needed: false };
     // Forced refresh: the cached balance misses top-ups made on the Portokasse website
     const token = await dhlClient.getAccessToken(getCredentials(), true);
     const balance = token.walletBalance;
+    if (typeof balance !== 'number') return { needed: false, unknown: true };
     return { needed: balance < priceCents, balance, accessToken: token.accessToken };
   }
 
   /** Tops up if needed. Never throws: a failed top-up must not block a label the balance still covers. */
   async function maybeTopUp(priceCents) {
     try {
-      const { needed, balance, accessToken } = await topupCheck(priceCents);
+      const { needed, unknown, balance, accessToken } = await topupCheck(priceCents);
+      if (unknown) {
+        await notify('⚠️ Auto top-up skipped: DHL did not report the balance.');
+        return;
+      }
       if (!needed) return;
-      if (toppedUpToday() + cfg.topupCents > cfg.topupDailyMaxCents) {
-        if (state.topupCapNotified !== day()) {
-          state.topupCapNotified = day();
+      const auto = await topups.todayCents('auto');
+      const all = await topups.todayCents();
+      const capHit = auto + cfg.topupCents > cfg.topupDailyMaxCents ? `auto top-up daily cap ${eur(cfg.topupDailyMaxCents)} €`
+        : all + cfg.topupCents > TOPUP_DAILY_MAX_CENTS ? `total top-up daily cap ${eur(TOPUP_DAILY_MAX_CENTS)} € (UI + auto)` : null;
+      if (capHit) {
+        if (state.topupCapNotified !== berlinDay()) {
+          state.topupCapNotified = berlinDay();
           await saveState();
-          await notify(`⚠️ Auto top-up: daily cap ${eur(cfg.topupDailyMaxCents)} € reached, balance ${eur(balance)} €. Labels fail until you top up manually.`);
+          await notify(`⚠️ Auto top-up: ${capHit} reached, balance ${eur(balance)} €. Labels fail until you top up manually.`);
         }
         return;
       }
-      const result = await dhlClient.chargeWallet(accessToken, cfg.topupCents);
+      const result = await topups.charge(dhlClient, accessToken, cfg.topupCents, 'auto');
       if (!result.success) {
-        let title;
-        try { title = JSON.parse(result.details).title; } catch { /* non-JSON body */ }
-        await notify(`🛑 Auto top-up ${eur(cfg.topupCents)} € failed: ${title || result.status} — balance ${eur(balance)} €.`);
+        await notify(`🛑 Auto top-up ${eur(cfg.topupCents)} € failed: ${chargeErrorTitle(result)} — balance ${eur(balance)} €.`);
         return;
       }
-      (state.topups ||= []).push({ at: new Date().toISOString(), cents: cfg.topupCents });
-      await saveState();
-      await notify(`💶 Auto top-up ${eur(cfg.topupCents)} € → balance ${eur(result.newBalance)} € (${eur(toppedUpToday())} € today)`);
+      const after = result.newBalance != null ? eur(result.newBalance) : '?';
+      await notify(`💶 Auto top-up ${eur(cfg.topupCents)} € → balance ${after} € (${eur(await topups.todayCents('auto'))} € auto today)`);
     } catch (err) {
-      await notify(`🛑 Auto top-up error: ${err.message}`);
+      await notify(`🛑 Auto top-up error: ${err.message} — if the charge was sent, check Portokasse (it counts toward the daily cap).`);
     }
   }
 
@@ -141,6 +174,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
       await record(subjectOrderId, 'dry-run', { productCode: product.code });
       const t = await topupCheck(priceCents).catch(err => ({ error: err.message }));
       const topupNote = t.error ? `, top-up check failed: ${t.error}`
+        : t.unknown ? ', balance unknown (no top-up)'
         : t.needed ? `, would top up ${eur(cfg.topupCents)} € (balance ${eur(t.balance)} €)` : '';
       await notify(`🧪 CM ${subjectOrderId}: would buy ${product.name} (${product.cost} €)${topupNote}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
@@ -153,32 +187,29 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     const server = loadServerConfig();
     const s = server.senderAddress || {};
     const printer = server.printerConfig || {};
-    let result;
-    try {
-      result = await buyLabel({ storage, dhlClient, credentials: getCredentials() }, {
-        sender: {
-          name: s.name,
-          additionalName: s.company,
-          addressLine1: s.street,
-          postalCode: s.postalCode,
-          city: s.city,
-          country: getCountryCode(s.country)
-        },
-        receiver,
-        productCode: product.code,
-        productName: product.name,
-        priceInCents: priceCents,
-        pageFormatId: printer.paperFormatId,
-        recipientAddress,
-        meta: { cmOrderId: subjectOrderId }
-      });
-    } catch (err) {
-      result = { success: false, error: err.message };
-    }
+    const result = await buyLabel({ storage, dhlClient, credentials: getCredentials() }, {
+      sender: {
+        name: s.name,
+        additionalName: s.company,
+        addressLine1: s.street,
+        postalCode: s.postalCode,
+        city: s.city,
+        country: getCountryCode(s.country)
+      },
+      receiver,
+      productCode: product.code,
+      productName: product.name,
+      priceInCents: priceCents,
+      pageFormatId: printer.paperFormatId,
+      recipientAddress,
+      meta: { cmOrderId: subjectOrderId }
+    }).catch(err => ({ success: false, error: err.message })); // thrown = before the purchase request (auth)
 
     if (!result.success) {
-      await record(subjectOrderId, result.paid ? 'bought-unstored' : 'failed', { productCode: product.code, error: result.error });
-      await notify(`🛑 CM ${subjectOrderId}: purchase failed — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      const status = result.paid ? 'bought-unstored' : result.uncertain ? 'uncertain' : 'failed';
+      const head = status === 'failed' ? 'purchase failed' : 'label may be paid — check Portokasse/history, don\'t rebuy blindly';
+      await record(subjectOrderId, status, { productCode: product.code, error: result.error });
+      await notify(`🛑 CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
@@ -204,9 +235,16 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     await notify(`✅ CM ${subjectOrderId}: ${product.name} ${product.cost} €${balance}, ${printNote}${who}`);
   }
 
-  async function poll() {
-    if (running) return;
-    running = true;
+  /** Not from Cardmarket: noticed once per message, never recorded under the order ID (a fake must not block the real order). */
+  async function rejectForeign(msg, folder, orderId, reason) {
+    const key = msg.envelope?.messageId || `${folder}:${msg.uid}`;
+    if (state.foreign[key]) return;
+    state.foreign[key] = { at: new Date().toISOString(), orderId, reason };
+    await saveState();
+    await notify(`🚫 CM ${orderId}: mail ignored — ${reason}. Not from Cardmarket?`);
+  }
+
+  async function pollOnce() {
     const client = new ImapFlow({
       host: cfg.host,
       port: cfg.port,
@@ -225,6 +263,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
       // 7-day lookback bounds the search as the archive grows; covers up to a week of downtime
       const since = new Date(Math.max(startedAt, Date.now() - 7 * 86_400_000));
       for (const folder of cfg.folders) {
+        if (stopping) break;
         const lock = await client.getMailboxLock(folder, { readOnly: true });
         try {
           const uids = await client.search(
@@ -232,16 +271,21 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
             { uid: true }
           ) || [];
           const candidates = [];
+          const foreign = [];
           // Chunked: servers cap command length (4096 bytes seen)
           for (let i = 0; i < uids.length; i += 200) {
-            for await (const msg of client.fetch(uids.slice(i, i + 200), { envelope: true, internalDate: true }, { uid: true })) {
+            const query = { envelope: true, internalDate: true, headers: ['authentication-results'] };
+            for await (const msg of client.fetch(uids.slice(i, i + 200), query, { uid: true })) {
               const { orderId, buyer } = matchSubject(msg.envelope?.subject) || {};
-              if (orderId && !state.orders[orderId] && msg.internalDate >= startedAt) {
-                candidates.push({ uid: msg.uid, orderId, buyer });
-              }
+              if (!orderId || state.orders[orderId] || msg.internalDate < startedAt) continue;
+              const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
+              if (problem) foreign.push({ msg, orderId, problem });
+              else candidates.push({ uid: msg.uid, orderId, buyer });
             }
           }
+          for (const { msg, orderId, problem } of foreign) await rejectForeign(msg, folder, orderId, problem);
           for (const { uid, orderId, buyer } of candidates) {
+            if (stopping) break;
             if (state.orders[orderId]) continue; // same order mailed twice in one poll
             const msg = await client.fetchOne(uid, { source: true }, { uid: true });
             if (!msg?.source) continue; // moved to another folder since the search; found there next poll
@@ -252,8 +296,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
             } catch (err) {
               // Recorded so one broken mail can't block every later order
               logger.error(`[CM] Order ${orderId} failed:`, err);
-              if (!state.orders[orderId] || state.orders[orderId].status === 'processing') {
-                await record(orderId, 'error', { error: err.message });
+              const prev = state.orders[orderId];
+              if (!prev || prev.status === 'processing') {
+                // productCode kept: an error mid-purchase may have been paid and counts toward the cap
+                await record(orderId, 'error', { productCode: prev?.productCode, error: err.message });
               }
               await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.\n👤 ${buyer}`);
             }
@@ -270,16 +316,25 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
       if (!failing) await notify(`⚠️ CM mail polling failing: ${err.message}`);
       failing = true;
       client.close();
-    } finally {
-      running = false;
     }
   }
 
+  function poll() {
+    if (running || stopping) return;
+    running = true;
+    current = pollOnce().finally(() => { running = false; });
+  }
+
   loadState()
-    .then(() => {
+    .then(async () => {
+      const problems = cfg.dryRun ? [] : liveConfigProblems();
+      if (problems.length) {
+        cfg.dryRun = true;
+        await notify(`🛑 CM intake: LIVE refused, running DRY RUN — missing ${problems.join(', ')}`);
+      }
       logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}, auto top-up ${cfg.topupCents ? `${eur(cfg.topupCents)} € when balance < label, max ${eur(cfg.topupDailyMaxCents)} €/day` : 'off'}`);
       poll();
-      setInterval(poll, cfg.pollMs);
+      timer = setInterval(poll, cfg.pollMs);
     })
     .catch(err => logger.error('[CM] Intake start failed:', err.message));
 }

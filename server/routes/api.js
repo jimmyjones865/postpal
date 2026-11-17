@@ -8,6 +8,7 @@ import { createLabelsRouter } from './labels.js';
 import { createPrintRouter } from './print.js';
 import { createWalletRouter } from './wallet.js';
 import { startCmIntake } from '../lib/cm-intake.js';
+import { createTopupLedger } from '../lib/topups.js';
 
 /**
  * Creates the main API router with all sub-routes.
@@ -24,6 +25,7 @@ export function createApiRouter() {
   // Initialize shared services
   const storage = createLabelStorage(PDF_STORAGE_PATH);
   const dhlClient = createDhlClient();
+  const topups = createTopupLedger(PDF_STORAGE_PATH);
 
   /**
    * Gets API credentials from environment variables.
@@ -46,7 +48,7 @@ export function createApiRouter() {
   router.use('/', createPrintRouter(storage));
 
   // Wallet: balance operations
-  router.use('/wallet', createWalletRouter(dhlClient, getCredentials));
+  router.use('/wallet', createWalletRouter(dhlClient, getCredentials, topups));
 
   /* ==================== Simple routes (kept here) ==================== */
 
@@ -118,7 +120,7 @@ export function createApiRouter() {
     storage.cleanupOldLabels(RETENTION_DAYS);
     // Schedule daily cleanup
     setInterval(() => storage.cleanupOldLabels(RETENTION_DAYS), 24 * 60 * 60 * 1000);
-    startCmIntake({ storage, dhlClient, getCredentials, storagePath: PDF_STORAGE_PATH });
+    startCmIntake({ storage, dhlClient, getCredentials, topups, storagePath: PDF_STORAGE_PATH });
   });
 
   return router;

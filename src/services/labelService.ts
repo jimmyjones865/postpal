@@ -92,8 +92,8 @@ export async function refundLabel(id: string): Promise<StoredLabel> {
   return data.label;
 }
 
-/** @returns new balance in cents */
-export async function chargeWallet(amountCents: number): Promise<number> {
+/** @returns new balance in cents, null when DHL didn't report it */
+export async function chargeWallet(amountCents: number): Promise<number | null> {
   const response = await fetch(`${API_BASE}/wallet/charge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,17 +1,16 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
-
-const MIN_TOPUP_CENTS = 1000; // DHL minimum; below it DHL answers quotaExceeded
-const MAX_TOPUP_CENTS = Math.round(parseFloat(process.env.TOPUP_MAX_EUR || '50') * 100);
+import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from '../lib/topups.js';
 
 /**
  * Creates the wallet router for balance operations.
- * 
+ *
  * @param {Object} dhlClient - DHL API client instance
  * @param {Function} getCredentials - Function to get API credentials
+ * @param {Object} topups - shared top-up ledger (lib/topups.js)
  * @returns {express.Router} Wallet router
  */
-export function createWalletRouter(dhlClient, getCredentials) {
+export function createWalletRouter(dhlClient, getCredentials, topups) {
   const router = express.Router();
 
   /**
@@ -20,16 +19,16 @@ export function createWalletRouter(dhlClient, getCredentials) {
   router.post('/balance', async (req, res) => {
     try {
       const credentials = getCredentials();
-      
+
       if (!credentials.apiKey) {
         return res.status(400).json({ error: 'Missing credentials' });
       }
 
       const tokenData = await dhlClient.getAccessToken(credentials, true);
-      
-      res.json({ 
-        balance: tokenData.walletBalance, 
-        expiresAt: tokenData.expiresAt 
+
+      res.json({
+        balance: tokenData.walletBalance,
+        expiresAt: tokenData.expiresAt
       });
     } catch (err) {
       logger.error('[Wallet] Balance error:', err);
@@ -41,27 +40,31 @@ export function createWalletRouter(dhlClient, getCredentials) {
    * POST /wallet/charge - Top up the Portokasse by amountCents
    */
   router.post('/charge', async (req, res) => {
+    let sent = false;
     try {
       const { amountCents } = req.body;
-      if (!Number.isInteger(amountCents) || amountCents < MIN_TOPUP_CENTS || amountCents > MAX_TOPUP_CENTS) {
-        return res.status(400).json({ error: `Amount must be ${MIN_TOPUP_CENTS / 100}–${MAX_TOPUP_CENTS / 100} €` });
+      if (!Number.isInteger(amountCents) || amountCents < MIN_TOPUP_CENTS || amountCents > TOPUP_MAX_CENTS) {
+        return res.status(400).json({ error: `Amount must be ${MIN_TOPUP_CENTS / 100}–${TOPUP_MAX_CENTS / 100} €` });
+      }
+      const today = await topups.todayCents();
+      if (today + amountCents > TOPUP_DAILY_MAX_CENTS) {
+        return res.status(400).json({ error: `Daily top-up max ${TOPUP_DAILY_MAX_CENTS / 100} € (${today / 100} € today)` });
       }
 
       const tokenData = await dhlClient.getAccessToken(getCredentials());
-      const result = await dhlClient.chargeWallet(tokenData.accessToken, amountCents);
+      sent = true;
+      const result = await topups.charge(dhlClient, tokenData.accessToken, amountCents, 'ui');
 
       if (!result.success) {
         logger.warn('[Wallet] Charge rejected:', result.status, result.details);
-        let title;
-        try { title = JSON.parse(result.details).title; } catch { /* non-JSON body */ }
-        return res.status(result.status || 500).json({ error: title || 'Top-up failed', details: result.details });
+        return res.status(result.status || 500).json({ error: chargeErrorTitle(result), details: result.details });
       }
 
       logger.info(`[Wallet] Charged ${amountCents} ct, new balance ${result.newBalance}`);
       res.json({ success: true, balance: result.newBalance });
     } catch (err) {
       logger.error('[Wallet] Charge error:', err);
-      res.status(500).json({ error: err.message || 'Top-up failed' });
+      res.status(500).json({ error: sent ? `Top-up outcome unknown: ${err.message} — check Portokasse` : err.message });
     }
   });
 

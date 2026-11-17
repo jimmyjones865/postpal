@@ -52,7 +52,9 @@ export function WalletBalance({ balance, onBalanceChange, isConfigured }: Wallet
   const handleTopUp = async (eur: number) => {
     setChargingEur(eur);
     try {
-      onBalanceChange(await chargeWallet(eur * 100));
+      const balance = await chargeWallet(eur * 100);
+      if (balance == null) fetchBalance();
+      else onBalanceChange(balance);
       toast.success(t('toast.topUpDone'));
       setTopUpOpen(false);
     } catch (err) {

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { logger } from './lib/logger.js';
 
 import { createApiRouter } from './routes/api.js';
+import { stopCmIntake } from './lib/cm-intake.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,12 +32,14 @@ const server = app.listen(PORT, () => {
 });
 
 // Node as container PID 1 ignores SIGTERM by default. Stop accepting connections and let
-// in-flight requests finish — a purchase may be between DHL charge and PDF storage.
-const SHUTDOWN_TIMEOUT_MS = 25_000;
+// in-flight requests and the CM poll finish — a purchase may be between DHL charge and PDF storage.
+// Below docker-compose stop_grace_period; one order can take several 30 s DHL timeouts.
+const SHUTDOWN_TIMEOUT_MS = 150_000;
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.once(signal, () => {
     logger.info(`[Server] ${signal} received, shutting down`);
-    server.close(() => process.exit(0));
+    Promise.all([new Promise(resolve => server.close(resolve)), stopCmIntake()])
+      .then(() => process.exit(0));
     setTimeout(() => {
       logger.warn('[Server] Shutdown timeout, forcing exit');
       process.exit(1);
