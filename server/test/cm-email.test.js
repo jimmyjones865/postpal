@@ -14,8 +14,8 @@ const products = JSON.parse(fs.readFileSync(new URL('../../public/products.json'
 const limits = { costTable, products, boughtToday: 0, maxPriceCents: 600, dailyCap: 30 };
 
 test('subject filter', () => {
-  assert.equal(matchSubject('Bestellung 1315091264 für Zibi48PL: Bitte versenden'), '1315091264');
-  assert.equal(matchSubject('Shipment 1315022111 for Schmatan: Please ship'), '1315022111');
+  assert.deepEqual(matchSubject('Bestellung 1315091264 für Zibi48PL: Bitte versenden'), { orderId: '1315091264', buyer: 'Zibi48PL' });
+  assert.deepEqual(matchSubject('Shipment 1315022111 for Schmatan: Please ship'), { orderId: '1315022111', buyer: 'Schmatan' });
   assert.equal(matchSubject('Bestellung 1315091264 für Zibi48PL: Bezahlt'), null);
   assert.equal(matchSubject('Re: Shipment 1315022111 for Schmatan: Please ship'), null);
   assert.equal(matchSubject(undefined), null);
@@ -29,7 +29,7 @@ test('EN email → domestic Standardbrief', () => {
     addressLines: ['Renée Strauß', 'Brühlstraße 12', '67069 Ludwigshafen', 'Germany'],
     costEur: '1.25'
   });
-  const d = decide({ subjectOrderId: matchSubject(subject), ...body }, limits);
+  const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
   assert.equal(d.product.code, '1');
   assert.equal(d.priceCents, 95);
@@ -41,7 +41,7 @@ test('DE email → international, Polish letters sanitized', () => {
   const { subject, text } = split(fixture('cm-de.txt'));
   const body = parseBody(text);
   assert.equal(body.costEur, '1.55');
-  const d = decide({ subjectOrderId: matchSubject(subject), ...body }, limits);
+  const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
   assert.equal(d.product.code, '10001');
   assert.equal(d.receiver.country, 'POL');
@@ -60,7 +60,7 @@ test('real mails pad the cost column with spaces', () => {
 test('no-buy rules', () => {
   const { subject, text } = split(fixture('cm-en.txt'));
   const body = parseBody(text);
-  const id = matchSubject(subject);
+  const id = matchSubject(subject).orderId;
   const reason = (b, l = limits) => decide({ subjectOrderId: id, ...body, ...b }, l).reason;
   assert.match(reason({ costEur: '9.99' }), /unknown shipping cost 9,99 EUR/);
   assert.match(reason({ orderId: '1' }), /≠/);

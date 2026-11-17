@@ -9,11 +9,11 @@ const SUBJECT_PATTERNS = [
   /^Shipment (\d+) for (.+): Please ship$/
 ];
 
-/** Order ID from the subject, or null for any other mail. */
+/** { orderId, buyer } from the subject, or null for any other mail. */
 export function matchSubject(subject) {
   for (const re of SUBJECT_PATTERNS) {
     const m = (subject || '').trim().match(re);
-    if (m) return m[1];
+    if (m) return { orderId: m[1], buyer: m[2] };
   }
   return null;
 }

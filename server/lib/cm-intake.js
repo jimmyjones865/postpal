@@ -75,21 +75,22 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
     await saveState();
   }
 
-  async function processMail(subjectOrderId, text, { costTable, products }) {
+  async function processMail(subjectOrderId, buyer, text, { costTable, products }) {
+    const who = `\n👤 ${buyer}`;
     const parsed = { subjectOrderId, ...parseBody(text) };
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), maxPriceCents: cfg.maxPriceCents, dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
 
     if (!decision.ok) {
       await record(subjectOrderId, 'skipped', { reason: decision.reason });
-      await notify(`🛑 CM ${subjectOrderId}: no label — ${decision.reason}\n\`\`\`\n${rawAddress}\n\`\`\``);
+      await notify(`🛑 CM ${subjectOrderId}: no label — ${decision.reason}${who}\n\`\`\`\n${rawAddress}\n\`\`\``);
       return;
     }
 
     const { product, priceCents, receiver, recipientAddress } = decision;
     if (cfg.dryRun) {
       await record(subjectOrderId, 'dry-run', { productCode: product.code });
-      await notify(`🧪 CM ${subjectOrderId}: would buy ${product.name} (${product.cost} €)\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      await notify(`🧪 CM ${subjectOrderId}: would buy ${product.name} (${product.cost} €)${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
@@ -124,7 +125,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
 
     if (!result.success) {
       await record(subjectOrderId, result.paid ? 'bought-unstored' : 'failed', { productCode: product.code, error: result.error });
-      await notify(`🛑 CM ${subjectOrderId}: purchase failed — ${[result.error, result.details].filter(Boolean).join(' — ')}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      await notify(`🛑 CM ${subjectOrderId}: purchase failed — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
@@ -147,7 +148,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
       }).catch(err => ({ success: false, error: err.message }));
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
-    await notify(`✅ CM ${subjectOrderId}: ${product.name} ${product.cost} €${balance}, ${printNote}`);
+    await notify(`✅ CM ${subjectOrderId}: ${product.name} ${product.cost} €${balance}, ${printNote}${who}`);
   }
 
   async function poll() {
@@ -181,27 +182,27 @@ export function startCmIntake({ storage, dhlClient, getCredentials, storagePath 
           // Chunked: servers cap command length (4096 bytes seen)
           for (let i = 0; i < uids.length; i += 200) {
             for await (const msg of client.fetch(uids.slice(i, i + 200), { envelope: true, internalDate: true }, { uid: true })) {
-              const orderId = matchSubject(msg.envelope?.subject);
+              const { orderId, buyer } = matchSubject(msg.envelope?.subject) || {};
               if (orderId && !state.orders[orderId] && msg.internalDate >= startedAt) {
-                candidates.push({ uid: msg.uid, orderId });
+                candidates.push({ uid: msg.uid, orderId, buyer });
               }
             }
           }
-          for (const { uid, orderId } of candidates) {
+          for (const { uid, orderId, buyer } of candidates) {
             if (state.orders[orderId]) continue; // same order mailed twice in one poll
             const msg = await client.fetchOne(uid, { source: true }, { uid: true });
             if (!msg?.source) continue; // moved to another folder since the search; found there next poll
             logger.info(`[CM] Processing order ${orderId} (${folder})`);
             try {
               const mail = await simpleParser(msg.source);
-              await processMail(orderId, mail.text, tables);
+              await processMail(orderId, buyer, mail.text, tables);
             } catch (err) {
               // Recorded so one broken mail can't block every later order
               logger.error(`[CM] Order ${orderId} failed:`, err);
               if (!state.orders[orderId] || state.orders[orderId].status === 'processing') {
                 await record(orderId, 'error', { error: err.message });
               }
-              await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
+              await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.\n👤 ${buyer}`);
             }
           }
         } finally {
