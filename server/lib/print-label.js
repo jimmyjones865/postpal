@@ -41,7 +41,6 @@ export async function printStoredLabel(storage, labelId, {
 
   // Crop PDF and get dimensions in a single operation (avoids duplicate pixel scanning)
   let croppedDimensions = null;
-  let cropFailed = false;
 
   if (!disableCropping) {
     try {
@@ -51,7 +50,6 @@ export async function printStoredLabel(storage, labelId, {
       );
       pdfBuffer = cropResult.buffer;
       croppedDimensions = cropResult.dimensions;
-      cropFailed = cropResult.fallback;
       
       if (cropResult.fallback) {
         logger.info(`[Print] Content detection failed, keeping original size: ${croppedDimensions.original.widthMm}x${croppedDimensions.original.heightMm}mm`);
@@ -60,7 +58,6 @@ export async function printStoredLabel(storage, labelId, {
       }
     } catch (cropErr) {
       logger.error('[Print] Crop failed:', cropErr.message);
-      cropFailed = true;
       
       // For endless roll, cropping is mandatory to determine height
       if (endlessRoll) {
