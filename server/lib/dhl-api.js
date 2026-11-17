@@ -6,6 +6,8 @@
 import { logger } from './logger.js';
 
 const DHL_API_BASE = 'https://api-eu.dhl.com/post/de/shipping/im/v1';
+// Bounds a hung request; a timed-out purchase may still have been booked (caller treats it as uncertain)
+const DHL_TIMEOUT_MS = 30_000;
 
 /**
  * Creates a DHL API client instance.
@@ -48,6 +50,7 @@ export function createDhlClient() {
 
     const response = await fetch(`${DHL_API_BASE}/user`, {
       method: 'POST',
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
       headers: { 
         'Accept': 'application/json', 
         'Content-Type': 'application/x-www-form-urlencoded' 
@@ -124,6 +127,7 @@ export function createDhlClient() {
 
     const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true`, {
       method: 'POST',
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
       headers: { 
         'Content-Type': 'application/json', 
         'Authorization': `Bearer ${accessToken}` 
@@ -181,6 +185,7 @@ export function createDhlClient() {
   async function chargeWallet(accessToken, amountCents) {
     const response = await fetch(`${DHL_API_BASE}/app/wallet?amount=${amountCents}`, {
       method: 'PUT',
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
 
@@ -191,9 +196,12 @@ export function createDhlClient() {
       return { success: false, status: response.status, details: text };
     }
 
-    const data = JSON.parse(text);
-    if (data.walletBalance !== undefined) cachedToken.walletBalance = data.walletBalance;
-    return { success: true, newBalance: data.walletBalance };
+    // 2xx = charged; an unreadable body must not turn that into an error
+    let data = {};
+    try { data = JSON.parse(text); } catch { logger.warn('[DHL] Charge OK but body not JSON:', text); }
+    const balance = data.walletBallance ?? data.walletBalance;
+    if (balance !== undefined) cachedToken.walletBalance = balance;
+    return { success: true, newBalance: balance ?? null };
   }
 
   /**
@@ -207,6 +215,7 @@ export function createDhlClient() {
 
     const response = await fetch(`${DHL_API_BASE}/app/retoure`, {
       method: 'POST',
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`

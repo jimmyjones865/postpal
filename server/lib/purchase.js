@@ -34,7 +34,13 @@ export async function buyLabel({ storage, dhlClient, credentials }, { sender, re
     pageFormatId: parseInt(pageFormatId)
   });
 
-  const result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);
+  let result;
+  try {
+    result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);
+  } catch (err) {
+    // Request may have reached DHL before the connection dropped or timed out
+    return { success: false, status: 504, error: 'Purchase outcome unknown — check Portokasse/history before buying again',details: err.message, uncertain: true };
+  }
   if (!result.success) {
     return { success: false, status: result.status || 500, error: result.error, details: result.details };
   }
