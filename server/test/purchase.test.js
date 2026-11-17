@@ -12,7 +12,7 @@ function fakes({ purchase, retrieve }) {
     getAccessToken: async () => ({ accessToken: 'tok' }),
     initShoppingCart: async () => { calls.init++; return 'SO1'; },
     buildPurchasePayload: p => p,
-    purchaseLabel: async (_t, payload) => { calls.purchase.push(payload.shopOrderId); return purchase(); },
+    purchaseLabel: async (_t, payload, opts) => { calls.purchase.push(payload.shopOrderId); calls.direct = opts.directCheckout; return purchase(); },
     retrieveShoppingCart: async () => { calls.retrieve++; return retrieve(); }
   };
   const storage = {
@@ -27,11 +27,12 @@ const order = {
 };
 
 mock.method(globalThis, 'fetch', async () => new Response(Buffer.from('%PDF')));
+process.env.DHL_TWO_STEP = 'true';
 
 test('normal buy reserves a shopOrderId, persists it before checkout, stores it on the label', async () => {
   const { ctx, calls, labels } = fakes({ purchase: () => cart });
   const seen = [];
-  const r = await buyLabel(ctx, { ...order, onShopOrderId: id => seen.push([id, calls.purchase.length]) });
+  const r = await buyLabel(ctx, { ...order, beforeCheckout: id => seen.push([id, calls.purchase.length]) });
   assert.equal(r.success, true);
   assert.deepEqual(seen, [['SO1', 0]]);
   assert.deepEqual(calls.purchase, ['SO1']);
@@ -86,4 +87,33 @@ test('recover: existing label reused, 404 → notFound, foreign PDF host refused
   }
   const tcb = await recoverLabel(fakes({ retrieve: () => ({ ...cart, pdfUrl: 'https://pcf-next.tcb.deutschepost.de/d?x=1' }) }).ctx, { shopOrderId: 'Z', ...order });
   assert.equal(tcb.success, true);
+});
+
+test('two-step: checkout without directCheckout; success without link → uncertain, looked up', async () => {
+  const { ctx, calls } = fakes({ purchase: () => ({ ...cart, pdfUrl: undefined }), retrieve: () => cart });
+  const r = await buyLabel(ctx, order);
+  assert.equal(calls.direct, false);
+  assert.equal(r.success, true);
+  assert.equal(calls.retrieve, 1);
+});
+
+test('direct mode: no init, DHL-returned shopOrderId stored, lost response → uncertain without lookup', async () => {
+  process.env.DHL_TWO_STEP = 'false';
+  try {
+    const ok = fakes({ purchase: () => ({ ...cart, shopOrderId: 'DHL9' }) });
+    const seen = [];
+    const r = await buyLabel(ok.ctx, { ...order, beforeCheckout: id => seen.push(id) });
+    assert.equal(ok.calls.init, 0);
+    assert.equal(ok.calls.direct, true);
+    assert.deepEqual(seen, [undefined]);
+    assert.equal(r.label.shopOrderId, 'DHL9');
+
+    const lost = fakes({ purchase: () => { throw new Error('timeout'); }, retrieve: () => cart });
+    const u = await buyLabel(lost.ctx, order);
+    assert.equal(u.uncertain, true);
+    assert.equal(u.shopOrderId, undefined);
+    assert.equal(lost.calls.retrieve, 0);
+  } finally {
+    process.env.DHL_TWO_STEP = 'true';
+  }
 });

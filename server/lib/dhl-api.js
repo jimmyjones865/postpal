@@ -122,10 +122,10 @@ export function createDhlClient() {
    * @param {Object} payload - Purchase payload
    * @returns {Object} Purchase response
    */
-  async function purchaseLabel(accessToken, payload) {
+  async function purchaseLabel(accessToken, payload, { directCheckout = true } = {}) {
     logger.debug('[DHL] Purchasing label:', JSON.stringify(payload, null, 2));
 
-    const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/pdf?directCheckout=true`, {
+    const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/pdf${directCheckout ? '?directCheckout=true' : ''}`, {
       method: 'POST',
       signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
       headers: { 
@@ -154,7 +154,9 @@ export function createDhlClient() {
       // 2xx = bought; the label is still retrievable by shopOrderId
       return { success: false, uncertain: true, error: 'Invalid DHL response', details: responseText };
     }
-    return cartResult(data);
+    const result = cartResult(data);
+    logger.info(`[DHL] Checkout (${directCheckout ? 'direct' : 'two-step'}): shopOrderId sent ${payload.shopOrderId ?? '-'}, returned ${result.shopOrderId ?? '-'}, link ${result.pdfUrl ? 'yes' : 'NO'}`);
+    return result;
   }
 
   /** Checkout/retrieve response → label fields; updates the cached balance. */

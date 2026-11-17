@@ -195,8 +195,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     const s = server.senderAddress || {};
     const result = await buyLabel({ storage, dhlClient, credentials: getCredentials() }, {
       shopOrderId,
-      onShopOrderId: async id => {
+      beforeCheckout: async id => {
         shopOrderId = id;
+        base.checkoutSent = true;
         await record(subjectOrderId, 'processing', { ...base, shopOrderId });
       },
       sender: {
@@ -217,14 +218,17 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     }).catch(err => ({ success: false, error: err.message })); // thrown = before checkout (auth, cart init)
 
     if (!result.success) {
+      shopOrderId = result.shopOrderId || shopOrderId;
       const status = result.paid ? 'bought-unstored' : result.uncertain ? 'uncertain' : 'failed';
-      const head = status === 'failed' ? 'purchase failed' : `label may be paid — looking up order ${shopOrderId} automatically, don't buy it manually`;
+      const head = status === 'failed' ? 'purchase failed'
+        : shopOrderId ? `label may be paid — looking up order ${shopOrderId} automatically, don't buy it manually`
+        : 'label may be paid — check Portokasse/history before buying manually';
       await record(subjectOrderId, status, { ...base, shopOrderId, error: result.error });
       await notify(`${status === 'failed' ? '🛑' : '⏳'} CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
-    await finishBought(subjectOrderId, { ...base, shopOrderId }, result, `${product.name} ${product.cost} €`);
+    await finishBought(subjectOrderId, { ...base, shopOrderId: result.label.shopOrderId }, result, `${product.name} ${product.cost} €`);
   }
 
   /** Records a stored label, prints it, posts ✅. */
@@ -266,8 +270,14 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       delete keep.status;
       delete keep.at;
 
+      if (!o.shopOrderId && o.checkoutSent) {
+        // Direct checkout with a lost response: may be paid, no id to look up
+        await record(orderId, 'check-manually', keep);
+        await notify(`⚠️ CM ${orderId}: label may be paid but can't be looked up — check Portokasse/history, buy manually only if missing.${who}\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
+        continue;
+      }
       if (!o.shopOrderId) {
-        // No shopOrderId persisted = checkout never sent
+        // No checkout sent
         if (o.attempts < 1) {
           await record(orderId, 'retry', { ...keep, attempts: o.attempts + 1 });
           await notify(`🔁 CM ${orderId}: nothing was sent to DHL, buying on the next poll.${who}`);

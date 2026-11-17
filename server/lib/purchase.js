@@ -66,21 +66,25 @@ export async function recoverLabel({ storage, dhlClient, credentials }, { shopOr
 
 /**
  * Buys one label and stores its PDF. Shared by the UI route and the email intake.
- * A shopOrderId is reserved first (or reused, for a retry) and passed to onShopOrderId before checkout:
- * DHL accepts one checkout per id, so a retry can't double-buy, and an unclear outcome can be looked up.
+ * beforeCheckout(shopOrderId | undefined) runs right before the paid call: persist that a checkout was sent.
+ * With DHL_TWO_STEP a shopOrderId is reserved first (or reused, for a retry): a retry can't double-buy
+ * (if DHL enforces one checkout per id) and an unclear outcome can be looked up.
  * Returns { success: true, label, newBalance } or { success: false, status, error, details, shopOrderId?, paid?, uncertain? }.
  * paid: DHL charged but the PDF could not be stored. uncertain: may be charged, lookup didn't confirm yet.
  */
-export async function buyLabel(ctx, { sender, receiver, productCode, productName, priceInCents, pageFormatId, recipientAddress, meta = {}, shopOrderId, onShopOrderId }) {
+export async function buyLabel(ctx, { sender, receiver, productCode, productName, priceInCents, pageFormatId, recipientAddress, meta = {}, shopOrderId, beforeCheckout }) {
   const { dhlClient, credentials } = ctx;
   const prepared = prepareReceiver(receiver);
   if (prepared.errors.length) {
     return { success: false, status: 400, error: 'Invalid recipient address', details: prepared.errors.join('; ') };
   }
 
+  // Two-step: reserved shopOrderId, checkout without directCheckout. Direct checkout ignores a passed id
+  // (DHL assigns its own; seen 2026-11-17), so nothing can be looked up before the response arrives.
+  const twoStep = process.env.DHL_TWO_STEP === 'true';
   const tokenData = await dhlClient.getAccessToken(credentials);
-  const id = shopOrderId || await dhlClient.initShoppingCart(tokenData.accessToken);
-  await onShopOrderId?.(id);
+  const id = shopOrderId || (twoStep ? await dhlClient.initShoppingCart(tokenData.accessToken) : undefined);
+  await beforeCheckout?.(id);
   const payload = dhlClient.buildPurchasePayload({
     shopOrderId: id,
     sender,
@@ -93,13 +97,22 @@ export async function buyLabel(ctx, { sender, receiver, productCode, productName
 
   let result;
   try {
-    result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);
+    result = await dhlClient.purchaseLabel(tokenData.accessToken, payload, { directCheckout: !twoStep });
   } catch (err) {
     // Request may have reached DHL before the connection dropped or timed out
     result = { success: false, uncertain: true, details: err.message };
   }
-  if (result.success) return storeLabel(ctx.storage, result, id, info);
+  if (result.success && !result.pdfUrl) {
+    result = { success: false, uncertain: true, details: 'DHL returned no label link' };
+  }
+  if (result.success) return storeLabel(ctx.storage, result, result.shopOrderId || id, info);
 
+  if (!id) {
+    // Direct checkout: no shopOrderId known before the response, nothing to look up
+    return result.uncertain
+      ? { success: false, status: 504, uncertain: true, error: 'Purchase outcome unknown — check Portokasse before buying again', details: result.details }
+      : { success: false, status: result.status || 500, error: result.error, details: result.details };
+  }
   const duplicate = result.status === 400 && /invalidShopOrderID|duplicat/i.test(result.details || '');
   if (result.uncertain || duplicate) {
     const recovered = await recoverLabel(ctx, { shopOrderId: id, ...info }).catch(err => ({ success: false, details: err.message }));
