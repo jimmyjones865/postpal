@@ -148,33 +148,59 @@ export function createDhlClient() {
     }
 
     let data;
-    try { 
-      data = JSON.parse(responseText); 
-    } catch { 
-      return { 
-        success: false, 
-        error: 'Invalid DHL response', 
-        details: responseText 
-      }; 
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      // 2xx = bought; the label is still retrievable by shopOrderId
+      return { success: false, uncertain: true, error: 'Invalid DHL response', details: responseText };
     }
+    return cartResult(data);
+  }
 
-    // Update wallet balance if returned
-    if (data.walletBallance !== undefined || data.walletBalance !== undefined) {
-      cachedToken.walletBalance = data.walletBallance ?? data.walletBalance;
-    }
-
-    const voucherId = data.shoppingCart?.voucherList?.[0]?.voucherId || null;
-    const trackId = data.shoppingCart?.voucherList?.[0]?.trackId || null;
-    const shopOrderId = data.shoppingCart?.shopOrderId || null;
-
+  /** Checkout/retrieve response → label fields; updates the cached balance. */
+  function cartResult(data) {
+    const balance = data.walletBallance ?? data.walletBalance;
+    if (balance !== undefined) cachedToken.walletBalance = balance;
+    const voucher = data.shoppingCart?.voucherList?.[0];
     return {
       success: true,
       pdfUrl: data.link || data.pdfUrl || data.url,
-      trackId,
-      voucherId,
-      shopOrderId,
+      trackId: voucher?.trackId || null,
+      voucherId: voucher?.voucherId || null,
+      shopOrderId: data.shoppingCart?.shopOrderId || null,
       newBalance: cachedToken.walletBalance
     };
+  }
+
+  /** Reserves a shopOrderId. Nothing is bought; checkout with it can succeed only once. */
+  async function initShoppingCart(accessToken) {
+    const response = await fetch(`${DHL_API_BASE}/app/shoppingcart`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const text = await response.text();
+    logger.debug(`[DHL] Init cart response status=${response.status}, body=${text}`);
+    if (!response.ok) throw new Error(`Shopping cart init failed: ${response.status} - ${text}`);
+    const shopOrderId = JSON.parse(text).shopOrderId;
+    if (!shopOrderId) throw new Error(`Shopping cart init returned no shopOrderId: ${text}`);
+    return shopOrderId;
+  }
+
+  /**
+   * Looks up a checkout by shopOrderId.
+   * Returns cartResult fields, { success: false, notFound: true } on 404, or { success: false, status, details }.
+   */
+  async function retrieveShoppingCart(accessToken, shopOrderId) {
+    const response = await fetch(`${DHL_API_BASE}/app/shoppingcart/${encodeURIComponent(shopOrderId)}`, {
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const text = await response.text();
+    logger.debug(`[DHL] Retrieve cart ${shopOrderId} status=${response.status}, body=${text}`);
+    if (response.status === 404) return { success: false, notFound: true };
+    if (!response.ok) return { success: false, status: response.status, details: text };
+    return cartResult(JSON.parse(text));
   }
 
   /**
@@ -244,9 +270,10 @@ export function createDhlClient() {
    * @param {Object} params - Purchase parameters
    * @returns {Object} Shopping cart payload
    */
-  function buildPurchasePayload({ sender, receiver, productCode, priceInCents, pageFormatId }) {
+  function buildPurchasePayload({ shopOrderId, sender, receiver, productCode, priceInCents, pageFormatId }) {
     return {
       type: 'AppShoppingCartPDFRequest',
+      shopOrderId,
       total: priceInCents,
       createShippingList: '0',
       dpi: 'DPI300',
@@ -269,6 +296,8 @@ export function createDhlClient() {
     getAccessToken,
     buildPurchasePayload,
     purchaseLabel,
+    initShoppingCart,
+    retrieveShoppingCart,
     chargeWallet,
     refundVoucher
   };

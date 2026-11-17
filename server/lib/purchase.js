@@ -1,10 +1,13 @@
 import { logger } from './logger.js';
 import { prepareReceiver } from './address-rules.js';
 
-const DHL_PDF_ORIGIN = 'https://internetmarke.deutschepost.de/';
+// Checkout links come from internetmarke.deutschepost.de; the spec's retrieve example uses pcf-next.tcb.deutschepost.de
+const DHL_PDF_HOST = /(^|\.)deutschepost\.de$/;
 
 async function fetchDhlPdf(url) {
-  if (!url?.startsWith(DHL_PDF_ORIGIN)) {
+  let u;
+  try { u = new URL(url); } catch { throw new Error(`Unexpected PDF URL: ${url}`); }
+  if (u.protocol !== 'https:' || !DHL_PDF_HOST.test(u.hostname)) {
     throw new Error(`Unexpected PDF URL: ${url}`);
   }
   const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
@@ -14,58 +17,102 @@ async function fetchDhlPdf(url) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+/** Paid cart → stored label. On failure the label stays retrievable via shopOrderId. */
+async function storeLabel(storage, cart, shopOrderId, { recipientAddress, productCode, productName, meta = {} }) {
+  try {
+    const label = await storage.saveLabel(await fetchDhlPdf(cart.pdfUrl), {
+      recipientAddress,
+      productCode,
+      productName: productName || productCode,
+      voucherId: cart.voucherId,
+      trackId: cart.trackId,
+      shopOrderId,
+      ...meta
+    });
+    return { success: true, label, newBalance: cart.newBalance };
+  } catch (err) {
+    logger.error('[Purchase] Purchased but could not store PDF:', err.message, cart.pdfUrl);
+    return {
+      success: false,
+      status: 502,
+      error: `Label purchased, but the PDF could not be stored — retrieve order ${shopOrderId}, don't buy again`,
+      details: `${err.message}. PDF: ${cart.pdfUrl}`,
+      paid: true,
+      shopOrderId,
+      newBalance: cart.newBalance
+    };
+  }
+}
+
+/**
+ * Fetches and stores the label of an earlier checkout by shopOrderId.
+ * Returns buyLabel-style results; { success: false, notFound: true } = DHL has no such order (not bought).
+ */
+export async function recoverLabel({ storage, dhlClient, credentials }, { shopOrderId, recipientAddress, productCode, productName, meta }) {
+  const existing = (await storage.getAllLabels()).find(l => l.shopOrderId === shopOrderId);
+  if (existing) return { success: true, label: existing };
+
+  const tokenData = await dhlClient.getAccessToken(credentials);
+  const cart = await dhlClient.retrieveShoppingCart(tokenData.accessToken, shopOrderId);
+  if (cart.notFound) {
+    return { success: false, status: 404, notFound: true, shopOrderId, error: `Order ${shopOrderId} not found at DHL — not bought` };
+  }
+  if (!cart.success) {
+    return { success: false, status: cart.status || 502, shopOrderId, error: `Lookup of order ${shopOrderId} failed`, details: cart.details };
+  }
+  logger.info(`[Purchase] Recovered order ${shopOrderId}`);
+  return storeLabel(storage, cart, shopOrderId, { recipientAddress, productCode, productName, meta });
+}
+
 /**
  * Buys one label and stores its PDF. Shared by the UI route and the email intake.
- * Returns { success: true, label, newBalance } or { success: false, status, error, details, paid? }.
- * paid: true means DHL charged but the PDF could not be stored.
+ * A shopOrderId is reserved first (or reused, for a retry) and passed to onShopOrderId before checkout:
+ * DHL accepts one checkout per id, so a retry can't double-buy, and an unclear outcome can be looked up.
+ * Returns { success: true, label, newBalance } or { success: false, status, error, details, shopOrderId?, paid?, uncertain? }.
+ * paid: DHL charged but the PDF could not be stored. uncertain: may be charged, lookup didn't confirm yet.
  */
-export async function buyLabel({ storage, dhlClient, credentials }, { sender, receiver, productCode, productName, priceInCents, pageFormatId, recipientAddress, meta = {} }) {
+export async function buyLabel(ctx, { sender, receiver, productCode, productName, priceInCents, pageFormatId, recipientAddress, meta = {}, shopOrderId, onShopOrderId }) {
+  const { dhlClient, credentials } = ctx;
   const prepared = prepareReceiver(receiver);
   if (prepared.errors.length) {
     return { success: false, status: 400, error: 'Invalid recipient address', details: prepared.errors.join('; ') };
   }
 
   const tokenData = await dhlClient.getAccessToken(credentials);
+  const id = shopOrderId || await dhlClient.initShoppingCart(tokenData.accessToken);
+  await onShopOrderId?.(id);
   const payload = dhlClient.buildPurchasePayload({
+    shopOrderId: id,
     sender,
     receiver: prepared.receiver,
     productCode,
     priceInCents,
     pageFormatId: parseInt(pageFormatId)
   });
+  const info = { recipientAddress, productCode, productName, meta };
 
   let result;
   try {
     result = await dhlClient.purchaseLabel(tokenData.accessToken, payload);
   } catch (err) {
     // Request may have reached DHL before the connection dropped or timed out
-    return { success: false, status: 504, error: 'Purchase outcome unknown — check Portokasse/history before buying again',details: err.message, uncertain: true };
+    result = { success: false, uncertain: true, details: err.message };
   }
-  if (!result.success) {
-    return { success: false, status: result.status || 500, error: result.error, details: result.details };
-  }
+  if (result.success) return storeLabel(ctx.storage, result, id, info);
 
-  // From here on the label is paid for — any failure must surface the DHL link
-  try {
-    const label = await storage.saveLabel(await fetchDhlPdf(result.pdfUrl), {
-      recipientAddress,
-      productCode,
-      productName: productName || productCode,
-      voucherId: result.voucherId,
-      trackId: result.trackId,
-      shopOrderId: result.shopOrderId,
-      ...meta
-    });
-    return { success: true, label, newBalance: result.newBalance };
-  } catch (err) {
-    logger.error('[Purchase] Purchased but could not store PDF:', err.message, result.pdfUrl);
+  const duplicate = result.status === 400 && /invalidShopOrderID|duplicat/i.test(result.details || '');
+  if (result.uncertain || duplicate) {
+    const recovered = await recoverLabel(ctx, { shopOrderId: id, ...info }).catch(err => ({ success: false, details: err.message }));
+    if (recovered.success || recovered.paid) return recovered;
+    // 404 right after a timeout may just mean DHL is still processing
     return {
       success: false,
-      status: 502,
-      error: 'Label purchased, but the PDF could not be stored',
-      details: `${err.message}. PDF: ${result.pdfUrl}`,
-      paid: true,
-      newBalance: result.newBalance
+      status: 504,
+      uncertain: true,
+      shopOrderId: id,
+      error: `Purchase outcome unknown — retrieve order ${id} before buying again`,
+      details: [result.details, recovered.error, recovered.details].filter(Boolean).join(' — ')
     };
   }
+  return { success: false, status: result.status || 500, error: result.error, details: result.details, shopOrderId: id };
 }

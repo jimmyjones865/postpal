@@ -1,7 +1,7 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
 import { cropPdfWithPadding } from '../lib/pdf-cropper.js';
-import { buyLabel } from '../lib/purchase.js';
+import { buyLabel, recoverLabel } from '../lib/purchase.js';
 
 /**
  * Creates the labels router for CRUD and purchase operations.
@@ -142,6 +142,28 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
     } catch (err) {
       logger.error('[Labels] Purchase error:', err);
       res.status(500).json({ error: err.message || 'Failed to purchase label' });
+    }
+  });
+
+  /**
+   * POST /labels/recover - Fetch and store the label of an earlier checkout by shopOrderId
+   */
+  router.post('/recover', async (req, res) => {
+    try {
+      const { shopOrderId, productCode, productName, recipientAddress } = req.body;
+      if (!shopOrderId || !productCode || !recipientAddress) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      const result = await recoverLabel({ storage, dhlClient, credentials: getCredentials() },
+        { shopOrderId: String(shopOrderId), productCode, productName, recipientAddress });
+      if (!result.success) {
+        const { status, ...body } = result;
+        return res.status(status).json({ ...body, status });
+      }
+      res.json(result);
+    } catch (err) {
+      logger.error('[Labels] Recover error:', err);
+      res.status(500).json({ error: err.message || 'Failed to retrieve label' });
     }
   });
 

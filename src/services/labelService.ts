@@ -40,32 +40,49 @@ export interface PurchaseResult {
   label?: StoredLabel;
   /** Set on failure after DHL already charged — the label must not be re-bought */
   paid?: boolean;
+  /** May be charged; retrieve by shopOrderId before buying again */
+  uncertain?: boolean;
+  /** Not bought at DHL (retrieve found no order) */
+  notFound?: boolean;
+  shopOrderId?: string;
   newBalance?: number;
   error?: string;
   details?: string;
 }
 
-/**
- * Purchases a label; the server downloads and stores the PDF before responding.
- */
-export async function purchaseLabel(params: PurchaseParams): Promise<PurchaseResult> {
-  const response = await fetch(`${API_BASE}/labels/purchase`, {
+async function postLabel(path: string, body: unknown): Promise<PurchaseResult> {
+  const response = await fetch(`${API_BASE}/labels/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
+    body: JSON.stringify(body)
   });
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || !data.success) {
     return {
       success: false,
-      error: data.error || `Purchase failed: HTTP ${response.status}`,
+      error: data.error || `Request failed: HTTP ${response.status}`,
       details: data.details,
       paid: data.paid,
+      uncertain: data.uncertain,
+      notFound: data.notFound,
+      shopOrderId: data.shopOrderId,
       newBalance: data.newBalance
     };
   }
   return { success: true, label: data.label, newBalance: data.newBalance };
+}
+
+/**
+ * Purchases a label; the server downloads and stores the PDF before responding.
+ */
+export function purchaseLabel(params: PurchaseParams): Promise<PurchaseResult> {
+  return postLabel('purchase', params);
+}
+
+/** Fetches and stores the label of an earlier checkout whose outcome was unclear. */
+export function recoverLabel(params: { shopOrderId: string; productCode: string; productName: string; recipientAddress: string }): Promise<PurchaseResult> {
+  return postLabel('recover', params);
 }
 
 export async function getLabels(): Promise<StoredLabel[]> {

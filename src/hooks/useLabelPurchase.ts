@@ -5,7 +5,7 @@ import { ParsedAddress } from '@/lib/address';
 import { PrintMode } from '@/components/AddressInput';
 import { validateAddress } from '@/lib/addressValidation';
 import { getCountryCode } from '@/lib/countryCodes';
-import { StoredLabel, purchaseLabel, printLabel, downloadLabel } from '@/services/labelService';
+import { StoredLabel, purchaseLabel, recoverLabel, printLabel, downloadLabel } from '@/services/labelService';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface PurchaseParams {
@@ -37,6 +37,30 @@ export function useLabelPurchase(
     setVoucherId(null);
     setTrackId(null);
   }, [recipientAddress]);
+
+  const showLabel = (label: StoredLabel, onLabelSaved: (label: StoredLabel) => void) => {
+    onLabelSaved(label);
+    setPurchasedLabelId(label.id);
+    setVoucherId(label.voucherId || null);
+    setTrackId(label.trackId || null);
+  };
+
+  /** Looks up an unclear purchase by shopOrderId; found → stored like a normal purchase. */
+  const retrieve = async (params: Parameters<typeof recoverLabel>[0], onLabelSaved: (label: StoredLabel) => void) => {
+    const result = await recoverLabel(params);
+    if (result.success && result.label) {
+      showLabel(result.label, onLabelSaved);
+      toast.success(t('toast.labelRetrieved'), { description: t('toast.labelRetrievedDesc', { order: params.shopOrderId }) });
+    } else if (result.notFound) {
+      toast.error(t('toast.notBought'), { description: t('toast.notBoughtDesc', { order: params.shopOrderId }), duration: Infinity });
+    } else {
+      toast.error(t('toast.retrieveFailed'), {
+        description: [result.error, result.details].filter(Boolean).join(' — '),
+        duration: Infinity,
+        action: { label: t('toast.retrieve'), onClick: () => retrieve(params, onLabelSaved) },
+      });
+    }
+  };
 
   const purchase = async ({
     parsedRecipient,
@@ -136,19 +160,26 @@ export function useLabelPurchase(
 
       if (!purchaseData.success || !purchaseData.label) {
         console.error('Label purchase failed:', purchaseData);
-        if (purchaseData.paid) onSelectProduct(null);
+        const retrievable = purchaseData.shopOrderId && (purchaseData.paid || purchaseData.uncertain);
+        if (retrievable) onSelectProduct(null);
         toast.error(t('toast.purchaseFailed'), {
           description: [purchaseData.error, purchaseData.details].filter(Boolean).join(' — ') || t('toast.purchaseFailedDesc'),
           duration: Infinity,
+          action: retrievable ? {
+            label: t('toast.retrieve'),
+            onClick: () => retrieve({
+              shopOrderId: purchaseData.shopOrderId!,
+              productCode: productToUse!,
+              productName: product?.name || productToUse!,
+              recipientAddress,
+            }, onLabelSaved),
+          } : undefined,
         });
         return;
       }
 
+      showLabel(purchaseData.label, onLabelSaved);
       const savedLabel = purchaseData.label;
-      onLabelSaved(savedLabel);
-      setPurchasedLabelId(savedLabel.id);
-      setVoucherId(savedLabel.voucherId || null);
-      setTrackId(savedLabel.trackId || null);
 
       if (printMode === 'print' && config.printerConfig.enableDirectPrint && config.printerConfig.cupsUrl) {
         try {

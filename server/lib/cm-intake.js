@@ -8,7 +8,7 @@ import { logger } from './logger.js';
 import { matchSubject, parseBody, decide, topHeader, senderProblem } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
 import { loadServerConfig, envNum, berlinDay } from './config.js';
-import { buyLabel } from './purchase.js';
+import { buyLabel, recoverLabel } from './purchase.js';
 import { printStoredLabel } from './print-label.js';
 import { notify } from './discord.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
@@ -16,7 +16,11 @@ import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTit
 // Dedupe needs entries back to the 7-day lookback (IMAP SINCE is day-granular); 14 leaves margin
 const KEEP_MS = 14 * 86_400_000;
 // Statuses where DHL definitely took no money; everything else with a product counts toward the cap
-const NOT_SPENT = new Set(['dry-run', 'failed']);
+const NOT_SPENT = new Set(['dry-run', 'failed', 'retry']);
+// Looked up by shopOrderId each poll until bought or confirmed not bought
+const RECOVER = new Set(['uncertain', 'bought-unstored', 'interrupted', 'error']);
+// Gives DHL time to finish a checkout whose response was lost before a 404 is trusted
+const RECOVER_AFTER_MS = 60_000;
 
 let stopping = false;
 let current = Promise.resolve();
@@ -96,7 +100,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     const interrupted = Object.entries(state.orders).filter(([, o]) => o.status === 'processing');
     for (const [id, order] of interrupted) {
       order.status = 'interrupted';
-      await notify(`⚠️ CM ${id}: restart during purchase — check Portokasse/history, no retry.`);
+      await notify(`⚠️ CM ${id}: restart during purchase — checking DHL${order.shopOrderId ? ` (order ${order.shopOrderId})` : ''} on the next poll.`);
     }
     await saveState();
   }
@@ -180,14 +184,21 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       return;
     }
 
-    // Persisted before the DHL call: purchase is not idempotent, a crash must not lead to a second buy
-    await record(subjectOrderId, 'processing', { productCode: product.code });
+    // Persisted before the DHL call; shopOrderId added once reserved, so a crash or lost response can be looked up
+    const prev = state.orders[subjectOrderId];
+    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, attempts: prev?.attempts || 0 };
+    let shopOrderId = prev?.status === 'retry' ? prev.shopOrderId : undefined;
+    await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
 
     const server = loadServerConfig();
     const s = server.senderAddress || {};
-    const printer = server.printerConfig || {};
     const result = await buyLabel({ storage, dhlClient, credentials: getCredentials() }, {
+      shopOrderId,
+      onShopOrderId: async id => {
+        shopOrderId = id;
+        await record(subjectOrderId, 'processing', { ...base, shopOrderId });
+      },
       sender: {
         name: s.name,
         additionalName: s.company,
@@ -200,24 +211,30 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       productCode: product.code,
       productName: product.name,
       priceInCents: priceCents,
-      pageFormatId: printer.paperFormatId,
+      pageFormatId: server.printerConfig?.paperFormatId,
       recipientAddress,
       meta: { cmOrderId: subjectOrderId }
-    }).catch(err => ({ success: false, error: err.message })); // thrown = before the purchase request (auth)
+    }).catch(err => ({ success: false, error: err.message })); // thrown = before checkout (auth, cart init)
 
     if (!result.success) {
       const status = result.paid ? 'bought-unstored' : result.uncertain ? 'uncertain' : 'failed';
-      const head = status === 'failed' ? 'purchase failed' : 'label may be paid — check Portokasse/history, don\'t rebuy blindly';
-      await record(subjectOrderId, status, { productCode: product.code, error: result.error });
-      await notify(`🛑 CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      const head = status === 'failed' ? 'purchase failed' : `label may be paid — looking up order ${shopOrderId} automatically, don't buy it manually`;
+      await record(subjectOrderId, status, { ...base, shopOrderId, error: result.error });
+      await notify(`${status === 'failed' ? '🛑' : '⏳'} CM ${subjectOrderId}: ${head} — ${[result.error, result.details].filter(Boolean).join(' — ')}${who}\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
 
-    await record(subjectOrderId, 'bought', { productCode: product.code, labelId: result.label.id });
-    const balance = result.newBalance != null ? `, balance ${(result.newBalance / 100).toFixed(2)} €` : '';
+    await finishBought(subjectOrderId, { ...base, shopOrderId }, result, `${product.name} ${product.cost} €`);
+  }
+
+  /** Records a stored label, prints it, posts ✅. */
+  async function finishBought(orderId, base, { label, newBalance }, what) {
+    await record(orderId, 'bought', { ...base, labelId: label.id });
+    const printer = loadServerConfig().printerConfig || {};
+    const balance = newBalance != null ? `, balance ${(newBalance / 100).toFixed(2)} €` : '';
     let printNote = 'not printed (direct print off)';
     if (printer.enableDirectPrint && printer.cupsUrl && printer.printerName) {
-      const p = await printStoredLabel(storage, result.label.id, {
+      const p = await printStoredLabel(storage, label.id, {
         cupsUrl: printer.cupsUrl,
         printerName: printer.printerName,
         orientation: printer.orientation,
@@ -232,7 +249,53 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       }).catch(err => ({ success: false, error: err.message }));
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
-    await notify(`✅ CM ${subjectOrderId}: ${product.name} ${product.cost} €${balance}, ${printNote}${who}`);
+    await notify(`✅ CM ${orderId}: ${what}${balance}, ${printNote}\n👤 ${base.buyer}`);
+  }
+
+  /**
+   * Resolves orders whose purchase outcome is unclear by looking up their shopOrderId at DHL.
+   * Found → stored + printed. 404 → not bought: one retry with the same shopOrderId (DHL refuses a second checkout).
+   */
+  async function recoverPending() {
+    const ctx = { storage, dhlClient, credentials: getCredentials() };
+    for (const [orderId, o] of Object.entries(state.orders)) {
+      if (stopping) return;
+      if (!RECOVER.has(o.status) || !o.productCode || Date.now() - Date.parse(o.at) < RECOVER_AFTER_MS) continue;
+      const who = `\n👤 ${o.buyer}`;
+      const keep = { ...o };
+      delete keep.status;
+      delete keep.at;
+
+      if (!o.shopOrderId) {
+        // No shopOrderId persisted = checkout never sent
+        if (o.attempts < 1) {
+          await record(orderId, 'retry', { ...keep, attempts: o.attempts + 1 });
+          await notify(`🔁 CM ${orderId}: nothing was sent to DHL, buying on the next poll.${who}`);
+        } else {
+          await record(orderId, 'failed', { ...keep, error: 'stopped before checkout twice' });
+          await notify(`🛑 CM ${orderId}: stopped before checkout twice, nothing bought. Buy it manually.${who}`);
+        }
+        continue;
+      }
+      const r = await recoverLabel(ctx, { shopOrderId: o.shopOrderId, recipientAddress: o.recipientAddress, productCode: o.productCode, productName: o.productName, meta: { cmOrderId: orderId } })
+        .catch(err => ({ success: false, error: err.message }));
+
+      if (r.success) {
+        await finishBought(orderId, keep, r, `${o.productName} (recovered, order ${o.shopOrderId})`);
+      } else if (r.notFound && o.status !== 'bought-unstored') {
+        if (o.attempts < 1) {
+          await record(orderId, 'retry', { ...keep, attempts: o.attempts + 1 });
+          await notify(`🔁 CM ${orderId}: not bought at DHL (order ${o.shopOrderId}), retrying on the next poll.${who}`);
+        } else {
+          await record(orderId, 'failed', { ...keep, error: 'not bought after retry' });
+          await notify(`🛑 CM ${orderId}: not bought at DHL after a retry (order ${o.shopOrderId}). Buy it manually.${who}\n\`\`\`\n${o.recipientAddress}\n\`\`\``);
+        }
+      } else if (!o.recoveryNotified) {
+        o.recoveryNotified = true;
+        await saveState();
+        await notify(`⚠️ CM ${orderId}: lookup of order ${o.shopOrderId} failed — ${[r.error, r.details].filter(Boolean).join(' — ')}. Retrying each poll.${who}`);
+      }
+    }
   }
 
   /** Not from Cardmarket: noticed once per message, never recorded under the order ID (a fake must not block the real order). */
@@ -259,6 +322,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
         costTable: JSON.parse(await fs.readFile(costTablePath, 'utf8')),
         products: JSON.parse(await fs.readFile(productsPath, 'utf8'))
       };
+      if (!cfg.dryRun) await recoverPending();
       const startedAt = new Date(state.startedAt);
       // 7-day lookback bounds the search as the archive grows; covers up to a week of downtime
       const since = new Date(Math.max(startedAt, Date.now() - 7 * 86_400_000));
@@ -277,7 +341,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
             const query = { envelope: true, internalDate: true, headers: ['authentication-results'] };
             for await (const msg of client.fetch(uids.slice(i, i + 200), query, { uid: true })) {
               const { orderId, buyer } = matchSubject(msg.envelope?.subject) || {};
-              if (!orderId || state.orders[orderId] || msg.internalDate < startedAt) continue;
+              const known = state.orders[orderId];
+              if (!orderId || (known && known.status !== 'retry') || msg.internalDate < startedAt) continue;
               const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
               if (problem) foreign.push({ msg, orderId, problem });
               else candidates.push({ uid: msg.uid, orderId, buyer });
@@ -286,7 +351,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
           for (const { msg, orderId, problem } of foreign) await rejectForeign(msg, folder, orderId, problem);
           for (const { uid, orderId, buyer } of candidates) {
             if (stopping) break;
-            if (state.orders[orderId]) continue; // same order mailed twice in one poll
+            const known = state.orders[orderId];
+            if (known && known.status !== 'retry') continue; // same order mailed twice in one poll
             const msg = await client.fetchOne(uid, { source: true }, { uid: true });
             if (!msg?.source) continue; // moved to another folder since the search; found there next poll
             logger.info(`[CM] Processing order ${orderId} (${folder})`);
@@ -297,9 +363,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
               // Recorded so one broken mail can't block every later order
               logger.error(`[CM] Order ${orderId} failed:`, err);
               const prev = state.orders[orderId];
-              if (!prev || prev.status === 'processing') {
-                // productCode kept: an error mid-purchase may have been paid and counts toward the cap
-                await record(orderId, 'error', { productCode: prev?.productCode, error: err.message });
+              if (!prev || prev.status === 'processing' || prev.status === 'retry') {
+                // Purchase fields kept: an error mid-purchase may have been paid (cap, lookup by shopOrderId)
+                const { status: _s, at: _a, ...keep } = prev || {};
+                await record(orderId, 'error', { ...keep, error: err.message });
               }
               await notify(`🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.\n👤 ${buyer}`);
             }
