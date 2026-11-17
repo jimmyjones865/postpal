@@ -212,24 +212,32 @@ export function createLabelStorage(storagePath) {
     const now = Date.now();
 
     // Update metadata first
-    const { toDelete, kept } = await updateMetadata(metadata => {
+    const { toDelete, kept, known } = await updateMetadata(metadata => {
       const toDelete = metadata.labels.filter(l => now - new Date(l.createdAt).getTime() > maxAge);
       metadata.labels = metadata.labels.filter(l => !toDelete.includes(l));
-      return { toDelete, kept: metadata.labels.length };
+      return { toDelete, kept: metadata.labels.length, known: new Set(metadata.labels.map(l => l.filename)) };
     });
 
+    // Unindexed label files (old PNG format, PDF written but metadata save failed) go by file age
+    const orphans = [];
+    for (const name of await fs.readdir(storagePath)) {
+      if (!/\.(pdf|png)$/.test(name) || known.has(name) || toDelete.some(l => l.filename === name)) continue;
+      const { mtimeMs } = await fs.stat(path.join(storagePath, name));
+      if (now - mtimeMs > maxAge) orphans.push(name);
+    }
+
     // Then delete files
-    for (const label of toDelete) {
+    for (const filename of [...toDelete.map(l => l.filename), ...orphans]) {
       try {
-        await fs.unlink(path.join(storagePath, label.filename));
-        logger.info(`[Cleanup] Deleted: ${label.filename}`);
+        await fs.unlink(path.join(storagePath, filename));
+        logger.info(`[Cleanup] Deleted: ${filename}`);
       } catch (err) {
-        logger.warn(`[Cleanup] Could not delete ${label.filename}:`, err.message);
+        logger.warn(`[Cleanup] Could not delete ${filename}:`, err.message);
       }
     }
-    
-    logger.info(`[Cleanup] Complete. Deleted ${toDelete.length}, kept ${kept}.`);
-    return { deleted: toDelete.length, kept };
+
+    logger.info(`[Cleanup] Complete. Deleted ${toDelete.length} + ${orphans.length} unindexed, kept ${kept}.`);
+    return { deleted: toDelete.length + orphans.length, kept };
   }
 
   return {

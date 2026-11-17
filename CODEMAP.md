@@ -19,7 +19,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `cm-shipping.json` — CM shipping cost (EUR) → product code; unlisted cost = no label. Volume-mounted read-only.
 - `test/` — `npm test` (node:test) on `cm-email.js`, `address-rules.js`, `topups.js`, `purchase.js` (fake DHL client) with anonymized fixtures.
 - `lib/dhl-api.js` — 30s timeout on every call. Internetmarke auth with in-memory token cache, cart init, purchase payload (with shopOrderId), purchase call, cart retrieve, wallet charge, voucher refund.
-- `lib/label-storage.js` — PDFs + `labels.json` metadata in `PDF_STORAGE_PATH`.
+- `lib/label-storage.js` — PDFs + `labels.json` metadata in `PDF_STORAGE_PATH`. Retention cleanup (startup + daily): indexed labels by `createdAt`, unindexed `.pdf`/`.png` by file mtime.
 - `lib/pdf-cropper.js` — pixel-scan content detection + page-box crop; rotation.
 - `lib/cups-printer.js` — IPP Print-Job with explicit media size.
 - `lib/european-address-parser.js` — heuristic parser; outputs German country names.
