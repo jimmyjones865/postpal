@@ -18,7 +18,7 @@ const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen
 const SUBJECT_RE = /Online Frankierung\s+([A-Z0-9]{12})\s*$/;
 
 const NAMES = { PAECKXS: 'DHL Päckchen XS', PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg', PAK20: 'DHL Paket 20 kg' };
-const INSURANCE_NAMES = { VERSI: 'versichert 2.500 €', HVERSI1000: 'versichert 1.000 €' };
+const INSURANCE_NAMES = { VERSI: 'versichert 2.500 €', HVERSI1000: 'versichert 1.000 €', HVERSI2000: 'versichert 2.000 €' };
 export const pakProductName = (productId, insurance) => `${NAMES[productId] || productId}${insurance ? ` ${INSURANCE_NAMES[insurance] || insurance}` : ''}`;
 
 // "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
