@@ -276,7 +276,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
     const tracking = base.tracked && label.trackId ? `\n📦 ${label.trackId} <${TRACK_URL}${encodeURIComponent(label.trackId)}>` : '';
-    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${base.itemList ?? ''}`);
+    const address = base.recipientAddress ? `\n\`\`\`\n${base.recipientAddress}\n\`\`\`` : '';
+    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${address}${base.itemList ?? ''}`);
   }
 
   /**
