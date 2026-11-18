@@ -19,6 +19,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/cm-intake.js` — Cardmarket email intake: IMAP poll → decide → buy → print → Discord; state in `cm-orders.json`.
 - `lib/cm-email.js` — pure CM mail parsing + `decide` (all no-buy rules, Paket vs letter); tested.
 - `lib/discord.js` — webhook notices, never throws; order summary + item block.
+- `lib/mail-archive.js` — mark handled mails read + move to archive folder.
 - `lib/topups.js` — top-up limits + ledger `topups.json`, shared by UI and auto top-up.
 - `lib/print-window.js` — Berlin-time print windows for CM intake.
 - `lib/print-label.js` — `printStoredLabel`: crop → media size → rotate → CUPS; `printWithSettings` uses `settings.json` printer values.
@@ -82,7 +83,8 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - Top-ups: 10 € DHL minimum, `TOPUP_MAX_EUR` per charge, `TOPUP_DAILY_MAX_EUR` per Berlin day incl. auto. Ledger entry written `pending` before the DHL call; only `rejected` frees the cap (lost response/crash still counts).
 
 ### CM intake
-- Off unless `MAIL_*` set. Read-only IMAP poll of `MAIL_FOLDER` (default `INBOX,Archive` — mail gets archived fast), server-side subject search, 7-day lookback.
+- Off unless `MAIL_*` set. IMAP poll of `MAIL_FOLDER` (default `INBOX,Archive` — mail gets archived fast), server-side subject search, 7-day lookback.
+- `lib/mail-archive.js`: CM mails of `bought`/`paket` orders and DHL mails of `done` carts → `\Seen` + moved to `MAIL_ARCHIVE_FOLDER` (default `Archive`, empty = read-only). Other states stay in the inbox as a to-do. CM mails archive in the same poll, DHL mails on the next. Mails before `startedAt` untouched.
 - Settings (dry run, daily cap, auto top-up, print windows) re-read at the start of every poll; a change after startup → one `⚙️` notice. LIVE without DHL creds or sender → dry run, notified once per missing set.
 - Only mail from a `cardmarket.com` domain (+ DKIM pass when the top `Authentication-Results` exists); others → `foreign`, one notice, never recorded under the order ID.
 - Dedupe by order ID only: CM sometimes sends the same ship mail twice minutes apart, and mail moves INBOX → Archive. An order is written `processing` before the DHL call (shopOrderId added once reserved); on restart those become `interrupted`.
@@ -97,6 +99,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `cm-shipping.json` Paket keys are per destination (ISO3 beats `EU`) because costs collide across countries (EU Päckchen M = DE PAK10 = 11.49). Paket match wins over a letter code; unlisted cost = no label.
 
 ### DHL Paket
+- Discord pay links are markdown `[Pay](<POSTPAL_URL…>) · [LAN](<POSTPAL_LOCAL_URL…>)`; UI/API still get plain `payUrl`.
 - Payment is always manual in DHL's checkout (`entryUrl`); `createCart` returns no cart id. `notifyUrl` (`POSTPAL_URL/dhl-paid?order=<id>&cart=<n>`) is never called, only echoed by `getCart` — used as the order tag.
 - Paid state comes from DHL's confirmation mail (`noreply@dhl.com` + DKIM, cart id in subject), polled with the CM IMAP client, also in dry run. Unpaid carts can't be looked up, so any order in a cart opened <30 min ago gets a confirm page instead of a new cart.
 - Pay-all cart matches items by `position` (= request order) with receiver plz + name2 check, else unique plz+name2 match, else `⚠️` unmatched and no label. Single-order tag: all items belong to it.

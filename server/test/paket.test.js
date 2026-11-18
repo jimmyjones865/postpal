@@ -44,7 +44,7 @@ async function setup({ cart } = {}) {
   };
   const storage = { saveLabel: async (pdf, info) => { const l = { id: `l${saved.length + 1}`, ...info }; saved.push(l); return l; } };
   const settings = { get: () => ({ senderAddress: { name: 'S', company: 'C', street: 'Zimmerstr. 23', postalCode: '10969', city: 'Berlin', country: 'Deutschland' }, printerConfig: { enableDirectPrint: false } }) };
-  const svc = createPaketService({ storage, settings, pakClient, storagePath: dir, publicUrl: 'http://pp', confirmEmail: 'm@x.io', notify: async t => notices.push(t), print: async () => ({ skipped: true }) });
+  const svc = createPaketService({ storage, settings, pakClient, storagePath: dir, publicUrl: 'http://pp', localUrl: 'http://10.0.0.50:3001', confirmEmail: 'm@x.io', notify: async t => notices.push(t), print: async () => ({ skipped: true }) });
   return { svc, notices, carts, saved, dir };
 }
 
@@ -118,7 +118,7 @@ test('remindUnpaid: once per Berlin day from 09:00, only older orders', async ()
   assert.equal(t.notices.length, 0);
   const later = new Date('2026-11-19T08:30:00Z');
   await t.svc.remindUnpaid(later);
-  assert.match(t.notices.at(-1), /⏳ 1 Paket order not paid yet:\n• bob: Paket 2 kg → http:\/\/pp\/api\/paket\/pay\/o1/);
+  assert.match(t.notices.at(-1), /⏳ 1 Paket order not paid yet:\n• bob: Paket 2 kg → \[Pay\]\(<http:\/\/pp\/api\/paket\/pay\/o1>\) · \[LAN\]\(<http:\/\/10\.0\.0\.50:3001\/api\/paket\/pay\/o1>\)$/);
   await t.svc.remindUnpaid(new Date('2026-11-19T15:00:00Z'));
   assert.equal(t.notices.length, 1);
 });
@@ -159,6 +159,7 @@ test('pay all: one cart for every open order, items matched by position + recipi
   const added = await t.svc.addOrder(cmOrder);
   assert.equal(added.openCount, 2);
   assert.equal(added.payAllUrl, 'http://pp/api/paket/pay-all');
+  assert.equal(added.payAllMd, '[Pay all](<http://pp/api/paket/pay-all>) · [LAN](<http://10.0.0.50:3001/api/paket/pay-all>)');
 
   const r = await t.svc.payAll();
   assert.equal(r.entryUrl, 'https://dhl/entry/1');
@@ -198,4 +199,24 @@ test('manual order: recipient email passed to DHL', async () => {
   await t.svc.addOrder({ ...order, receiver: { ...order.receiver, email: 'r@x.io' } });
   await t.svc.startPayment('o1');
   assert.equal(t.carts[0].shipments[0].receiver.email, 'r@x.io');
+});
+
+test('pollMails: done cart mail marked read + archived, readOnly in archive folder', async () => {
+  const t = await setup({ cart: paidCart('o1') });
+  await t.svc.addOrder(order);
+  await t.svc.handlePaidCart('CART00000001');
+  const ops = [];
+  const mail = { uid: 7, internalDate: new Date(), envelope: { subject: 'Auftragsbestätigung Ihrer Online Frankierung CART00000001', from: [{ address: 'noreply@dhl.com' }] }, headers: Buffer.from('') };
+  const client = {
+    getMailboxLock: async (folder, opts) => { ops.push(['lock', folder, opts.readOnly]); return { release() {} }; },
+    search: async () => [7],
+    fetch: async function* () { yield mail; },
+    messageFlagsAdd: async (uids, flags) => ops.push(['flags', uids, flags]),
+    messageMove: async (uids, dest) => ops.push(['move', uids, dest]),
+  };
+  await t.svc.pollMails(client, ['INBOX', 'Archive'], 'Archive');
+  assert.deepEqual(ops, [['lock', 'INBOX', false], ['flags', [7], ['\\Seen']], ['move', [7], 'Archive'], ['lock', 'Archive', true]]);
+  ops.length = 0;
+  await t.svc.pollMails(client, ['INBOX'], '');
+  assert.deepEqual(ops, [['lock', 'INBOX', true]]);
 });

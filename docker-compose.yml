@@ -51,6 +51,8 @@ services:
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FOLDER=${MAIL_FOLDER:-INBOX,Archive}
+      # Handled mails marked read + moved here; set empty to leave the mailbox untouched
+      - MAIL_ARCHIVE_FOLDER=${MAIL_ARCHIVE_FOLDER-Archive}
       - MAIL_POLL_SECONDS=${MAIL_POLL_SECONDS:-120}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
       - DISCORD_MESSAGE_ITEMS_LIST=${DISCORD_MESSAGE_ITEMS_LIST:-true}
@@ -66,6 +68,8 @@ services:
       - DHL_PAKET_EMAIL=${DHL_PAKET_EMAIL}
       # URL postpal is opened at: /pay links in Discord + cart tag
       - POSTPAL_URL=${POSTPAL_URL}
+      # Optional 2nd pay link in Discord (LAN address)
+      - POSTPAL_LOCAL_URL=${POSTPAL_LOCAL_URL}
       - AUTO_TOPUP_EUR=${AUTO_TOPUP_EUR:-0}
       - AUTO_TOPUP_DAILY_MAX_EUR=${AUTO_TOPUP_DAILY_MAX_EUR:-}
     restart: unless-stopped

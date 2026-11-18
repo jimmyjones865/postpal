@@ -40,6 +40,7 @@ export function createApiRouter() {
     storagePath: PDF_STORAGE_PATH,
     // Base for /pay links in Discord + the cart tag; must be the URL Carl opens postpal at
     publicUrl: (process.env.POSTPAL_URL || 'http://localhost:3001').replace(/\/$/, ''),
+    localUrl: process.env.POSTPAL_LOCAL_URL?.replace(/\/$/, '') || undefined,
     confirmEmail: process.env.DHL_PAKET_EMAIL,
     notify,
     print: labelId => printWithSettings(storage, settings, labelId)

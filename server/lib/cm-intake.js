@@ -1,4 +1,4 @@
-// Cardmarket order email → label bought + printed. Polls IMAP read-only; never touches flags or folders.
+// Cardmarket order email → label bought + printed. Handled mails (bought / Paket pay link) are marked read and archived.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -11,6 +11,7 @@ import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
 import { printWithSettings } from './print-label.js';
 import { notify } from './discord.js';
+import { archiveMails, archiveFolderFromEnv } from './mail-archive.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
 import { parseWindow, printWindowState, showWindow } from './print-window.js';
 import { pakProductName } from './paket.js';
@@ -25,6 +26,8 @@ const RECOVER = new Set(['uncertain', 'bought-unstored', 'interrupted', 'error']
 const RECOVER_AFTER_MS = 60_000;
 // Mail seen but not processed yet: picked up again on the next poll
 const WAITING = new Set(['retry', 'queued']);
+// Mail no longer needed: label bought or Paket order created. Others stay in the inbox as a to-do.
+const ARCHIVE = new Set(['bought', 'paket']);
 export const TRACK_URL = 'https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=';
 
 let stopping = false;
@@ -46,6 +49,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     pass: process.env.MAIL_PASSWORD,
     // Mail is moved to Archive quickly, so both are watched by default
     folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
+    archiveFolder: archiveFolderFromEnv(),
     itemsList: process.env.DISCORD_MESSAGE_ITEMS_LIST !== 'false',
     pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000
   };
@@ -275,10 +279,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
-    const { payUrl, openCount, payAllUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
+    const { payMd, openCount, payAllMd } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
     await record(orderId, 'paket', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
-    const payAll = openCount > 1 ? `\n💳 All ${openCount} open in one payment: ${payAllUrl}` : '';
-    await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}${payAll}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+    const payAll = openCount > 1 ? `\n💳 All ${openCount} open in one payment: ${payAllMd}` : '';
+    await say(`💳 CM ${orderId}: ${what} — ${payMd}${payAll}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
 
   /** Records a stored label, prints it, posts ✅. */
@@ -376,7 +380,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       const since = new Date(Math.max(startedAt, Date.now() - 7 * 86_400_000));
       for (const folder of cfg.folders) {
         if (stopping) break;
-        const lock = await client.getMailboxLock(folder, { readOnly: true });
+        const lock = await client.getMailboxLock(folder, { readOnly: !cfg.archiveFolder || folder === cfg.archiveFolder });
         try {
           const uids = await client.search(
             { since, or: [{ subject: 'Bitte versenden' }, { subject: 'Please ship' }] },
@@ -384,6 +388,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
           ) || [];
           const candidates = [];
           const foreign = [];
+          const genuine = [];
           // Chunked: servers cap command length (4096 bytes seen)
           for (let i = 0; i < uids.length; i += 200) {
             const query = { envelope: true, internalDate: true, headers: ['authentication-results'] };
@@ -393,6 +398,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
               // Sender before dedupe: a fake reusing a known order ID still gets its notice
               const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
               if (problem) { foreign.push({ msg, orderId, problem }); continue; }
+              genuine.push({ uid: msg.uid, orderId });
               const known = state.orders[orderId];
               if (!known || WAITING.has(known.status)) candidates.push({ uid: msg.uid, orderId, buyer });
             }
@@ -429,12 +435,13 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
               await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
             }
           }
+          await archiveMails(client, folder, genuine.filter(m => ARCHIVE.has(state.orders[m.orderId]?.status)).map(m => m.uid), cfg.archiveFolder);
         } finally {
           lock.release();
         }
       }
       // Paid DHL Paket carts: payment is manual, so handled in dry run too
-      if (paket && !stopping) await paket.pollMails(client, cfg.folders).catch(err => logger.error('[Paket] Mail poll failed:', err.message));
+      if (paket && !stopping) await paket.pollMails(client, cfg.folders, cfg.archiveFolder).catch(err => logger.error('[Paket] Mail poll failed:', err.message));
       await client.logout();
       if (failing) await notify('✅ CM mail polling recovered.');
       failing = false;

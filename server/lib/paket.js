@@ -8,6 +8,7 @@ import { topHeader } from './cm-email.js';
 import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
+import { archiveMails } from './mail-archive.js';
 
 const KEEP_MS = 14 * 86_400_000;
 // Earlier cart opened this recently and not confirmed paid → ask before opening another
@@ -64,7 +65,7 @@ export function dhlSenderProblem(from = '', authResults) {
 }
 
 // print(labelId) → { success } | { skipped } | { success: false, error }
-export function createPaketService({ storage, settings, pakClient, storagePath, publicUrl, confirmEmail, notify, print }) {
+export function createPaketService({ storage, settings, pakClient, storagePath, publicUrl, localUrl, confirmEmail, notify, print }) {
   const statePath = path.join(storagePath, 'paket-orders.json');
   let state;
   let queue = Promise.resolve();
@@ -94,6 +95,10 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
 
   const payLink = id => `${publicUrl}/api/paket/pay/${encodeURIComponent(id)}`;
   const payAllLink = `${publicUrl}/api/paket/pay-all`;
+  // Discord markdown: main link + LAN fallback when POSTPAL_LOCAL_URL is set
+  const md = (label, p) => [`[${label}](<${publicUrl}${p}>)`, localUrl && `[LAN](<${localUrl}${p}>)`].filter(Boolean).join(' · ');
+  const payMd = id => md('Pay', `/api/paket/pay/${encodeURIComponent(id)}`);
+  const payAllMd = () => md('Pay all', '/api/paket/pay-all');
   // Oldest first (object order puts numeric CM ids before ui-… ids)
   const openIds = () => Object.entries(state.orders).filter(([, o]) => o.status === 'awaiting-pay').sort(([, a], [, b]) => Date.parse(a.at) - Date.parse(b.at)).map(([id]) => id);
 
@@ -104,7 +109,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       if (state.orders[order.id]) return { order: state.orders[order.id], existed: true };
       state.orders[order.id] = { ...order, status: 'awaiting-pay', carts: [], labels: [], at: new Date().toISOString() };
       await save();
-      return { order: state.orders[order.id], payUrl: payLink(order.id), openCount: openIds().length, payAllUrl: payAllLink };
+      return { order: state.orders[order.id], payUrl: payLink(order.id), payMd: payMd(order.id), openCount: openIds().length, payAllUrl: payAllLink, payAllMd: payAllMd() };
     });
   }
 
@@ -156,9 +161,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     state.remindedDay = today;
     await save();
     if (!open.length) return;
-    const lines = open.map(([id, o]) => `• ${o.buyer ?? id}: ${o.productName} → ${payLink(id)}`);
+    const lines = open.map(([id, o]) => `• ${o.buyer ?? id}: ${o.productName} → ${payMd(id)}`);
     const all = openIds().length;
-    const payAll = all > 1 ? `\n💳 All ${all} open in one payment: ${payAllLink}` : '';
+    const payAll = all > 1 ? `\n💳 All ${all} open in one payment: ${payAllMd()}` : '';
     await notify(`⏳ ${open.length} Paket order${open.length === 1 ? '' : 's'} not paid yet:\n${lines.join('\n')}${payAll}`);
   }
 
@@ -307,13 +312,14 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     });
   }
 
-  /** Called from the CM intake poll with its open IMAP client. */
-  async function pollMails(client, folders) {
+  /** Called from the CM intake poll with its open IMAP client. Mails of done carts are archived (newly paid ones on the next poll). */
+  async function pollMails(client, folders, archiveFolder) {
     await load();
     const since = new Date(Math.max(Date.parse(state.startedAt), Date.now() - LOOKBACK_MS));
     const found = [];
     for (const folder of folders) {
-      const lock = await client.getMailboxLock(folder, { readOnly: true });
+      const lock = await client.getMailboxLock(folder, { readOnly: !archiveFolder || folder === archiveFolder });
+      const done = [];
       try {
         const uids = await client.search({ since, from: 'dhl.com', subject: 'Online Frankierung' }, { uid: true }) || [];
         for (let i = 0; i < uids.length; i += 200) {
@@ -322,6 +328,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
             const cartId = msg.envelope?.subject?.match(SUBJECT_RE)?.[1];
             if (!cartId || msg.internalDate < since) continue;
             const known = state.carts[cartId];
+            if (known?.status === 'done') done.push(msg.uid);
             if (known && known.status !== 'error') continue;
             const problem = dhlSenderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
             if (problem) {
@@ -331,6 +338,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
             found.push(cartId);
           }
         }
+        await archiveMails(client, folder, done, archiveFolder);
       } finally {
         lock.release();
       }
