@@ -16,12 +16,12 @@ export function createPaketRouter(paket) {
 
   // Manual Paket buy from the UI. receiver = postpal receiver shape with ISO3 country.
   router.post('/orders', async (req, res) => {
-    const { productId, productName, insured, receiver, recipientAddress } = req.body || {};
+    const { productId, productName, insurance, receiver, recipientAddress } = req.body || {};
     if (!productId || !receiver?.name || !receiver?.addressLine1 || !receiver?.postalCode || !receiver?.city || !/^[A-Z]{3}$/.test(receiver?.country || '')) {
       return res.status(400).json({ error: 'productId and receiver (name, addressLine1, postalCode, city, ISO3 country) required' });
     }
     const id = `ui-${Date.now().toString(36)}`;
-    const r = await paket.addOrder({ id, source: 'ui', productId, productName: productName || productId, insured: !!insured, receiver, recipientAddress });
+    const r = await paket.addOrder({ id, source: 'ui', productId, productName: productName || productId, insurance: insurance || null, receiver, recipientAddress });
     res.status(201).json(r);
   });
 

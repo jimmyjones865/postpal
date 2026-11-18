@@ -17,8 +17,9 @@ const TAG_PATH = '/dhl-paid';
 const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=';
 const SUBJECT_RE = /Online Frankierung\s+([A-Z0-9]{12})\s*$/;
 
-const NAMES = { PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg' };
-export const pakProductName = (productId, insured) => `${NAMES[productId] || productId}${insured ? ' versichert' : ''}`;
+const NAMES = { PAECKXS: 'DHL Päckchen XS', PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg', PAK20: 'DHL Paket 20 kg' };
+const INSURANCE_NAMES = { VERSI: 'versichert 2.500 €', HVERSI1000: 'versichert 1.000 €' };
+export const pakProductName = (productId, insurance) => `${NAMES[productId] || productId}${insurance ? ` ${INSURANCE_NAMES[insurance] || insurance}` : ''}`;
 
 // "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
 export function splitStreet(line = '') {
@@ -89,7 +90,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
 
   const payLink = id => `${publicUrl}/api/paket/pay/${encodeURIComponent(id)}`;
 
-  /** { id, source, productId, productName, insured, receiver, recipientAddress, buyer?, summary?, itemList? } */
+  /** { id, source, productId, productName, insurance, receiver, recipientAddress, buyer?, summary?, itemList? } */
   function addOrder(order) {
     return serial(async () => {
       await load();
@@ -106,9 +107,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   }
 
   /** Current DHL price in EUR, null if unknown (catalog down / not offered). */
-  async function quote(productId, insured, country) {
+  async function quote(productId, insurance, country) {
     try {
-      return catalogPrice(await pakClient.getCatalog(), productId, country, { insured });
+      return catalogPrice(await pakClient.getCatalog(), productId, country, { insurance });
     } catch (err) {
       logger.warn('[Paket] Catalog failed:', err.message);
       return null;
@@ -150,7 +151,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       const n = o.carts.length + 1;
       const notifyUrl = `${publicUrl}${TAG_PATH}?order=${encodeURIComponent(id)}&cart=${n}`;
       const { entryUrl } = await pakClient.createCart({
-        productId: o.productId, insured: o.insured, sender: senderAddress(), receiver: toPakAddress(o.receiver), email: confirmEmail, notifyUrl,
+        productId: o.productId, insurance: o.insurance, sender: senderAddress(), receiver: toPakAddress(o.receiver), email: confirmEmail, notifyUrl,
       });
       o.carts.push({ n, at: new Date().toISOString() });
       await save();

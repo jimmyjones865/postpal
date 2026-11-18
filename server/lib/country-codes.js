@@ -313,6 +313,9 @@ export const COUNTRY_CODES = {
 const ISO3_CODES = new Set(Object.values(COUNTRY_CODES));
 
 /** Resolves a country name, or an already valid ISO3 code, to ISO3. */
+// DHL's catalog prices EU destinations under the region id "EU" (no member list in the API)
+export const EU_ISO3 = new Set(['AUT', 'BEL', 'BGR', 'HRV', 'CYP', 'CZE', 'DNK', 'EST', 'FIN', 'FRA', 'GRC', 'HUN', 'IRL', 'ITA', 'LVA', 'LTU', 'LUX', 'MLT', 'NLD', 'POL', 'PRT', 'ROU', 'SVK', 'SVN', 'ESP', 'SWE']);
+
 export function getCountryCode(country) {
   const normalized = (country || '').toLowerCase().trim();
   if (COUNTRY_CODES[normalized]) return COUNTRY_CODES[normalized];

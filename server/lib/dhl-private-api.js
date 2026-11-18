@@ -1,6 +1,7 @@
 // DHL Parcel DE "Private Shipping" (Online-Frankierung) API: carts are paid by hand in DHL's checkout,
 // then read back here for the label.
 import { logger } from './logger.js';
+import { EU_ISO3 } from './country-codes.js';
 
 const HOSTS = {
   prod: 'https://api-eu.dhl.com/parcel/de/shipping/of/v1/public',
@@ -8,7 +9,6 @@ const HOSTS = {
 };
 const TIMEOUT_MS = 30_000;
 const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
-const INSURANCE = 'VERSI';
 
 export class PakApiError extends Error {
   constructor(status, code, detail) {
@@ -26,14 +26,18 @@ export function pakConfigFromEnv(env = process.env) {
   };
 }
 
-// Price in EUR for a product to an ISO3 country, insurance included; null if not offered there.
-export function catalogPrice(catalog, productId, country, { insured = false } = {}) {
+// Explicit country beats a region id
+const regionPrice = (regions, country) =>
+  (regions?.find((r) => r.countries?.includes(country)) ?? (EU_ISO3.has(country) ? regions?.find((r) => r.countries?.includes('EU')) : undefined))?.price?.amount;
+
+// Price in EUR for a product to an ISO3 country, insurance service (VERSI, HVERSI1000, …) included; null if not offered there.
+export function catalogPrice(catalog, productId, country, { insurance } = {}) {
   const product = catalog?.products?.[productId];
-  const base = product?.regions?.find((r) => r.countries?.includes(country))?.price?.amount;
+  const base = regionPrice(product?.regions, country);
   if (base == null) return null;
-  if (!insured) return Number(base);
-  if (!product.availableServices?.includes(INSURANCE)) return null;
-  const extra = catalog.services?.[INSURANCE]?.regions?.find((r) => r.countries?.includes(country))?.price?.amount;
+  if (!insurance) return Number(base);
+  if (!product.availableServices?.includes(insurance)) return null;
+  const extra = regionPrice(catalog.services?.[insurance]?.regions, country);
   return extra == null ? null : Math.round((Number(base) + Number(extra)) * 100) / 100;
 }
 
@@ -71,12 +75,12 @@ export function createPakClient({ apiKey, sandbox = false, fetchFn = fetch } = {
 
   // sender/receiver are DHL-shaped Address objects (name2, street, streetNumber, plz, city, country ISO3).
   // notifyUrl is never called back locally; it tags the cart so a paid cart maps to our order.
-  async function createCart({ productId, insured = false, sender, receiver, email, notifyUrl }) {
+  async function createCart({ productId, insurance, sender, receiver, email, notifyUrl }) {
     const item = {
       type: 'ShipmentItem',
-      product: { id: insured ? `${productId}.${INSURANCE}` : productId },
+      product: { id: insurance ? `${productId}.${insurance}` : productId },
       address: { sender: { ...sender, email }, receiver },
-      ...(insured ? { services: { [INSURANCE]: {} } } : {}),
+      ...(insurance ? { services: { [insurance]: {} } } : {}),
       ...(receiver.country !== 'DEU' ? { preAdvice: 'PA_RETURN' } : {}),
     };
     const data = await call('/shopping-carts/pre-paid', {

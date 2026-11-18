@@ -4,17 +4,20 @@ import { catalogPrice, createPakClient } from '../lib/dhl-private-api.js';
 
 const catalog = {
   products: {
-    PAK02: { regions: [{ countries: ['DEU'], price: { amount: '6.19' } }, { countries: ['NLD'], price: { amount: '14.49' } }], availableServices: ['VERSI'] },
+    PAK02: { regions: [{ countries: ['DEU'], price: { amount: '6.19' } }, { countries: ['EU'], price: { amount: '14.49' } }, { countries: ['CHE'], price: { amount: '30.00' } }], availableServices: ['VERSI', 'HVERSI1000'] },
     PAECK: { regions: [{ countries: ['DEU'], price: { amount: '5.19' } }], availableServices: ['ROLLE'] },
   },
-  services: { VERSI: { regions: [{ countries: ['DEU'], price: { amount: '6.99' } }] } },
+  services: { VERSI: { regions: [{ countries: ['DEU'], price: { amount: '6.99' } }] }, HVERSI1000: { regions: [{ countries: ['EU', 'CHE'], price: { amount: '14.00' } }] } },
 };
 
-test('catalogPrice: base, insured, unavailable', () => {
+test('catalogPrice: base, EU region, insurance, unavailable', () => {
   assert.equal(catalogPrice(catalog, 'PAK02', 'DEU'), 6.19);
-  assert.equal(catalogPrice(catalog, 'PAK02', 'DEU', { insured: true }), 13.18);
-  assert.equal(catalogPrice(catalog, 'PAK02', 'NLD', { insured: true }), null);
-  assert.equal(catalogPrice(catalog, 'PAECK', 'DEU', { insured: true }), null);
+  assert.equal(catalogPrice(catalog, 'PAK02', 'NLD'), 14.49);
+  assert.equal(catalogPrice(catalog, 'PAK02', 'CHE'), 30);
+  assert.equal(catalogPrice(catalog, 'PAK02', 'DEU', { insurance: 'VERSI' }), 13.18);
+  assert.equal(catalogPrice(catalog, 'PAK02', 'NLD', { insurance: 'VERSI' }), null);
+  assert.equal(catalogPrice(catalog, 'PAK02', 'NLD', { insurance: 'HVERSI1000' }), 28.49);
+  assert.equal(catalogPrice(catalog, 'PAECK', 'DEU', { insurance: 'VERSI' }), null);
   assert.equal(catalogPrice(catalog, 'PAK02', 'USA'), null);
   assert.equal(catalogPrice(catalog, 'NOPE', 'DEU'), null);
 });
@@ -28,13 +31,13 @@ test('getCart: unknown id → null, other errors throw', async () => {
   await assert.rejects(down.getCart('ABC'), /500 X/);
 });
 
-test('createCart: insured + international payload', async () => {
+test('createCart: insurance + international payload', async () => {
   let sent;
   const client = createPakClient({ apiKey: 'k', fetchFn: async (url, opts) => {
     sent = JSON.parse(opts.body);
     return new Response(JSON.stringify({ shoppingcart: { state: 'PREPAID', download: { entryUrl: 'https://x' } } }), { status: 201 });
   } });
-  await client.createCart({ productId: 'PAK05', insured: true, sender: { name2: 'S' }, receiver: { name2: 'R', country: 'DEU' }, email: 'a@b.c', notifyUrl: 'http://t?order=1' });
+  await client.createCart({ productId: 'PAK05', insurance: 'VERSI', sender: { name2: 'S' }, receiver: { name2: 'R', country: 'DEU' }, email: 'a@b.c', notifyUrl: 'http://t?order=1' });
   const item = sent.shoppingcart.items[0];
   assert.equal(item.product.id, 'PAK05.VERSI');
   assert.deepEqual(item.services, { VERSI: {} });

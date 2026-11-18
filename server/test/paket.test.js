@@ -47,7 +47,7 @@ async function setup({ cart } = {}) {
   return { svc, notices, carts, saved, dir };
 }
 
-const order = { id: 'o1', source: 'ui', productId: 'PAK02', productName: 'Paket 2 kg', insured: false, receiver: { name: 'R', addressLine1: 'Weg 2', postalCode: '10115', city: 'Berlin', country: 'DEU' }, recipientAddress: 'R\nWeg 2\n10115 Berlin' };
+const order = { id: 'o1', source: 'ui', productId: 'PAK02', productName: 'Paket 2 kg', insurance: null, receiver: { name: 'R', addressLine1: 'Weg 2', postalCode: '10115', city: 'Berlin', country: 'DEU' }, recipientAddress: 'R\nWeg 2\n10115 Berlin' };
 const paidCart = (orderId, pakIds = ['PAK1']) => ({ cartId: 'CART00000001', state: 'PAYED', notifyUrl: `http://pp/dhl-paid?order=${orderId}&cart=1`,
   items: pakIds.map(p => ({ state: 'PAYED', productId: 'PAK02', pakId: p, shipmentNumber: `SN${p}`, price: 6.19 })) });
 

@@ -2,7 +2,7 @@
 
 import { parseAddress } from './european-address-parser.js';
 import { prepareReceiver } from './address-rules.js';
-import { getCountryCode } from './country-codes.js';
+import { getCountryCode, EU_ISO3 } from './country-codes.js';
 
 const SUBJECT_PATTERNS = [
   /^Bestellung (\d+) für (.+): Bitte versenden$/,
@@ -75,7 +75,7 @@ export function itemBlock(items) {
 
 /**
  * Checks one parsed email against all no-buy rules.
- * Returns { ok: true, product, priceCents, receiver, recipientAddress } (letter), { ok: true, paket: { productId, insured }, receiver, recipientAddress }
+ * Returns { ok: true, product, priceCents, receiver, recipientAddress } (letter), { ok: true, paket: { productId, insurance }, receiver, recipientAddress }
  * (DHL Paket: no cap, paid by hand) or { ok: false, reason }.
  */
 export function decide({ subjectOrderId, orderId, addressLines, costEur }, { costTable, products, boughtToday, dailyCap }) {
@@ -95,10 +95,11 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
   const country = getCountryCode(parsed.country);
   if (!country) return { ok: false, reason: `unknown country "${parsed.country}"` };
 
-  const paketCode = paketTable[country]?.[costEur];
+  const paketCode = (paketTable[country] ?? (EU_ISO3.has(country) ? paketTable.EU : undefined))?.[costEur];
   let product, priceCents, paket;
   if (paketCode) {
-    paket = { productId: paketCode.replace(/\.VERSI$/, ''), insured: paketCode.endsWith('.VERSI') };
+    const [productId, insurance] = paketCode.split('.');
+    paket = { productId, insurance: insurance || null };
   } else {
     if (!letterCode) return { ok: false, reason: `shipping cost ${costEur.replace('.', ',')} EUR has no Paket product for ${country}` };
     product = products.find(p => p.code === letterCode);

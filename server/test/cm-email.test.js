@@ -79,16 +79,21 @@ test('no-buy rules', () => {
   assert.match(reason({ addressLines: ['Jan 王', 'Hauptstraße 1', '10115 Berlin', 'Germany'] }), /invalid characters: 王/);
 });
 
-test('Paket costs: per destination, insured suffix, no cap', () => {
+test('Paket costs: per destination, insurance suffix, no cap', () => {
   const { subject, text } = split(fixture('cm-en.txt'));
   const body = parseBody(text);
   const id = matchSubject(subject).orderId;
   const d = (b, l = limits) => decide({ subjectOrderId: id, ...body, ...b }, l);
-  assert.deepEqual(d({ costEur: '7.19' }).paket, { productId: 'PAK02', insured: false });
-  assert.deepEqual(d({ costEur: '15.68' }).paket, { productId: 'PAK05', insured: true });
+  assert.deepEqual(d({ costEur: '7.19' }).paket, { productId: 'PAK02', insurance: null });
+  assert.deepEqual(d({ costEur: '15.68' }).paket, { productId: 'PAK05', insurance: 'VERSI' });
   assert.equal(d({ costEur: '5.19' }, { ...limits, boughtToday: 30 }).ok, true, 'Paket ignores the label cap');
-  const pl = ['Jan Kowalski', 'Dluga 7', '00-001 Warszawa', 'Poland'];
-  assert.match(d({ costEur: '11.49', addressLines: pl }).reason, /11,49 EUR has no Paket product for POL/);
+  const nl = ['Jan de Vries', 'Kerkstraat 7', '1017 GC Amsterdam', 'Netherlands'];
+  assert.deepEqual(d({ costEur: '11.49', addressLines: nl }).paket, { productId: 'PAECK', insurance: null }, 'EU table, not DE PAK10');
+  assert.deepEqual(d({ costEur: '11.49' }).paket, { productId: 'PAK10', insurance: null });
+  assert.deepEqual(d({ costEur: '32.49', addressLines: nl }).paket, { productId: 'PAK05', insurance: 'HVERSI1000' });
+  assert.match(d({ costEur: '7.19', addressLines: nl }).reason, /7,19 EUR has no Paket product for NLD/);
+  const ch = ['Hans Muster', 'Bahnhofstrasse 1', '8001 Zürich', 'Switzerland'];
+  assert.match(d({ costEur: '15.49', addressLines: ch }).reason, /no Paket product for CHE/);
   assert.equal(d({ costEur: '1.25' }).paket, undefined);
 });
 

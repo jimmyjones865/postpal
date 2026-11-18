@@ -259,9 +259,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   }
 
   /** DHL Paket: no purchase here — an order awaiting manual payment via the pay link. Nothing is spent, so no cap. */
-  async function paketOrder(orderId, { buyer, summary, itemList, say, receiver, recipientAddress, productId, insured }) {
-    const productName = pakProductName(productId, insured);
-    const price = await paket?.quote(productId, insured, receiver.country);
+  async function paketOrder(orderId, { buyer, summary, itemList, say, receiver, recipientAddress, productId, insurance }) {
+    const productName = pakProductName(productId, insurance);
+    const price = await paket?.quote(productId, insurance, receiver.country);
     const what = `${productName}${price != null ? ` (${price.toFixed(2)} €)` : ''}`;
     if (!paket) {
       await record(orderId, 'skipped', { reason: 'DHL Paket not configured' });
@@ -269,12 +269,12 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       return;
     }
     if (cfg.dryRun) {
-      await record(orderId, 'dry-run', { paketProduct: productId, insured });
+      await record(orderId, 'dry-run', { paketProduct: productId, insurance });
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
-    const { payUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insured, receiver, recipientAddress, buyer, summary, itemList });
-    await record(orderId, 'paket', { paketProduct: productId, insured, buyer, summary });
+    const { payUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
+    await record(orderId, 'paket', { paketProduct: productId, insurance, buyer, summary });
     await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
 
