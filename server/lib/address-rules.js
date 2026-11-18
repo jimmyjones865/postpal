@@ -65,9 +65,9 @@ export function sanitizeText(text) {
   return out;
 }
 
-// "Hauptstraße 5" → "Hauptstr. 5", "Straße des 17. Juni" → "Str. des 17. Juni"; "Straßenbahnring" untouched
+// "Hauptstraße 5" → "Hauptstr. 5", "Lange Straße 3" → "Lange Str. 3"; leading "Straße des 17. Juni" and "Straßenbahnring" untouched
 export function shortenStrasse(line) {
-  return line.replace(/(s)(tra)(?:ß|ss)e(?!\p{L})/giu, (_, s, tra) => s + (tra === 'TRA' ? 'TR.' : 'tr.'));
+  return line.replace(/(?<!^\s*)(s)(tra)(?:ß|ss)e(?!\p{L})/giu, (_, s, tra) => s + (tra === 'TRA' ? 'TR.' : 'tr.'));
 }
 
 /** Characters that remain invalid after sanitizing. */
