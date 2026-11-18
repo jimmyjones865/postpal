@@ -11,34 +11,6 @@ interface SettingsResponse {
   intakeEnabled: boolean;
 }
 
-// Settings used to live in this browser's localStorage; moved once to the server, then removed.
-const LEGACY_KEY = 'dp-label-config';
-const LEGACY_DEFAULTS: Record<string, Record<string, unknown>> = {
-  printerConfig: {
-    printerName: '', paperFormatName: '', paperFormatId: 0, orientation: 'portrait',
-    cropMarginTop: 5, cropMarginRight: 5, cropMarginBottom: 5, cropMarginLeft: 5,
-    disableCropping: false, cupsUrl: '', enableDirectPrint: false,
-    paperWidthMm: 62, paperHeightMm: 100, endlessRoll: true,
-  },
-  senderAddress: { name: '', company: '', street: '', city: '', postalCode: '', country: 'DE' },
-};
-
-/** Only values the user changed in the browser: a field still at the old code default meant "use env". */
-function legacyPatch(stored: Patch): Patch | null {
-  let raw: Record<string, unknown> | null = null;
-  try { raw = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null'); } catch { /* unreadable → nothing to move */ }
-  if (!raw) return null;
-  const patch: Record<string, unknown> = {};
-  for (const [section, defaults] of Object.entries(LEGACY_DEFAULTS)) {
-    if (stored[section as keyof Patch]) continue;
-    const local = (raw[section] || {}) as Record<string, unknown>;
-    const changed = Object.fromEntries(Object.entries(local).filter(([k, v]) => k in defaults && v !== defaults[k]));
-    if (Object.keys(changed).length) patch[section] = changed;
-  }
-  if (!stored.hiddenProducts && Array.isArray(raw.favoriteProducts)) patch.hiddenProducts = raw.favoriteProducts;
-  return patch as Patch;
-}
-
 async function send(patch: Patch, keepalive = false): Promise<SettingsResponse> {
   const res = await fetch('/api/settings', {
     method: 'PATCH',
@@ -61,17 +33,7 @@ export function useConfig() {
     try {
       const res = await fetch('/api/settings');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      let body: SettingsResponse = await res.json();
-      const legacy = legacyPatch(body.stored);
-      if (legacy) {
-        try {
-          if (Object.keys(legacy).length) body = await send(legacy);
-          localStorage.removeItem(LEGACY_KEY);
-        } catch (e) {
-          toast.error('Settings: browser values not moved', { description: (e as Error).message });
-        }
-      }
-      setData(body);
+      setData(await res.json());
     } catch (e) {
       toast.error('Settings', { description: (e as Error).message });
     }

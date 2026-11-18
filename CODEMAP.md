@@ -36,7 +36,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 ## Frontend (`src/`)
 - `pages/Index.tsx` — the only page: create / history / intake / settings tabs; owns recipient, product, balance, print-mode state.
 - `services/labelService.ts` — every `/api` call; print/download pick CUPS vs browser print.
-- `hooks/useConfig.ts` — settings via `/api/settings`, debounced PATCH, one-time move of old localStorage config.
+- `hooks/useConfig.ts` — settings via `/api/settings`, debounced PATCH.
 - `hooks/useLabelPurchase.ts` — purchase flow: validation, auto product, country check, buy, print/download.
 - `hooks/usePaket.ts` — Paket cards for the parsed country, order → DHL checkout tab.
 - `hooks/useLabelHistory.ts` — label list state.
