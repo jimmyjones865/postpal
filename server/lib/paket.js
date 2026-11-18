@@ -96,9 +96,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   const payLink = id => `${publicUrl}/api/paket/pay/${encodeURIComponent(id)}`;
   const payAllLink = `${publicUrl}/api/paket/pay-all`;
   // Discord markdown: main link + LAN fallback when POSTPAL_LOCAL_URL is set
-  const md = (label, p) => [`[${label}](<${publicUrl}${p}>)`, localUrl && `[LAN](<${localUrl}${p}>)`].filter(Boolean).join(' · ');
-  const payMd = id => md('Pay', `/api/paket/pay/${encodeURIComponent(id)}`);
-  const payAllMd = () => md('Pay all', '/api/paket/pay-all');
+  const md = p => [`[Tailscale](<${publicUrl}${p}>)`, localUrl && `[LAN](<${localUrl}${p}>)`].filter(Boolean).join(' · ');
+  const payMd = id => md(`/api/paket/pay/${encodeURIComponent(id)}`);
+  const payAllMd = () => md('/api/paket/pay-all');
   // Oldest first (object order puts numeric CM ids before ui-… ids)
   const openIds = () => Object.entries(state.orders).filter(([, o]) => o.status === 'awaiting-pay').sort(([, a], [, b]) => Date.parse(a.at) - Date.parse(b.at)).map(([id]) => id);
 

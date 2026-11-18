@@ -99,7 +99,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `cm-shipping.json` Paket keys are per destination (ISO3 beats `EU`) because costs collide across countries (EU Päckchen M = DE PAK10 = 11.49). Paket match wins over a letter code; unlisted cost = no label.
 
 ### DHL Paket
-- Discord pay links are markdown `[Pay](<POSTPAL_URL…>) · [LAN](<POSTPAL_LOCAL_URL…>)`; UI/API still get plain `payUrl`.
+- Discord pay links are markdown `[Tailscale](<POSTPAL_URL…>) · [LAN](<POSTPAL_LOCAL_URL…>)`; UI/API still get plain `payUrl`.
 - Payment is always manual in DHL's checkout (`entryUrl`); `createCart` returns no cart id. `notifyUrl` (`POSTPAL_URL/dhl-paid?order=<id>&cart=<n>`) is never called, only echoed by `getCart` — used as the order tag.
 - Paid state comes from DHL's confirmation mail (`noreply@dhl.com` + DKIM, cart id in subject), polled with the CM IMAP client, also in dry run. Unpaid carts can't be looked up, so any order in a cart opened <30 min ago gets a confirm page instead of a new cart.
 - Pay-all cart matches items by `position` (= request order) with receiver plz + name2 check, else unique plz+name2 match, else `⚠️` unmatched and no label. Single-order tag: all items belong to it.
