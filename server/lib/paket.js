@@ -9,7 +9,7 @@ import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
 import { archiveMails } from './mail-archive.js';
-import { splitStreet, pakExtraLines } from './address-rules.js';
+import { splitStreet, pakExtraLines, pakLocker } from './address-rules.js';
 
 export { splitStreet };
 
@@ -29,6 +29,14 @@ export const pakProductName = (productId, insurance) => `${NAMES[productId] || p
 
 // Postpal receiver/sender ({ name, additionalName, addressLine1, addressLine2, postalCode, city, country ISO3 }) → DHL Address
 export function toPakAddress(a) {
+  const locker = pakLocker(a);
+  if (locker?.kind) {
+    // Sandbox-tested shape: person in name1, Postnummer in name2, "Packstation"/"Postfiliale" + number as street
+    return {
+      name1: locker.person, name2: locker.postNumber, street: locker.kind, streetNumber: locker.station,
+      plz: a.postalCode, city: a.city, country: a.country, ...(a.email ? { email: a.email } : {}),
+    };
+  }
   const { street, streetNumber } = splitStreet(a.addressLine1);
   const { name3, addressAddition1 } = pakExtraLines(a);
   return {

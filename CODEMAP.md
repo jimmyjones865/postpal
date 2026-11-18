@@ -105,6 +105,8 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - Each order → `done` as soon as its label is stored; a failed item marks the cart `error` (retried each poll, notified once) without holding back the others.
 - Untagged carts (bought outside postpal) → log line only; tagged but unknown order → one notice; cart unknown at DHL (404/`WRONG_SCID`: sandbox test mail in the same mailbox, or a glitch) → notified once, retried 1 h, then `ignored`. 2nd paid cart for an order → stored + double-payment warning.
 - DHL drops `addressAddition1` from German labels (sandbox, 2026-11): DEU line 2 → `name3` (joined with additionalName, 35 together); other countries keep `addressAddition1` (printed after the street).
+- DE Packstation/Postfiliale (`pakLocker`, any line): needs a 6–10 digit Postnummer + a name, else skipped. Sent as name1 person, name2 Postnummer, street `Packstation`/`Postfiliale` + number (sandbox-tested). DHL only warns on an unknown station number — still payable.
+- Paket needs a house number (`splitStreet`: trailing, or leading for FR-style `12 rue …`).
 - Paket receivers: `prepareReceiver(…, { paket: true })` — sanitized, no letter swap, DHL limits (name/name3/street/addition/city 35, house number 10, plz 17; spec Private Shipping v1.2). Manual `POST /orders` checks product/insurance, DE+EU, catalog availability.
 - Intake error after the Paket order exists → CM order `paket` + pay link, not "do it manually".
 - CM orders get recipient email `shipment-<id>@cardmarket.com` (CM relay → DHL tracking mails reach the buyer). Non-DEU → `preAdvice PA_RETURN`. Region `EU` resolved via `EU_ISO3` (API has no member list).

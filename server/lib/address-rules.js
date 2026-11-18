@@ -24,10 +24,33 @@ export function pakExtraLines({ additionalName, addressLine2, country }) {
   return { name3: additionalName || undefined, addressAddition1: addressLine2 || undefined };
 }
 
-// "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
+// "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }; number-first (FR/BE/LU/IE) "12 bis, rue X" too
 export function splitStreet(line = '') {
-  const m = line.trim().match(/^(.*?\D)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
-  return m ? { street: m[1].trim(), streetNumber: m[2].replace(/\s+/g, '') } : { street: line.trim(), streetNumber: '' };
+  const s = line.trim();
+  const m = s.match(/^(.*?\D)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
+  if (m) return { street: m[1].trim(), streetNumber: m[2].replace(/\s+/g, '') };
+  const f = s.match(/^(\d+\s*(?:[a-zA-Z]|bis|ter)?(?:\s*-\s*\d+)?)\b[\s,]+(\D.*)$/i);
+  return f ? { street: f[2].trim(), streetNumber: f[1].replace(/\s+/g, '') } : { street: s, streetNumber: '' };
+}
+
+const LOCKER_RE = /\b(Packstation|Postfiliale)\s*(?:Nr\.?\s*)?(\d{1,4})\b/i;
+const POSTNUMMER_RE = /(?:\b(?:Post\s*-?\s*(?:nummer|nr\.?)|PostNr\.?|Kundennummer)\s*:?\s*)?\b(\d{6,10})\b/i;
+
+/**
+ * DE Packstation / Postfiliale receiver, wherever the buyer typed it (name, extra line, street, line 2).
+ * → null (ordinary address) | { kind, station, postNumber, person } | { error }
+ */
+export function pakLocker({ name = '', additionalName = '', addressLine1 = '', addressLine2 = '', country }) {
+  if (country !== 'DEU') return null;
+  const lines = [name, additionalName, addressLine1, addressLine2];
+  const hit = lines.map(l => l.match(LOCKER_RE)).find(Boolean);
+  if (!hit) return null;
+  const kind = /^packstation$/i.test(hit[1]) ? 'Packstation' : 'Postfiliale';
+  const postNumber = lines.map(l => l.replace(LOCKER_RE, ' ').match(POSTNUMMER_RE)?.[1]).find(Boolean);
+  if (!postNumber) return { error: `${kind} without Postnummer (6–10 digits)` };
+  const person = name.replace(POSTNUMMER_RE, ' ').replace(LOCKER_RE, ' ').replace(/\s+/g, ' ').trim();
+  if (!/\p{L}/u.test(person)) return { error: `${kind}: recipient name missing` };
+  return { kind, station: hit[2], postNumber, person };
 }
 
 /** Replaces or strips characters outside the allowlist; anything still invalid is kept for validation to catch. */
@@ -71,7 +94,12 @@ export function prepareReceiver(input, { paket = false } = {}) {
     const bad = invalidChars(value);
     if (bad.length) errors.push(`${key} contains invalid characters: ${bad.join(' ')}`);
   }
-  if (paket && receiver.country === 'DEU') {
+  const locker = paket ? pakLocker(receiver) : null;
+  if (locker?.error) errors.push(locker.error);
+  if (paket && !locker && receiver.addressLine1 && !splitStreet(receiver.addressLine1).streetNumber) {
+    errors.push(`street "${receiver.addressLine1}" has no house number`);
+  }
+  if (paket && !locker && receiver.country === 'DEU') {
     const { name3 } = pakExtraLines(receiver);
     if (receiver.additionalName && receiver.addressLine2 && name3.length > 35) {
       errors.push(`additionalName + addressLine2 have ${name3.length} chars (max 35 together for DE Paket)`);

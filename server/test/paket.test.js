@@ -11,6 +11,9 @@ test('splitStreet', () => {
   assert.deepEqual(splitStreet('Am Ring 3-5'), { street: 'Am Ring', streetNumber: '3-5' });
   assert.deepEqual(splitStreet('Straße des 17. Juni 100'), { street: 'Straße des 17. Juni', streetNumber: '100' });
   assert.deepEqual(splitStreet('Packstation'), { street: 'Packstation', streetNumber: '' });
+  assert.deepEqual(splitStreet('12 rue de la Paix'), { street: 'rue de la Paix', streetNumber: '12' });
+  assert.deepEqual(splitStreet('12 bis, rue X'), { street: 'rue X', streetNumber: '12bis' });
+  assert.deepEqual(splitStreet('3. Stock'), { street: '3. Stock', streetNumber: '' });
 });
 
 test('toPakAddress', () => {
@@ -19,6 +22,16 @@ test('toPakAddress', () => {
   assert.deepEqual(toPakAddress({ name: 'A B', addressLine1: 'Weg 1', addressLine2: 'HH', postalCode: '10115', city: 'Berlin', country: 'DEU' }).name3, 'HH');
   assert.deepEqual(toPakAddress({ name: 'J', additionalName: 'Firma', addressLine1: 'Kerkstraat 7', addressLine2: 'Apt 4B', postalCode: '1017 GC', city: 'Amsterdam', country: 'NLD' }),
     { name2: 'J', name3: 'Firma', street: 'Kerkstraat', streetNumber: '7', addressAddition1: 'Apt 4B', plz: '1017 GC', city: 'Amsterdam', country: 'NLD' });
+});
+
+test('toPakAddress: Packstation / Postfiliale → name1 person, name2 Postnummer', () => {
+  const base = { postalCode: '53113', city: 'Bonn', country: 'DEU', email: 'r@x.io' };
+  const pack = { name1: 'Erika Muster', name2: '12345678', street: 'Packstation', streetNumber: '123', plz: '53113', city: 'Bonn', country: 'DEU', email: 'r@x.io' };
+  assert.deepEqual(toPakAddress({ ...base, name: 'Erika Muster', additionalName: '12345678', addressLine1: 'Packstation 123' }), pack);
+  assert.deepEqual(toPakAddress({ ...base, name: 'Erika Muster 12345678', addressLine1: 'Packstation 123' }), pack);
+  assert.deepEqual(toPakAddress({ ...base, name: 'Erika Muster', addressLine1: 'Postnummer 12345678', addressLine2: 'Packstation 123' }), pack);
+  assert.deepEqual(toPakAddress({ ...base, name: 'Erika Muster', addressLine1: 'Postfiliale 502', addressLine2: 'PostNr. 12345678' }), { ...pack, street: 'Postfiliale', streetNumber: '502' });
+  assert.equal(toPakAddress({ ...base, country: 'AUT', name: 'A', addressLine1: 'Packstation 1' }).name2, 'A', 'only DE');
 });
 
 test('tagOrderIds', () => {

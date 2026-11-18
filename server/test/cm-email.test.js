@@ -101,6 +101,16 @@ test('Paket costs: per destination, insurance suffix, no cap', () => {
   assert.match(d({ costEur: '32.49', addressLines: name40 }).reason, /name has 40 chars \(max 35\)/, 'DHL Paket limit, not the letter one');
 });
 
+test('prepareReceiver paket: house number, Packstation needs Postnummer', () => {
+  const r = x => prepareReceiver({ name: 'Erika Muster', postalCode: '53113', city: 'Bonn', country: 'DEU', ...x }, { paket: true }).errors;
+  assert.deepEqual(r({ addressLine1: 'Straße des 17. Juni' }), ['street "Straße des 17. Juni" has no house number']);
+  assert.deepEqual(r({ addressLine1: 'Packstation 123', additionalName: '12345678' }), []);
+  assert.deepEqual(r({ addressLine1: 'Packstation 123' }), ['Packstation without Postnummer (6–10 digits)']);
+  assert.deepEqual(r({ name: '12345678', addressLine1: 'Packstation 123' }), ['Packstation: recipient name missing']);
+  assert.deepEqual(r({ addressLine1: '12 rue de la Paix', country: 'FRA' }), []);
+  assert.deepEqual(prepareReceiver({ name: 'A', addressLine1: 'Hauptstr.', postalCode: '1', city: 'B', country: 'DEU' }).errors, [], 'letters unchanged');
+});
+
 test('prepareReceiver paket: no swap, DHL limits', () => {
   const ok = prepareReceiver({ name: 'A', additionalName: 'x'.repeat(35), addressLine1: 'X 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
   assert.deepEqual(ok.errors, []);
