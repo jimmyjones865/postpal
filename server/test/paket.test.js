@@ -117,3 +117,24 @@ test('remindUnpaid: once per Berlin day from 09:00, only older orders', async ()
   await t.svc.remindUnpaid(new Date('2026-11-19T15:00:00Z'));
   assert.equal(t.notices.length, 1);
 });
+
+test('products: catalog prices per country, insurance variants, DE + EU only', async () => {
+  const catalog = {
+    products: {
+      PAK05: { regions: [{ countries: ['DEU'], price: { amount: '7.69' } }, { countries: ['EU'], price: { amount: '17.49' } }], availableServices: ['VERSI', 'HVERSI1000'] },
+      PAECKS: { regions: [{ countries: ['DEU'], price: { amount: '4.19' } }] },
+    },
+    services: { VERSI: { regions: [{ countries: ['DEU'], price: { amount: '6.99' } }] }, HVERSI1000: { regions: [{ countries: ['EU'], price: { amount: '14.00' } }] } },
+  };
+  const pakClient = { getCatalog: async () => catalog };
+  const s = createPaketService({ storage: {}, settings: {}, pakClient, storagePath: '/nonexistent', publicUrl: 'http://pp', notify: async () => {}, print: async () => ({}) });
+  assert.deepEqual(await s.products('DEU'), [
+    { productId: 'PAECKS', insurance: null, name: 'DHL Päckchen S', price: 4.19 },
+    { productId: 'PAK05', insurance: null, name: 'DHL Paket 5 kg', price: 7.69 },
+    { productId: 'PAK05', insurance: 'VERSI', name: 'DHL Paket 5 kg versichert 2.500 €', price: 14.68 },
+  ]);
+  assert.deepEqual((await s.products('NLD')).map(p => [p.productId, p.insurance, p.price]), [['PAK05', null, 17.49], ['PAK05', 'HVERSI1000', 31.49]]);
+  assert.deepEqual(await s.products('CHE'), []);
+  const down = createPaketService({ storage: {}, settings: {}, pakClient: { getCatalog: async () => { throw new Error('x'); } }, storagePath: '/nonexistent', publicUrl: 'http://pp', notify: async () => {}, print: async () => ({}) });
+  assert.equal(await down.products('DEU'), null);
+});

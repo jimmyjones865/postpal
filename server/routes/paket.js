@@ -1,5 +1,6 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
+import { pakProductName } from '../lib/paket.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const page = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -14,14 +15,21 @@ export function createPaketRouter(paket) {
     res.json({ orders: await paket.listOrders() });
   });
 
+  router.get('/products', async (req, res) => {
+    const country = String(req.query.country || 'DEU').toUpperCase();
+    const products = await paket.products(country);
+    if (!products) return res.status(502).json({ error: 'DHL catalog unavailable' });
+    res.json({ products });
+  });
+
   // Manual Paket buy from the UI. receiver = postpal receiver shape with ISO3 country.
   router.post('/orders', async (req, res) => {
-    const { productId, productName, insurance, receiver, recipientAddress } = req.body || {};
+    const { productId, insurance, receiver, recipientAddress } = req.body || {};
     if (!productId || !receiver?.name || !receiver?.addressLine1 || !receiver?.postalCode || !receiver?.city || !/^[A-Z]{3}$/.test(receiver?.country || '')) {
       return res.status(400).json({ error: 'productId and receiver (name, addressLine1, postalCode, city, ISO3 country) required' });
     }
     const id = `ui-${Date.now().toString(36)}`;
-    const r = await paket.addOrder({ id, source: 'ui', productId, productName: productName || productId, insurance: insurance || null, receiver, recipientAddress });
+    const r = await paket.addOrder({ id, source: 'ui', productId, productName: pakProductName(productId, insurance), insurance: insurance || null, receiver, recipientAddress });
     res.status(201).json(r);
   });
 

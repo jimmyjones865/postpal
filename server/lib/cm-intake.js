@@ -25,7 +25,7 @@ const RECOVER = new Set(['uncertain', 'bought-unstored', 'interrupted', 'error']
 const RECOVER_AFTER_MS = 60_000;
 // Mail seen but not processed yet: picked up again on the next poll
 const WAITING = new Set(['retry', 'queued']);
-const TRACK_URL = 'https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=';
+export const TRACK_URL = 'https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=';
 
 let stopping = false;
 let current = Promise.resolve();
@@ -190,20 +190,22 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     const say = line => notify(`${summary}\n${line}${itemList}`);
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
+    // Shown in the UI intake view
+    const shown = { buyer, summary, itemList };
 
     if (!decision.ok) {
-      await record(subjectOrderId, 'skipped', { reason: decision.reason });
+      await record(subjectOrderId, 'skipped', { reason: decision.reason, ...shown, recipientAddress: rawAddress });
       await say(`🛑 CM ${subjectOrderId}: no label — ${decision.reason}\n\`\`\`\n${rawAddress}\n\`\`\``);
       return;
     }
 
     const { product, priceCents, receiver, recipientAddress } = decision;
     if (decision.paket) {
-      await paketOrder(subjectOrderId, { buyer, summary, itemList, say, receiver, recipientAddress, ...decision.paket });
+      await paketOrder(subjectOrderId, { shown, buyer, summary, itemList, say, receiver, recipientAddress, ...decision.paket });
       return;
     }
     if (cfg.dryRun) {
-      await record(subjectOrderId, 'dry-run', { productCode: product.code });
+      await record(subjectOrderId, 'dry-run', { productCode: product.code, productName: product.name, ...shown, recipientAddress });
       const t = await topupCheck(priceCents).catch(err => ({ error: err.message }));
       const topupNote = t.error ? `, top-up check failed: ${t.error}`
         : t.unknown ? ', balance unknown (no top-up)'
@@ -259,22 +261,22 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   }
 
   /** DHL Paket: no purchase here — an order awaiting manual payment via the pay link. Nothing is spent, so no cap. */
-  async function paketOrder(orderId, { buyer, summary, itemList, say, receiver, recipientAddress, productId, insurance }) {
+  async function paketOrder(orderId, { shown, buyer, summary, itemList, say, receiver, recipientAddress, productId, insurance }) {
     const productName = pakProductName(productId, insurance);
     const price = await paket?.quote(productId, insurance, receiver.country);
     const what = `${productName}${price != null ? ` (${price.toFixed(2)} €)` : ''}`;
     if (!paket) {
-      await record(orderId, 'skipped', { reason: 'DHL Paket not configured' });
+      await record(orderId, 'skipped', { reason: 'DHL Paket not configured', ...shown, recipientAddress });
       await say(`🛑 CM ${orderId}: ${what} — DHL Paket not configured, buy it manually.`);
       return;
     }
     if (cfg.dryRun) {
-      await record(orderId, 'dry-run', { paketProduct: productId, insurance });
+      await record(orderId, 'dry-run', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
     const { payUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
-    await record(orderId, 'paket', { paketProduct: productId, insurance, buyer, summary });
+    await record(orderId, 'paket', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
     await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
 

@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { logger } from './logger.js';
 import { topHeader } from './cm-email.js';
-import { getCountryCode } from './country-codes.js';
+import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
 
@@ -14,10 +14,10 @@ const KEEP_MS = 14 * 86_400_000;
 const REOPEN_GUARD_MS = 30 * 60_000;
 const LOOKBACK_MS = 7 * 86_400_000;
 const TAG_PATH = '/dhl-paid';
-const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=';
+export const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=';
 const SUBJECT_RE = /Online Frankierung\s+([A-Z0-9]{12})\s*$/;
 
-const NAMES = { PAECKXS: 'DHL Päckchen XS', PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg', PAK20: 'DHL Paket 20 kg' };
+const NAMES = { PAECKXS: 'DHL Päckchen XS', PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg', PAK20: 'DHL Paket 20 kg', PAK31: 'DHL Paket 31,5 kg' };
 const INSURANCE_NAMES = { VERSI: 'versichert 2.500 €', HVERSI1000: 'versichert 1.000 €', HVERSI2000: 'versichert 2.000 €' };
 export const pakProductName = (productId, insurance) => `${NAMES[productId] || productId}${insurance ? ` ${INSURANCE_NAMES[insurance] || insurance}` : ''}`;
 
@@ -114,6 +114,29 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       logger.warn('[Paket] Catalog failed:', err.message);
       return null;
     }
+  }
+
+  /**
+   * Products offered to an ISO3 country for manual orders, catalog prices. DE + EU only (no customs data).
+   * → [{ productId, insurance, name, price }] | null (catalog down)
+   */
+  async function products(country) {
+    if (country !== 'DEU' && !EU_ISO3.has(country)) return [];
+    let catalog;
+    try {
+      catalog = await pakClient.getCatalog();
+    } catch (err) {
+      logger.warn('[Paket] Catalog failed:', err.message);
+      return null;
+    }
+    const list = [];
+    for (const productId of Object.keys(NAMES)) {
+      for (const insurance of [null, ...Object.keys(INSURANCE_NAMES)]) {
+        const price = catalogPrice(catalog, productId, country, { insurance });
+        if (price != null) list.push({ productId, insurance, name: pakProductName(productId, insurance), price });
+      }
+    }
+    return list;
   }
 
   /** One ⏳ notice per Berlin day (from 09:00) listing orders still awaiting payment. */
@@ -262,5 +285,5 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await remindUnpaid();
   }
 
-  return { addOrder, listOrders, startPayment, handlePaidCart, pollMails, payLink, quote, remindUnpaid };
+  return { addOrder, listOrders, startPayment, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
 }

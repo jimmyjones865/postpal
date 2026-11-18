@@ -12,6 +12,7 @@ import { createTopupLedger } from '../lib/topups.js';
 import { createPakClient, pakConfigFromEnv } from '../lib/dhl-private-api.js';
 import { createPaketService } from '../lib/paket.js';
 import { createPaketRouter } from './paket.js';
+import { createIntakeRouter } from './intake.js';
 import { notify } from '../lib/discord.js';
 import { printWithSettings } from '../lib/print-label.js';
 
@@ -65,6 +66,7 @@ export function createApiRouter() {
   router.use('/', createPrintRouter(storage));
 
   router.use('/paket', createPaketRouter(paket));
+  router.use('/intake', createIntakeRouter({ storagePath: PDF_STORAGE_PATH, storage, paket, settings }));
 
   // Wallet: balance operations
   router.use('/wallet', createWalletRouter(dhlClient, getCredentials, topups));
