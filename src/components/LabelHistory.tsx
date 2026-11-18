@@ -134,9 +134,8 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                     <span className="font-medium">{label.productName}</span>
                     {label.refund && <span className="text-accent-foreground">· {t('history.refundRequested')}</span>}
                   </div>
-                  <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed overflow-hidden text-ellipsis">
-                    {label.recipientAddress.split('\n').slice(0, 3).join('\n')}
-                    {label.recipientAddress.split('\n').length > 3 && '...'}
+                  <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed">
+                    {label.recipientAddress.trim()}
                   </pre>
                 </div>
               </div>
