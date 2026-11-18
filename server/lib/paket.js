@@ -303,7 +303,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         const warn = hadLabels.has(id) ? '\n⚠️ Another paid cart for this order — cancel one in DHL\'s checkout ("Versandmarke stornieren") if it was a double payment.' : '';
         const address = o.recipientAddress ? `\n\`\`\`\n${o.recipientAddress}\n\`\`\`` : '';
         const price = item.price ? ` ${item.price.toFixed(2)} €` : '';
-        await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 ${item.shipmentNumber} [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
+        await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 **${item.shipmentNumber}** [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
       }
       if (unmatched.length) {
         await notify(`⚠️ Paket cart ${cartId}: ${unmatched.length} paid item(s) not matched to an order (${unmatched.map(i => `${i.shipmentNumber} → ${i.receiver?.name2 ?? '?'}`).join(', ')}) — labels not fetched, get them from DHL's confirmation page.`);

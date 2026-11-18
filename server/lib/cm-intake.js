@@ -293,7 +293,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     const printNote = p.skipped ? 'not printed (direct print off)' : p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     // DHL sends trackId only for international Einschreiben; domestic ones are tracked by voucherId
     const trackId = base.tracked && (label.trackId || label.voucherId);
-    const tracking = trackId ? `\n📦 ${trackId} [Tracking](<${TRACK_URL}${encodeURIComponent(trackId)}>)` : '';
+    const tracking = trackId ? `\n📦 **${trackId}** [Tracking](<${TRACK_URL}${encodeURIComponent(trackId)}>)` : '';
     const address = base.recipientAddress ? `\n\`\`\`\n${base.recipientAddress}\n\`\`\`` : '';
     await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${address}${base.itemList ?? ''}`);
   }
