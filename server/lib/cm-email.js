@@ -1,7 +1,7 @@
 // Cardmarket "please ship" email → order data. Two templates (EN/DE), same layout.
 
 import { parseAddress } from './european-address-parser.js';
-import { prepareReceiver } from './address-rules.js';
+import { prepareReceiver, pakLocker } from './address-rules.js';
 import { getCountryCode, EU_ISO3 } from './country-codes.js';
 
 const SUBJECT_PATTERNS = [
@@ -131,6 +131,10 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
     city: parsed.city,
     country
   };
+  // Deutsche Post doesn't deliver letters to Packstation / Postfiliale
+  const locker = !paket && pakLocker(receiver);
+  if (locker) return { ok: false, reason: `letter to ${locker.kind ?? 'Packstation/Postfiliale'} — buy manually or ship as Paket` };
+
   const prepared = prepareReceiver(receiver, { paket: !!paket });
   if (prepared.errors.length) return { ok: false, reason: prepared.errors.join('; ') };
 

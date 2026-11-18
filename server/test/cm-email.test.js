@@ -101,6 +101,16 @@ test('Paket costs: per destination, insurance suffix, no cap', () => {
   assert.match(d({ costEur: '32.49', addressLines: name40 }).reason, /name has 40 chars \(max 35\)/, 'DHL Paket limit, not the letter one');
 });
 
+test('decide: no letter to Packstation / Postfiliale', () => {
+  const { subject, text } = split(fixture('cm-en.txt'));
+  const body = parseBody(text);
+  const id = matchSubject(subject).orderId;
+  const d = lines => decide({ subjectOrderId: id, ...body, costEur: '1.25', addressLines: lines }, limits);
+  assert.match(d(['Erika Muster', '12345678', 'Packstation 123', '53113 Bonn', 'Germany']).reason, /letter to Packstation/);
+  assert.match(d(['Erika Muster', 'Postfiliale 502', '53113 Bonn', 'Germany']).reason, /letter to Packstation\/Postfiliale/);
+  assert.equal(d(['Erika Muster', 'Hauptstr. 5', '53113 Bonn', 'Germany']).ok, true);
+});
+
 test('prepareReceiver paket: house number, Packstation needs Postnummer', () => {
   const r = x => prepareReceiver({ name: 'Erika Muster', postalCode: '53113', city: 'Bonn', country: 'DEU', ...x }, { paket: true }).errors;
   assert.deepEqual(r({ addressLine1: 'Straße des 17. Juni' }), ['street "Straße des 17. Juni" has no house number']);
