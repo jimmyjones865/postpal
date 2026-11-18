@@ -95,16 +95,18 @@ test('Paket costs: per destination, insurance suffix, no cap', () => {
   const ch = ['Hans Muster', 'Bahnhofstrasse 1', '8001 Zürich', 'Switzerland'];
   assert.match(d({ costEur: '15.49', addressLines: ch }).reason, /no Paket product for CHE/);
   assert.equal(d({ costEur: '1.25' }).paket, undefined);
-  const longName = ['Łukasz ' + 'x'.repeat(50), 'Kerkstraat 7', '1017 GC Amsterdam', 'Netherlands'];
-  const pk = d({ costEur: '32.49', addressLines: longName });
-  assert.equal(pk.ok, true, 'letter length limits not applied to Paket');
-  assert.match(pk.receiver.name, /^Lukasz x/, 'Paket receiver sanitized');
+  const pk = d({ costEur: '32.49', addressLines: ['Łukasz Nowak', 'Kerkstraat 7', '1017 GC Amsterdam', 'Netherlands'] });
+  assert.equal(pk.receiver.name, 'Lukasz Nowak', 'Paket receiver sanitized');
+  const name40 = ['x'.repeat(40), 'Kerkstraat 7', '1017 GC Amsterdam', 'Netherlands'];
+  assert.match(d({ costEur: '32.49', addressLines: name40 }).reason, /name has 40 chars \(max 35\)/, 'DHL Paket limit, not the letter one');
 });
 
-test('prepareReceiver paket: no swap, no length limits', () => {
-  const r = prepareReceiver({ name: 'A', additionalName: 'Firma ' + 'x'.repeat(45), addressLine1: 'X 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
-  assert.deepEqual(r.errors, []);
-  assert.equal(r.receiver.name, 'A');
+test('prepareReceiver paket: no swap, DHL limits', () => {
+  const ok = prepareReceiver({ name: 'A', additionalName: 'x'.repeat(35), addressLine1: 'X 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.receiver.name, 'A');
+  const long = prepareReceiver({ name: 'A', additionalName: 'x'.repeat(36), addressLine1: 'y'.repeat(36) + ' 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
+  assert.deepEqual(long.errors, ['additionalName has 36 chars (max 35)', 'street has 36 chars (max 35)']);
 });
 
 test('swap puts the first input line on top (DHL prints additionalName above name)', () => {

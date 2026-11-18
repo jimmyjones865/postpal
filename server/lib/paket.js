@@ -9,6 +9,9 @@ import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
 import { archiveMails } from './mail-archive.js';
+import { splitStreet } from './address-rules.js';
+
+export { splitStreet };
 
 const KEEP_MS = 14 * 86_400_000;
 // Earlier cart opened this recently and not confirmed paid → ask before opening another
@@ -22,11 +25,6 @@ const NAMES = { PAECKXS: 'DHL Päckchen XS', PAECKS: 'DHL Päckchen S', PAECK: '
 const INSURANCE_NAMES = { VERSI: 'versichert 2.500 €', HVERSI1000: 'versichert 1.000 €', HVERSI2000: 'versichert 2.000 €' };
 export const pakProductName = (productId, insurance) => `${NAMES[productId] || productId}${insurance ? ` ${INSURANCE_NAMES[insurance] || insurance}` : ''}`;
 
-// "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
-export function splitStreet(line = '') {
-  const m = line.trim().match(/^(.*?\D)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
-  return m ? { street: m[1].trim(), streetNumber: m[2].replace(/\s+/g, '') } : { street: line.trim(), streetNumber: '' };
-}
 
 // Postpal receiver/sender ({ name, additionalName, addressLine1, addressLine2, postalCode, city, country ISO3 }) → DHL Address
 export function toPakAddress(a) {

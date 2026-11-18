@@ -15,6 +15,14 @@ const REPLACEMENTS = {
 
 export const MAX_LINE_LENGTH = 50;
 const FIELD_LIMITS = { name: 50, additionalName: 40, addressLine1: 50, addressLine2: 50, city: 50 };
+// DHL Parcel DE Private Shipping v1 Address schema; addressLine1 is checked as street + streetNumber
+const PAKET_LIMITS = { name: 35, additionalName: 35, addressLine2: 35, city: 35, postalCode: 17 };
+
+// "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
+export function splitStreet(line = '') {
+  const m = line.trim().match(/^(.*?\D)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
+  return m ? { street: m[1].trim(), streetNumber: m[2].replace(/\s+/g, '') } : { street: line.trim(), streetNumber: '' };
+}
 
 /** Replaces or strips characters outside the allowlist; anything still invalid is kept for validation to catch. */
 export function sanitizeText(text) {
@@ -35,7 +43,7 @@ export function invalidChars(text) {
 
 /**
  * Sanitizes a DHL receiver object. Internetmarke prints additionalName above name, so when both exist they are
- * swapped to keep the input's first line (the person) on top. paket: no swap, no letter length limits.
+ * swapped to keep the input's first line (the person) on top. paket: no swap, DHL Paket length limits.
  * Returns { receiver, errors }; errors non-empty → do not buy.
  */
 export function prepareReceiver(input, { paket = false } = {}) {
@@ -48,12 +56,19 @@ export function prepareReceiver(input, { paket = false } = {}) {
   }
 
   const errors = [];
-  for (const [key, max] of Object.entries(FIELD_LIMITS)) {
+  const limits = paket ? PAKET_LIMITS : FIELD_LIMITS;
+  for (const key of new Set([...Object.keys(FIELD_LIMITS), ...Object.keys(limits)])) {
     const value = receiver[key];
+    const max = limits[key];
     if (!value) continue;
-    if (!paket && value.length > max) errors.push(`${key} has ${value.length} chars (max ${max})`);
+    if (max && value.length > max) errors.push(`${key} has ${value.length} chars (max ${max})`);
     const bad = invalidChars(value);
     if (bad.length) errors.push(`${key} contains invalid characters: ${bad.join(' ')}`);
+  }
+  if (paket && receiver.addressLine1) {
+    const { street, streetNumber } = splitStreet(receiver.addressLine1);
+    if (street.length > 35) errors.push(`street has ${street.length} chars (max 35)`);
+    if (streetNumber.length > 10) errors.push(`house number has ${streetNumber.length} chars (max 10)`);
   }
   for (const key of ['name', 'addressLine1', 'postalCode', 'city', 'country']) {
     if (!receiver[key]) errors.push(`${key} missing`);
