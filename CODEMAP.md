@@ -17,6 +17,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/paket.js` — DHL Paket orders (`paket-orders.json`): pay links, pay-all, paid-mail polling → label → print, daily unpaid reminder.
 - `lib/cm-intake.js` — Cardmarket email intake: IMAP poll → decide → buy → print → Discord; state in `cm-orders.json`.
 - `lib/cm-email.js` — pure CM mail parsing + `decide` (all no-buy rules, Paket vs letter); tested.
+- `lib/plz-check.js` — DE PLZ vs city via OpenPLZ API; warn-only line in CM order summary, never blocks.
 - `lib/discord.js` — webhook notices, never throws; order summary + item block.
 - `lib/mail-archive.js` — mark handled mails read + move to archive folder.
 - `lib/topups.js` — top-up limits + ledger `topups.json`, shared by UI and auto top-up.

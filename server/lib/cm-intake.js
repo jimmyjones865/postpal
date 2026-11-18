@@ -11,6 +11,7 @@ import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
 import { printWithSettings } from './print-label.js';
 import { notify } from './discord.js';
+import { plzCityWarning } from './plz-check.js';
 import { archiveMails, archiveFolderFromEnv } from './mail-archive.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
 import { parseWindow, printWindowState, showWindow } from './print-window.js';
@@ -189,10 +190,11 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   async function processMail(subjectOrderId, buyer, text, { costTable, products }) {
     const parsed = { subjectOrderId, ...parseBody(text) };
     const n = parsed.itemCount ?? '?';
-    const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €`;
+    const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
+    const plzWarning = decision.ok ? await plzCityWarning(decision.receiver) : null;
+    const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €${plzWarning ? `\n⚠️ ${plzWarning}` : ''}`;
     const itemList = cfg.itemsList ? itemBlock(parsed.items) : '';
     const say = line => notify(`${summary}\n${line}${itemList}`);
-    const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
     // Shown in the UI intake view
     const shown = { buyer, summary, itemList };
