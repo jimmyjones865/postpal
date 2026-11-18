@@ -69,6 +69,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `dhl-paket` labels (MOPS 70×170 mm) get +2 mm top / +3 mm bottom on top of the settings margins (`PAKET_EXTRA_MM`).
 - `pdf-cropper.js` thresholds and retry passes were tuned against real DHL labels — change only with real labels to test. Crop math assumes MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (`NodeCanvasFactory._createCanvas` hack is v3-specific). `overrides` in `server/package.json` points pdfjs' optional `canvas` at the top-level 3.x; npm won't apply overrides to existing lock entries — delete them from `package-lock.json` and re-resolve. Alpine host has no canvas prebuild: local install needs `--ignore-scripts` (tests don't need canvas).
 - `label-storage.js`: every metadata change goes through `updateMetadata` (queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
+- Shutdown (SIGTERM/SIGINT) drains requests and lets the CM poll finish its current order, capped at 150 s; compose `stop_grace_period` 160 s must stay above it.
 - UI and CM intake share one printer/sender config (`settings.json`); the UI still sends printer values with each `/print` call. `settings.json` holds only overrides; `null` in a PATCH drops one; validated on write (400).
 
 ### Internetmarke purchase
