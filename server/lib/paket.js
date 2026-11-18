@@ -17,6 +17,7 @@ const KEEP_MS = 14 * 86_400_000;
 // Earlier cart opened this recently and not confirmed paid → ask before opening another
 const REOPEN_GUARD_MS = 30 * 60_000;
 const LOOKBACK_MS = 7 * 86_400_000;
+const UNKNOWN_RETRY_MS = 60 * 60_000;
 const TAG_PATH = '/dhl-paid';
 export const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=';
 const SUBJECT_RE = /Online Frankierung\s+([A-Z0-9]{12})\s*$/;
@@ -254,9 +255,10 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       }
       if (!cart) {
         if (source === 'manual') return { status: 'ignored', reason: 'unknown at DHL' };
-        // A DHL-sent paid mail whose cart DHL doesn't know: environment mismatch or API glitch, never silent
+        // DHL-sent paid mail, cart unknown: sandbox test mail (same mailbox) or an API glitch → notice, retried for a while
+        if (known && Date.now() - Date.parse(known.at) > UNKNOWN_RETRY_MS) return mark('ignored', { reason: 'unknown at DHL' });
         const r = await mark('error', { error: 'unknown at DHL' });
-        if (!known) await notify(`⚠️ Paket cart ${cartId}: paid mail received but DHL ${pakClient.sandbox ? 'sandbox' : 'prod'} API doesn't know the cart — label not fetched. Retrying each poll.`);
+        if (!known) await notify(`⚠️ Paket cart ${cartId}: paid mail received but DHL ${pakClient.sandbox ? 'sandbox' : 'prod'} API doesn't know the cart — label not fetched (expected for a sandbox test). Retrying for 1 h.`);
         return r;
       }
       if (cart.state !== 'PAYED') {

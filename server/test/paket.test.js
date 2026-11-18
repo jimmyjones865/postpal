@@ -101,6 +101,9 @@ test('untagged, unknown, unpaid, lookup error', async () => {
   cart = null;
   assert.equal((await t.svc.handlePaidCart('BBBBBBBBBBBB')).status, 'error', 'unknown at DHL: retried, not dropped');
   assert.match(t.notices.at(-1), /BBBBBBBBBBBB.*doesn't know the cart/);
+  const realNow = Date.now;
+  Date.now = () => realNow() + 61 * 60_000;
+  try { assert.equal((await t.svc.handlePaidCart('BBBBBBBBBBBB')).status, 'ignored', 'unknown cart given up after 1 h'); } finally { Date.now = realNow; }
   assert.equal((await t.svc.handlePaidCart('XXXXXXXXXXXX', { source: 'manual' })).status, 'ignored', 'manual paste: not remembered');
   cart = { ...paidCart('o1'), state: 'PREPAID' };
   assert.equal((await t.svc.handlePaidCart('CCCCCCCCCCCC', { source: 'manual' })).status, 'not-paid');
