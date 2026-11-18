@@ -67,7 +67,7 @@ export async function recoverLabel({ storage, dhlClient, credentials }, { shopOr
 /**
  * Buys one label and stores its PDF. Shared by the UI route and the email intake.
  * beforeCheckout(shopOrderId | undefined) runs right before the paid call: persist that a checkout was sent.
- * With DHL_TWO_STEP a shopOrderId is reserved first (or reused, for a retry): a retry can't double-buy
+ * Unless DPOST_DIRECT_CHECKOUT, a shopOrderId is reserved first (or reused, for a retry): a retry can't double-buy
  * (if DHL enforces one checkout per id) and an unclear outcome can be looked up.
  * Returns { success: true, label, newBalance } or { success: false, status, error, details, shopOrderId?, paid?, uncertain? }.
  * paid: DHL charged but the PDF could not be stored. uncertain: may be charged, lookup didn't confirm yet.
@@ -81,7 +81,7 @@ export async function buyLabel(ctx, { sender, receiver, productCode, productName
 
   // Two-step: reserved shopOrderId, checkout without directCheckout. Direct checkout ignores a passed id
   // (DHL assigns its own; seen 2026-11-17), so nothing can be looked up before the response arrives.
-  const twoStep = process.env.DHL_TWO_STEP === 'true';
+  const twoStep = process.env.DPOST_DIRECT_CHECKOUT !== 'true';
   const tokenData = await dhlClient.getAccessToken(credentials);
   const id = shopOrderId || (twoStep ? await dhlClient.initShoppingCart(tokenData.accessToken) : undefined);
   await beforeCheckout?.(id);

@@ -27,7 +27,7 @@ const order = {
 };
 
 mock.method(globalThis, 'fetch', async () => new Response(Buffer.from('%PDF')));
-process.env.DHL_TWO_STEP = 'true';
+process.env.DPOST_DIRECT_CHECKOUT = 'false';
 
 test('normal buy reserves a shopOrderId, persists it before checkout, stores it on the label', async () => {
   const { ctx, calls, labels } = fakes({ purchase: () => cart });
@@ -98,7 +98,7 @@ test('two-step: checkout without directCheckout; success without link → uncert
 });
 
 test('direct mode: no init, DHL-returned shopOrderId stored, lost response → uncertain without lookup', async () => {
-  process.env.DHL_TWO_STEP = 'false';
+  process.env.DPOST_DIRECT_CHECKOUT = 'true';
   try {
     const ok = fakes({ purchase: () => ({ ...cart, shopOrderId: 'DHL9' }) });
     const seen = [];
@@ -114,6 +114,6 @@ test('direct mode: no init, DHL-returned shopOrderId stored, lost response → u
     assert.equal(u.shopOrderId, undefined);
     assert.equal(lost.calls.retrieve, 0);
   } finally {
-    process.env.DHL_TWO_STEP = 'true';
+    process.env.DPOST_DIRECT_CHECKOUT = 'false';
   }
 });
