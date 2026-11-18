@@ -43,7 +43,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
     dryRun: process.env.CM_DRY_RUN !== 'false',
     dailyCap: envNum('CM_DAILY_CAP', 30),
-    pollMs: envNum('CM_POLL_SECONDS', 120) * 1000,
+    pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000,
     topupCents: Math.round(envNum('AUTO_TOPUP_EUR', 0) * 100)
   };
   // Default = one top-up per day: a mistake (loop, wrong price) costs at most one charge
