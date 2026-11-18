@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Home, Globe } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Globe, Package } from 'lucide-react';
 import { ShippingProduct } from '@/types/shipping';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -10,6 +10,10 @@ interface ProductSelectorProps {
   onSelect: (productCode: string) => void;
   onDoubleClick: () => void;
   hiddenProducts: string[];
+  /** Shown below the letters, never hidden; codes start with "paket:" */
+  paketProducts: ShippingProduct[];
+  /** Replaces the Paket cards (catalog down, country not served) */
+  paketNote?: string;
 }
 
 type ProductGroup = 'standard' | 'kompakt' | 'gross' | 'maxi';
@@ -27,6 +31,8 @@ export function ProductSelector({
   onSelect,
   onDoubleClick,
   hiddenProducts,
+  paketProducts,
+  paketNote,
 }: ProductSelectorProps) {
   const { t } = useTranslation();
   const [showOther, setShowOther] = useState(false);
@@ -101,9 +107,11 @@ export function ProductSelector({
         </div>
         
         {/* Weight in bottom right */}
-        <div className="absolute bottom-2 right-3 text-xs text-muted-foreground">
-          {formatWeight(product.maxWeight)}
-        </div>
+        {product.maxWeight > 0 && (
+          <div className="absolute bottom-2 right-3 text-xs text-muted-foreground">
+            {formatWeight(product.maxWeight)}
+          </div>
+        )}
       </button>
     );
   };
@@ -159,6 +167,22 @@ export function ProductSelector({
           <ProductColumns products={visibleInternational} type="international" />
         </div>
       )}
+
+      <div>
+        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded-md text-xs font-medium bg-[#a3be8c]/10 text-[#a3be8c]">
+          <Package className="w-3.5 h-3.5" />
+          <span>{t('product.paket')}</span>
+        </div>
+        {paketNote ? (
+          <p className="text-xs text-muted-foreground px-1">{paketNote}</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {paketProducts.map((product) => (
+              <ProductCard key={product.code} product={product} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Hidden products (can be expanded) */}
       {hidden.length > 0 && (

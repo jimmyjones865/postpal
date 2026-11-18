@@ -165,7 +165,9 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                       </button>
                       {(label.trackId || (label.voucherId && trackedCodes.has(label.productCode))) && (
                         <a
-                          href={`https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId || label.voucherId}`}
+                          href={label.provider === 'dhl-paket'
+                            ? `https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=${label.trackId}`
+                            : `https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId || label.voucherId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-primary"

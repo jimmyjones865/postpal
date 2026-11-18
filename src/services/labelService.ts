@@ -12,6 +12,7 @@ export interface StoredLabel {
   voucherId?: string;
   trackId?: string;
   createdAt: string;
+  provider?: 'dhl-paket';
   refund?: { shopRetoureId: string; retoureTransactionId: string; requestedAt: string };
 }
 
@@ -209,4 +210,58 @@ export async function getWalletBalance(): Promise<number | null> {
     throw new Error(data.error || `HTTP ${response.status}`);
   }
   return data.balance ?? null;
+}
+
+async function json<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data as T;
+}
+
+export interface PaketProduct {
+  productId: string;
+  insurance: string | null;
+  name: string;
+  price: number;
+}
+
+/** null = DHL catalog unavailable */
+export async function getPaketProducts(country: string): Promise<PaketProduct[] | null> {
+  const response = await fetch(`${API_BASE}/paket/products?country=${encodeURIComponent(country)}`);
+  if (response.status === 502) return null;
+  return (await json<{ products: PaketProduct[] }>(response)).products;
+}
+
+export async function createPaketOrder(params: { productId: string; insurance: string | null; receiver: DhlAddress; recipientAddress: string }): Promise<{ payUrl: string }> {
+  return json(await fetch(`${API_BASE}/paket/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  }));
+}
+
+/** Warenkorb-Nr from DHL's thank-you page → label, when the confirmation mail doesn't come. */
+export async function submitPaketCart(cartId: string): Promise<{ status: string; state?: string; orderId?: string; reason?: string; error?: string }> {
+  return json(await fetch(`${API_BASE}/paket/carts/${encodeURIComponent(cartId)}`, { method: 'POST' }));
+}
+
+export interface IntakeOrder {
+  id: string;
+  source: 'cm' | 'ui';
+  at: string;
+  status: string;
+  buyer?: string;
+  summary?: string;
+  productName?: string;
+  recipientAddress?: string;
+  items: string[];
+  note?: string;
+  tracking: { id: string; url: string }[];
+  payUrl?: string;
+  price?: number | null;
+  carts?: number;
+}
+
+export async function getIntake(): Promise<{ dryRun: boolean; orders: IntakeOrder[] }> {
+  return json(await fetch(`${API_BASE}/intake`));
 }

@@ -1,4 +1,4 @@
-import { MapPin, Printer, Download, AlertTriangle } from 'lucide-react';
+import { MapPin, Printer, Download, AlertTriangle, CreditCard } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { validateAddress, getValidationSummary, MAX_LINE_LENGTH } from '@/lib/addressValidation';
@@ -14,10 +14,12 @@ interface AddressInputProps {
   isPrinting: boolean;
   canPrint: boolean;
   printMode: PrintMode;
+  /** DHL Paket selected: the button opens DHL's checkout instead of buying */
+  paket?: boolean;
   onPrintModeChange: (mode: PrintMode) => void;
 }
 
-export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint, printMode, onPrintModeChange }: AddressInputProps) {
+export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint, printMode, onPrintModeChange, paket }: AddressInputProps) {
   const { t } = useTranslation();
   const validation = useMemo(() => validateAddress(value), [value]);
   const validationSummary = useMemo(() => getValidationSummary(validation), [validation]);
@@ -113,6 +115,11 @@ export function AddressInput({ value, onChange, onPrint, isPrinting, canPrint, p
             <span className="flex items-center gap-2">
               <span className="animate-spin">⏳</span>
               {printMode === 'print' ? t('print.printing') : t('print.downloading')}
+            </span>
+          ) : paket ? (
+            <span className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              {t('print.payPaket')}
             </span>
           ) : (
             <span className="flex items-center gap-2">

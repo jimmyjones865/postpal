@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, History, Mail, Settings } from 'lucide-react';
+import { AlertCircle, History, Inbox, Mail, Settings } from 'lucide-react';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
 import { useLabelHistory } from '@/hooks/useLabelHistory';
 import { useLabelPurchase } from '@/hooks/useLabelPurchase';
+import { usePaket, isPaketCode } from '@/hooks/usePaket';
+import { IntakeView } from '@/components/IntakeView';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput, PrintMode } from '@/components/AddressInput';
@@ -55,10 +57,18 @@ const Index = () => {
     config!, products, isConfigured, recipientAddress
   );
 
+  const paket = usePaket(parsedRecipient.country);
+  const paketSelected = isPaketCode(selectedProduct);
+
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
 
-  const handlePrint = () => purchase({
+  const handlePrint = async () => {
+    if (paketSelected) {
+      if (await paket.order(selectedProduct!, parsedRecipient, recipientAddress)) setSelectedProduct(null);
+      return;
+    }
+    await purchase({
     parsedRecipient,
     selectedProduct,
     printMode,
@@ -67,14 +77,15 @@ const Index = () => {
     onBalanceUpdate: setWalletBalance,
     onLabelSaved: addLabel,
   });
+  };
   if (!isLoaded || !config || !defaults || productsLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">{t('status.loading')}</div>
       </div>;
   }
   return <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="border-b border-border px-4 sm:px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
               <Mail className="w-4 h-4 text-primary-foreground" />
@@ -95,19 +106,23 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6">
+      <main className="max-w-7xl mx-auto p-4 sm:p-6">
         <Tabs defaultValue="create" className="w-full">
-          <TabsList className="grid w-full max-w-lg grid-cols-3 mb-6">
-            <TabsTrigger value="create">
-              <Mail className="w-4 h-4 mr-2" />
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 mb-6">
+            <TabsTrigger className="text-xs sm:text-sm px-1" value="create">
+              <Mail className="hidden sm:block w-4 h-4 mr-2" />
               {t('nav.createLabel')}
             </TabsTrigger>
-            <TabsTrigger value="history">
-              <History className="w-4 h-4 mr-2" />
+            <TabsTrigger className="text-xs sm:text-sm px-1" value="history">
+              <History className="hidden sm:block w-4 h-4 mr-2" />
               {t('nav.history')} ({labels.length})
             </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Settings className="w-4 h-4 mr-2" />
+            <TabsTrigger className="text-xs sm:text-sm px-1" value="intake">
+              <Inbox className="hidden sm:block w-4 h-4 mr-2" />
+              {t('nav.intake')}
+            </TabsTrigger>
+            <TabsTrigger className="text-xs sm:text-sm px-1" value="settings">
+              <Settings className="hidden sm:block w-4 h-4 mr-2" />
               {t('nav.settings')}
             </TabsTrigger>
           </TabsList>
@@ -119,7 +134,7 @@ const Index = () => {
               {/* Paste full address field */}
               <div className="bg-card border border-border rounded-lg p-4">
                 <h3 className="text-sm font-medium mb-3">{t('address.pasteAddress')}</h3>
-                <AddressInput value={recipientAddress} onChange={setRecipientAddress} onPrint={handlePrint} isPrinting={isPrinting} canPrint={canPrint} printMode={printMode} onPrintModeChange={setPrintMode} />
+                <AddressInput value={recipientAddress} onChange={setRecipientAddress} onPrint={handlePrint} isPrinting={isPrinting || paket.isOrdering} canPrint={canPrint} paket={paketSelected} printMode={printMode} onPrintModeChange={setPrintMode} />
               </div>
 
               {/* Address lines panel - always visible */}
@@ -135,7 +150,7 @@ const Index = () => {
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
-              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} hiddenProducts={config.hiddenProducts} />
+              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} hiddenProducts={config.hiddenProducts} paketProducts={paket.products} paketNote={paket.note} />
             </div>
           </TabsContent>
           
@@ -149,6 +164,10 @@ const Index = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="intake">
+            <IntakeView />
+          </TabsContent>
+
           <TabsContent value="settings">
             <SettingsPanel config={config} defaults={defaults} storedIntake={storedIntake} intakeEnabled={intakeEnabled} products={products} onUpdatePrinterConfig={updatePrinterConfig} onUpdateSenderAddress={updateSenderAddress} onUpdateHiddenProducts={updateHiddenProducts} onUpdateIntake={updateIntake} />
           </TabsContent>
