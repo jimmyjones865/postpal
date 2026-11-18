@@ -77,7 +77,7 @@ export function itemBlock(items) {
  * Checks one parsed email against all no-buy rules.
  * Returns { ok: true, product, receiver, recipientAddress } or { ok: false, reason }.
  */
-export function decide({ subjectOrderId, orderId, addressLines, costEur }, { costTable, products, boughtToday, maxPriceCents, dailyCap }) {
+export function decide({ subjectOrderId, orderId, addressLines, costEur }, { costTable, products, boughtToday, dailyCap }) {
   if (!orderId) return { ok: false, reason: 'order ID not found in body' };
   if (orderId !== subjectOrderId) return { ok: false, reason: `subject order ${subjectOrderId} ≠ body order ${orderId}` };
   if (!addressLines) return { ok: false, reason: 'address block not found' };
@@ -89,7 +89,6 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
   if (!product) return { ok: false, reason: `product ${code} missing from products.json` };
 
   const priceCents = Math.round(product.cost * 100);
-  if (priceCents > maxPriceCents) return { ok: false, reason: `${product.name} costs ${product.cost} € > max ${maxPriceCents / 100} €` };
   if (boughtToday >= dailyCap) return { ok: false, reason: `daily cap of ${dailyCap} labels reached` };
 
   const parsed = parseAddress(addressLines.join('\n'));
