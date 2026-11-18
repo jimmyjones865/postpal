@@ -5,10 +5,17 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/services/labelService';
 import { PrinterConfig } from '@/types/shipping';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/useTranslation';
+import { language } from '@/lib/i18n';
+
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [['year', 31_536_000], ['month', 2_592_000], ['day', 86_400], ['hour', 3600], ['minute', 60]];
+function timeAgo(iso: string) {
+  const s = (Date.parse(iso) - Date.now()) / 1000;
+  const [unit, sec] = UNITS.find(([, sec]) => Math.abs(s) >= sec) ?? ['second', 1];
+  return new Intl.RelativeTimeFormat(language, { numeric: 'auto' }).format(Math.round(s / sec), unit);
+}
 
 interface LabelHistoryProps {
   labels: StoredLabel[];
@@ -145,7 +152,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    {formatDistanceToNow(new Date(label.createdAt), { addSuffix: true })}
+                    {timeAgo(label.createdAt)}
                   </div>
                   {(label.trackId || label.voucherId) && (
                     <div className="flex items-center gap-1">

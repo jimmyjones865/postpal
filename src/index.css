@@ -37,6 +37,7 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
     /* Nord Polar Night */
     /* nord0 #2e3440 */ --background: 220 16% 22%;
     /* nord1 #3b4252 */ --card: 222 16% 28%;
@@ -96,10 +97,6 @@
     --shadow-2xl: 0 24px 48px hsl(220 16% 10% / 0.55);
 
     --spacing: 0.25rem;
-  }
-
-  .dark {
-    color-scheme: dark;
   }
 }
 

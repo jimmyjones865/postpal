@@ -1,12 +1,14 @@
 type Translations = Record<string, string>;
 
 let translations: Translations = {};
+export let language = 'de';
 
 /**
  * Initialize i18n by loading the translation file for the specified language.
  * Falls back to German if the requested language file fails to load.
  */
-export async function initI18n(language: string): Promise<void> {
+export async function initI18n(lang: string): Promise<void> {
+  language = lang;
   try {
     const response = await fetch(`/locales/${language}.json`);
     if (!response.ok) {

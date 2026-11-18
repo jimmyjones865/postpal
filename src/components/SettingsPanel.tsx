@@ -6,11 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  Select
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppConfig, IntakeSettings, ShippingProduct } from '@/types/shipping';
@@ -257,22 +253,17 @@ export function SettingsPanel({
               <p className="text-xs text-destructive">{paperFormatsError}</p>
             ) : (
               <Select
+                className="h-9 text-sm"
                 value={config.printerConfig.paperFormatId ? String(config.printerConfig.paperFormatId) : ''}
-                onValueChange={value => {
-                  const fmt = paperFormats.find(f => f.id === parseInt(value));
-                  onUpdatePrinterConfig({ paperFormatName: fmt?.name ?? '', paperFormatId: parseInt(value) });
+                onChange={e => {
+                  const fmt = paperFormats.find(f => f.id === parseInt(e.target.value));
+                  onUpdatePrinterConfig({ paperFormatName: fmt?.name ?? '', paperFormatId: parseInt(e.target.value) });
                 }}
               >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder={t('settings.selectPaperFormat')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {paperFormats.map(format => (
-                    <SelectItem key={format.id} value={String(format.id)}>
-                      {format.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                <option value="" disabled>{t('settings.selectPaperFormat')}</option>
+                {paperFormats.map(format => (
+                  <option key={format.id} value={String(format.id)}>{format.name}</option>
+                ))}
               </Select>
             )}
 
@@ -309,18 +300,12 @@ export function SettingsPanel({
           <div className="config-field">
             <Label className="config-label">{t('settings.orientation')}</Label>
             <Select
+              className="h-9 text-sm"
               value={config.printerConfig.orientation}
-              onValueChange={(value: 'portrait' | 'landscape') =>
-                onUpdatePrinterConfig({ orientation: value })
-              }
+              onChange={e => onUpdatePrinterConfig({ orientation: e.target.value as 'portrait' | 'landscape' })}
             >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder={t('settings.orientation')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="portrait">{t('settings.portrait')}</SelectItem>
-                <SelectItem value="landscape">{t('settings.landscape')}</SelectItem>
-              </SelectContent>
+              <option value="portrait">{t('settings.portrait')}</option>
+              <option value="landscape">{t('settings.landscape')}</option>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
               {t('settings.landscapeHint')}
