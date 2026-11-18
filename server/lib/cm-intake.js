@@ -9,7 +9,7 @@ import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } 
 import { getCountryCode } from './country-codes.js';
 import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
-import { printStoredLabel } from './print-label.js';
+import { printWithSettings } from './print-label.js';
 import { notify } from './discord.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
 import { parseWindow, printWindowState, showWindow } from './print-window.js';
@@ -37,7 +37,7 @@ export function stopCmIntake() {
   return current;
 }
 
-export function startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath }) {
+export function startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath, paket }) {
   const cfg = {
     host: process.env.MAIL_SERVER,
     port: envNum('MAIL_PORT', 993),
@@ -256,25 +256,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   /** Records a stored label, prints it, posts ✅. */
   async function finishBought(orderId, base, { label, newBalance }, what) {
     await record(orderId, 'bought', { ...base, labelId: label.id });
-    const printer = settings.get().printerConfig;
     const balance = newBalance != null ? `, balance ${(newBalance / 100).toFixed(2)} €` : '';
-    let printNote = 'not printed (direct print off)';
-    if (printer.enableDirectPrint && printer.cupsUrl && printer.printerName) {
-      const p = await printStoredLabel(storage, label.id, {
-        cupsUrl: printer.cupsUrl,
-        printerName: printer.printerName,
-        orientation: printer.orientation,
-        cropTop: printer.cropMarginTop,
-        cropRight: printer.cropMarginRight,
-        cropBottom: printer.cropMarginBottom,
-        cropLeft: printer.cropMarginLeft,
-        disableCropping: printer.disableCropping,
-        paperWidthMm: printer.paperWidthMm,
-        paperHeightMm: printer.paperHeightMm,
-        endlessRoll: printer.endlessRoll
-      }).catch(err => ({ success: false, error: err.message }));
-      printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
-    }
+    const p = await printWithSettings(storage, settings, label.id).catch(err => ({ success: false, error: err.message }));
+    const printNote = p.skipped ? 'not printed (direct print off)' : p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     // DHL sends trackId only for international Einschreiben; domestic ones are tracked by voucherId
     const trackId = base.tracked && (label.trackId || label.voucherId);
     const tracking = trackId ? `\n📦 ${trackId} [Tracking](<${TRACK_URL}${encodeURIComponent(trackId)}>)` : '';
@@ -421,6 +405,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
           lock.release();
         }
       }
+      // Paid DHL Paket carts: payment is manual, so handled in dry run too
+      if (paket && !stopping) await paket.pollMails(client, cfg.folders).catch(err => logger.error('[Paket] Mail poll failed:', err.message));
       await client.logout();
       if (failing) await notify('✅ CM mail polling recovered.');
       failing = false;

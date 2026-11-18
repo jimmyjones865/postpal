@@ -124,3 +124,22 @@ export async function printStoredLabel(storage, labelId, {
   logger.info(`[Print] Job sent to ${printerName}, job ID: ${printResult.jobId}`);
   return { success: true, jobId: printResult.jobId, mediaDimensions: { widthMm: mediaWidthMm, heightMm: mediaHeightMm } };
 }
+
+/** Prints with the shared UI/intake printer settings. { skipped: true } when direct print is off or unconfigured. */
+export function printWithSettings(storage, settings, labelId) {
+  const printer = settings.get().printerConfig;
+  if (!printer.enableDirectPrint || !printer.cupsUrl || !printer.printerName) return Promise.resolve({ skipped: true });
+  return printStoredLabel(storage, labelId, {
+    cupsUrl: printer.cupsUrl,
+    printerName: printer.printerName,
+    orientation: printer.orientation,
+    cropTop: printer.cropMarginTop,
+    cropRight: printer.cropMarginRight,
+    cropBottom: printer.cropMarginBottom,
+    cropLeft: printer.cropMarginLeft,
+    disableCropping: printer.disableCropping,
+    paperWidthMm: printer.paperWidthMm,
+    paperHeightMm: printer.paperHeightMm,
+    endlessRoll: printer.endlessRoll
+  });
+}

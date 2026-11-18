@@ -9,6 +9,11 @@ import { createPrintRouter } from './print.js';
 import { createWalletRouter } from './wallet.js';
 import { startCmIntake } from '../lib/cm-intake.js';
 import { createTopupLedger } from '../lib/topups.js';
+import { createPakClient, pakConfigFromEnv } from '../lib/dhl-private-api.js';
+import { createPaketService } from '../lib/paket.js';
+import { createPaketRouter } from './paket.js';
+import { notify } from '../lib/discord.js';
+import { printWithSettings } from '../lib/print-label.js';
 
 /**
  * Creates the main API router with all sub-routes.
@@ -27,6 +32,17 @@ export function createApiRouter() {
   const dhlClient = createDhlClient();
   const topups = createTopupLedger(PDF_STORAGE_PATH);
   const settings = createSettingsStore(PDF_STORAGE_PATH);
+  const paket = createPaketService({
+    storage,
+    settings,
+    pakClient: createPakClient(pakConfigFromEnv()),
+    storagePath: PDF_STORAGE_PATH,
+    // Base for /pay links in Discord + the cart tag; must be the URL Carl opens postpal at
+    publicUrl: (process.env.POSTPAL_URL || 'http://localhost:3001').replace(/\/$/, ''),
+    confirmEmail: process.env.DHL_PAKET_EMAIL,
+    notify,
+    print: labelId => printWithSettings(storage, settings, labelId)
+  });
 
   /**
    * Gets API credentials from environment variables.
@@ -47,6 +63,8 @@ export function createApiRouter() {
 
   // Print: CUPS printing
   router.use('/', createPrintRouter(storage));
+
+  router.use('/paket', createPaketRouter(paket));
 
   // Wallet: balance operations
   router.use('/wallet', createWalletRouter(dhlClient, getCredentials, topups));
@@ -129,7 +147,7 @@ export function createApiRouter() {
     storage.cleanupOldLabels(RETENTION_DAYS);
     // Schedule daily cleanup
     setInterval(() => storage.cleanupOldLabels(RETENTION_DAYS), 24 * 60 * 60 * 1000);
-    startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath: PDF_STORAGE_PATH });
+    startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath: PDF_STORAGE_PATH, paket });
   });
 
   return router;

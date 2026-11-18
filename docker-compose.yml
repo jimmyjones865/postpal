@@ -58,6 +58,14 @@ services:
       - CM_MAX_LABELS_PER_DAY=${CM_MAX_LABELS_PER_DAY:-30}
       - PRINT_WINDOW_WEEKDAY=${PRINT_WINDOW_WEEKDAY:-}
       - PRINT_WINDOW_WEEKEND=${PRINT_WINDOW_WEEKEND:-}
+      # DHL Paket (Online-Frankierung carts, paid by hand in DHL's checkout)
+      - DHL_PAKET_API_KEY=${DHL_PAKET_API_KEY}
+      - DHL_PAKET_API_KEY_SANDBOX=${DHL_PAKET_API_KEY_SANDBOX}
+      - DHL_PAKET_SANDBOX=${DHL_PAKET_SANDBOX:-false}
+      # DHL's payment confirmation goes here; must be the intake mailbox (paid detection)
+      - DHL_PAKET_EMAIL=${DHL_PAKET_EMAIL}
+      # URL postpal is opened at: /pay links in Discord + cart tag
+      - POSTPAL_URL=${POSTPAL_URL}
       - AUTO_TOPUP_EUR=${AUTO_TOPUP_EUR:-0}
       - AUTO_TOPUP_DAILY_MAX_EUR=${AUTO_TOPUP_DAILY_MAX_EUR:-}
     restart: unless-stopped
