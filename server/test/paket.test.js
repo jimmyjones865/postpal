@@ -104,3 +104,16 @@ test('untagged, unknown, unpaid, lookup error', async () => {
   assert.equal((await t.svc.handlePaidCart('DDDDDDDDDDDD')).status, 'done', 'error retried');
   assert.equal(t.saved.length, 1);
 });
+
+test('remindUnpaid: once per Berlin day from 09:00, only older orders', async () => {
+  const t = await setup();
+  await t.svc.addOrder({ ...order, buyer: 'bob' });
+  const morning = new Date('2026-11-19T07:30:00Z'); // 08:30 Berlin
+  await t.svc.remindUnpaid(morning);
+  assert.equal(t.notices.length, 0);
+  const later = new Date('2026-11-19T08:30:00Z');
+  await t.svc.remindUnpaid(later);
+  assert.match(t.notices.at(-1), /⏳ 1 Paket order not paid yet:\n• bob: Paket 2 kg → http:\/\/pp\/api\/paket\/pay\/o1/);
+  await t.svc.remindUnpaid(new Date('2026-11-19T15:00:00Z'));
+  assert.equal(t.notices.length, 1);
+});

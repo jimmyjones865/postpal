@@ -75,7 +75,8 @@ export function itemBlock(items) {
 
 /**
  * Checks one parsed email against all no-buy rules.
- * Returns { ok: true, product, receiver, recipientAddress } or { ok: false, reason }.
+ * Returns { ok: true, product, priceCents, receiver, recipientAddress } (letter), { ok: true, paket: { productId, insured }, receiver, recipientAddress }
+ * (DHL Paket: no cap, paid by hand) or { ok: false, reason }.
  */
 export function decide({ subjectOrderId, orderId, addressLines, costEur }, { costTable, products, boughtToday, dailyCap }) {
   if (!orderId) return { ok: false, reason: 'order ID not found in body' };
@@ -83,19 +84,30 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
   if (!addressLines) return { ok: false, reason: 'address block not found' };
   if (!costEur) return { ok: false, reason: 'shipping cost not found' };
 
-  const code = costTable[costEur];
-  if (!code) return { ok: false, reason: `unknown shipping cost ${costEur.replace('.', ',')} EUR` };
-  const product = products.find(p => p.code === code);
-  if (!product) return { ok: false, reason: `product ${code} missing from products.json` };
-
-  const priceCents = Math.round(product.cost * 100);
-  if (boughtToday >= dailyCap) return { ok: false, reason: `daily cap of ${dailyCap} labels reached` };
+  // Paket entries are keyed per destination: the same CM cost can mean different products by country
+  const letterCode = typeof costTable[costEur] === 'string' ? costTable[costEur] : undefined;
+  const paketTable = costTable.paket || {};
+  if (!letterCode && !Object.values(paketTable).some(t => t[costEur])) {
+    return { ok: false, reason: `unknown shipping cost ${costEur.replace('.', ',')} EUR` };
+  }
 
   const parsed = parseAddress(addressLines.join('\n'));
   const country = getCountryCode(parsed.country);
   if (!country) return { ok: false, reason: `unknown country "${parsed.country}"` };
-  if (product.domestic !== (country === 'DEU')) {
-    return { ok: false, reason: `${product.name} does not fit destination ${country}` };
+
+  const paketCode = paketTable[country]?.[costEur];
+  let product, priceCents, paket;
+  if (paketCode) {
+    paket = { productId: paketCode.replace(/\.VERSI$/, ''), insured: paketCode.endsWith('.VERSI') };
+  } else {
+    if (!letterCode) return { ok: false, reason: `shipping cost ${costEur.replace('.', ',')} EUR has no Paket product for ${country}` };
+    product = products.find(p => p.code === letterCode);
+    if (!product) return { ok: false, reason: `product ${letterCode} missing from products.json` };
+    priceCents = Math.round(product.cost * 100);
+    if (boughtToday >= dailyCap) return { ok: false, reason: `daily cap of ${dailyCap} labels reached` };
+    if (product.domestic !== (country === 'DEU')) {
+      return { ok: false, reason: `${product.name} does not fit destination ${country}` };
+    }
   }
 
   // Email path only (UI can override): catches a house number typed onto the postcode line
@@ -115,5 +127,5 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
   const { errors } = prepareReceiver(receiver);
   if (errors.length) return { ok: false, reason: errors.join('; ') };
 
-  return { ok: true, product, priceCents, receiver, recipientAddress: addressLines.join('\n') };
+  return { ok: true, product, priceCents, paket, receiver, recipientAddress: addressLines.join('\n') };
 }

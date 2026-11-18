@@ -13,6 +13,7 @@ import { printWithSettings } from './print-label.js';
 import { notify } from './discord.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
 import { parseWindow, printWindowState, showWindow } from './print-window.js';
+import { pakProductName } from './paket.js';
 
 // Dedupe needs entries back to the 7-day lookback (IMAP SINCE is day-granular); 14 leaves margin
 const KEEP_MS = 14 * 86_400_000;
@@ -197,6 +198,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     }
 
     const { product, priceCents, receiver, recipientAddress } = decision;
+    if (decision.paket) {
+      await paketOrder(subjectOrderId, { buyer, summary, itemList, say, receiver, recipientAddress, ...decision.paket });
+      return;
+    }
     if (cfg.dryRun) {
       await record(subjectOrderId, 'dry-run', { productCode: product.code });
       const t = await topupCheck(priceCents).catch(err => ({ error: err.message }));
@@ -251,6 +256,26 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     }
 
     await finishBought(subjectOrderId, { ...base, shopOrderId: result.label.shopOrderId }, result, `${product.name} ${product.cost} €`);
+  }
+
+  /** DHL Paket: no purchase here — an order awaiting manual payment via the pay link. Nothing is spent, so no cap. */
+  async function paketOrder(orderId, { buyer, summary, itemList, say, receiver, recipientAddress, productId, insured }) {
+    const productName = pakProductName(productId, insured);
+    const price = await paket?.quote(productId, insured, receiver.country);
+    const what = `${productName}${price != null ? ` (${price.toFixed(2)} €)` : ''}`;
+    if (!paket) {
+      await record(orderId, 'skipped', { reason: 'DHL Paket not configured' });
+      await say(`🛑 CM ${orderId}: ${what} — DHL Paket not configured, buy it manually.`);
+      return;
+    }
+    if (cfg.dryRun) {
+      await record(orderId, 'dry-run', { paketProduct: productId, insured });
+      await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
+      return;
+    }
+    const { payUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insured, receiver, recipientAddress, buyer, summary, itemList });
+    await record(orderId, 'paket', { paketProduct: productId, insured, buyer, summary });
+    await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
 
   /** Records a stored label, prints it, posts ✅. */

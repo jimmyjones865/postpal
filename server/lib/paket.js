@@ -6,6 +6,8 @@ import path from 'path';
 import { logger } from './logger.js';
 import { topHeader } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
+import { catalogPrice } from './dhl-private-api.js';
+import { berlinDay } from './config.js';
 
 const KEEP_MS = 14 * 86_400_000;
 // Earlier cart opened this recently and not confirmed paid → ask before opening another
@@ -14,6 +16,9 @@ const LOOKBACK_MS = 7 * 86_400_000;
 const TAG_PATH = '/dhl-paid';
 const TRACK_URL = 'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=';
 const SUBJECT_RE = /Online Frankierung\s+([A-Z0-9]{12})\s*$/;
+
+const NAMES = { PAECKS: 'DHL Päckchen S', PAECK: 'DHL Päckchen M', PAK02: 'DHL Paket 2 kg', PAK05: 'DHL Paket 5 kg', PAK10: 'DHL Paket 10 kg' };
+export const pakProductName = (productId, insured) => `${NAMES[productId] || productId}${insured ? ' versichert' : ''}`;
 
 // "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
 export function splitStreet(line = '') {
@@ -98,6 +103,30 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   async function listOrders() {
     await load();
     return Object.entries(state.orders).map(([id, o]) => ({ id, ...o, payUrl: payLink(id) }));
+  }
+
+  /** Current DHL price in EUR, null if unknown (catalog down / not offered). */
+  async function quote(productId, insured, country) {
+    try {
+      return catalogPrice(await pakClient.getCatalog(), productId, country, { insured });
+    } catch (err) {
+      logger.warn('[Paket] Catalog failed:', err.message);
+      return null;
+    }
+  }
+
+  /** One ⏳ notice per Berlin day (from 09:00) listing orders still awaiting payment. */
+  async function remindUnpaid(now = new Date()) {
+    await load();
+    const hour = Number(now.toLocaleString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }));
+    const today = berlinDay(now);
+    if (hour < 9 || state.remindedDay === today) return;
+    const open = Object.entries(state.orders).filter(([, o]) => o.status === 'awaiting-pay' && berlinDay(o.at) !== today);
+    state.remindedDay = today;
+    await save();
+    if (!open.length) return;
+    const lines = open.map(([id, o]) => `• ${o.buyer ?? id}: ${o.productName} → ${payLink(id)}`);
+    await notify(`⏳ ${open.length} Paket order${open.length === 1 ? '' : 's'} not paid yet:\n${lines.join('\n')}`);
   }
 
   function senderAddress() {
@@ -229,7 +258,8 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       logger.info(`[Paket] Confirmation mail for cart ${cartId}`);
       await handlePaidCart(cartId);
     }
+    await remindUnpaid();
   }
 
-  return { addOrder, listOrders, startPayment, handlePaidCart, pollMails, payLink };
+  return { addOrder, listOrders, startPayment, handlePaidCart, pollMails, payLink, quote, remindUnpaid };
 }

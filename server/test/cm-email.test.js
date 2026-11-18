@@ -79,6 +79,19 @@ test('no-buy rules', () => {
   assert.match(reason({ addressLines: ['Jan 王', 'Hauptstraße 1', '10115 Berlin', 'Germany'] }), /invalid characters: 王/);
 });
 
+test('Paket costs: per destination, insured suffix, no cap', () => {
+  const { subject, text } = split(fixture('cm-en.txt'));
+  const body = parseBody(text);
+  const id = matchSubject(subject).orderId;
+  const d = (b, l = limits) => decide({ subjectOrderId: id, ...body, ...b }, l);
+  assert.deepEqual(d({ costEur: '7.19' }).paket, { productId: 'PAK02', insured: false });
+  assert.deepEqual(d({ costEur: '15.68' }).paket, { productId: 'PAK05', insured: true });
+  assert.equal(d({ costEur: '5.19' }, { ...limits, boughtToday: 30 }).ok, true, 'Paket ignores the label cap');
+  const pl = ['Jan Kowalski', 'Dluga 7', '00-001 Warszawa', 'Poland'];
+  assert.match(d({ costEur: '11.49', addressLines: pl }).reason, /11,49 EUR has no Paket product for POL/);
+  assert.equal(d({ costEur: '1.25' }).paket, undefined);
+});
+
 test('swap puts the first input line on top (DHL prints additionalName above name)', () => {
   const { receiver } = prepareReceiver({ name: 'Enrique Frias Ramis', additionalName: 'Palma de Mallorca', addressLine1: 'X 1', postalCode: '07110', city: 'Bunyola', country: 'ESP' });
   assert.equal(receiver.additionalName, 'Enrique Frias Ramis');
