@@ -42,7 +42,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     // Mail is moved to Archive quickly, so both are watched by default
     folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
     dryRun: process.env.CM_DRY_RUN !== 'false',
-    dailyCap: envNum('CM_DAILY_CAP', 30),
+    dailyCap: envNum('CM_MAX_LABELS_PER_DAY', 30),
     pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000,
     topupCents: Math.round(envNum('AUTO_TOPUP_EUR', 0) * 100)
   };
