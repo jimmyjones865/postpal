@@ -134,29 +134,7 @@ export async function printLabel(labelId: string, config: PrinterConfig): Promis
     return;
   }
 
-  const response = await fetch(`${API_BASE}/print`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      labelId,
-      cupsUrl: config.cupsUrl,
-      printerName: config.printerName,
-      orientation: config.orientation,
-      cropTop: config.cropMarginTop,
-      cropRight: config.cropMarginRight,
-      cropBottom: config.cropMarginBottom,
-      cropLeft: config.cropMarginLeft,
-      disableCropping: config.disableCropping,
-      paperWidthMm: config.paperWidthMm,
-      paperHeightMm: config.paperHeightMm,
-      endlessRoll: config.endlessRoll
-    })
-  });
-  const result = await response.json().catch(() => ({}));
-
-  if (!response.ok || !result.success) {
-    throw new Error(result.error || 'Print failed');
-  }
+  await json(await post(`/labels/${labelId}/print`));
 }
 
 /**

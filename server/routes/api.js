@@ -5,7 +5,6 @@ import { parseAddress } from '../lib/european-address-parser.js';
 import { createLabelStorage } from '../lib/label-storage.js';
 import { createDhlClient } from '../lib/dhl-api.js';
 import { createLabelsRouter } from './labels.js';
-import { createPrintRouter } from './print.js';
 import { createWalletRouter } from './wallet.js';
 import { startCmIntake } from '../lib/cm-intake.js';
 import { createTopupLedger } from '../lib/topups.js';
@@ -33,6 +32,7 @@ export function createApiRouter() {
   const dhlClient = createDhlClient();
   const topups = createTopupLedger(PDF_STORAGE_PATH);
   const settings = createSettingsStore(PDF_STORAGE_PATH);
+  const print = labelId => printWithSettings(storage, settings, labelId);
   const paket = createPaketService({
     storage,
     settings,
@@ -43,7 +43,7 @@ export function createApiRouter() {
     localUrl: process.env.POSTPAL_LOCAL_URL?.replace(/\/$/, '') || undefined,
     confirmEmail: process.env.DHL_PAKET_EMAIL,
     notify,
-    print: labelId => printWithSettings(storage, settings, labelId)
+    print
   });
 
   /**
@@ -61,10 +61,7 @@ export function createApiRouter() {
   /* ==================== Mount sub-routers ==================== */
 
   // Labels: CRUD + purchase
-  router.use('/labels', createLabelsRouter(storage, dhlClient, getCredentials));
-
-  // Print: CUPS printing
-  router.use('/', createPrintRouter(storage));
+  router.use('/labels', createLabelsRouter(storage, dhlClient, getCredentials, print));
 
   router.use('/paket', createPaketRouter(paket));
   router.use('/intake', createIntakeRouter({ storagePath: PDF_STORAGE_PATH, storage, paket, settings }));

@@ -11,7 +11,7 @@ import { buyLabel, recoverLabel } from '../lib/purchase.js';
  * @param {Function} getCredentials - Function to get API credentials
  * @returns {express.Router} Labels router
  */
-export function createLabelsRouter(storage, dhlClient, getCredentials) {
+export function createLabelsRouter(storage, dhlClient, getCredentials, print) {
   const router = express.Router();
 
   /**
@@ -80,6 +80,19 @@ export function createLabelsRouter(storage, dhlClient, getCredentials) {
     } catch (err) {
       logger.error('[Labels] Delete error:', err);
       res.status(500).json({ error: 'Failed to delete label' });
+    }
+  });
+
+  // CUPS print with the saved printer settings (settings.json)
+  router.post('/:id/print', async (req, res) => {
+    try {
+      const result = await print(req.params.id);
+      if (result.skipped) return res.status(400).json({ error: 'Direct print not configured (CUPS URL, printer name)' });
+      if (!result.success) return res.status(result.status || 500).json({ error: result.error });
+      res.json(result);
+    } catch (err) {
+      logger.error('[Print] Error:', err);
+      res.status(500).json({ error: err.message || 'Print failed' });
     }
   });
 
