@@ -46,6 +46,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     // Mail is moved to Archive quickly, so both are watched by default
     folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
     dryRun: process.env.CM_DRY_RUN !== 'false',
+    itemsList: process.env.DISCORD_MESSAGE_ITEMS_LIST !== 'false',
     dailyCap: envNum('CM_MAX_LABELS_PER_DAY', 30),
     pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000,
     topupCents: Math.round(envNum('AUTO_TOPUP_EUR', 0) * 100)
@@ -177,7 +178,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     const parsed = { subjectOrderId, ...parseBody(text) };
     const n = parsed.itemCount ?? '?';
     const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €`;
-    const itemList = itemBlock(parsed.items);
+    const itemList = cfg.itemsList ? itemBlock(parsed.items) : '';
     const say = line => notify(`${summary}\n${line}${itemList}`);
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
