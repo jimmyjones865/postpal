@@ -39,6 +39,16 @@ export interface PrinterConfig {
 export interface AppConfig {
   printerConfig: PrinterConfig;
   senderAddress: SenderAddress;
-  favoriteProducts: string[];
+  hiddenProducts: string[];
+  intake: IntakeSettings;
 }
 
+
+export interface IntakeSettings {
+  dryRun: boolean;
+  maxLabelsPerDay: number;
+  autoTopupEur: number;
+  autoTopupDailyMaxEur: number;
+  printWindowWeekday: string;
+  printWindowWeekend: string;
+}

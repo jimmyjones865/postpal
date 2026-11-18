@@ -1,6 +1,6 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
-import { loadServerConfig } from '../lib/config.js';
+import { createSettingsStore } from '../lib/settings.js';
 import { parseAddress } from '../lib/european-address-parser.js';
 import { createLabelStorage } from '../lib/label-storage.js';
 import { createDhlClient } from '../lib/dhl-api.js';
@@ -26,6 +26,7 @@ export function createApiRouter() {
   const storage = createLabelStorage(PDF_STORAGE_PATH);
   const dhlClient = createDhlClient();
   const topups = createTopupLedger(PDF_STORAGE_PATH);
+  const settings = createSettingsStore(PDF_STORAGE_PATH);
 
   /**
    * Gets API credentials from environment variables.
@@ -85,12 +86,20 @@ export function createApiRouter() {
   });
 
   /**
-   * GET /config/defaults - Get server-side configuration defaults
-   * Returns any sender address or printer settings configured via environment variables.
-   * Client (localStorage) takes precedence but can see what server provides.
+   * GET /settings - effective settings, env/code defaults, and the stored overrides
+   * PATCH /settings - { section: { key: value | null } }; null = back to env
    */
-  router.get('/config/defaults', (req, res) => {
-    res.json(loadServerConfig());
+  const intakeEnabled = Boolean(process.env.MAIL_SERVER && process.env.MAIL_USERNAME && process.env.MAIL_PASSWORD);
+  const settingsBody = () => ({ settings: settings.get(), defaults: settings.defaults(), stored: settings.stored(), intakeEnabled });
+  router.get('/settings', (req, res) => res.json(settingsBody()));
+  router.patch('/settings', async (req, res) => {
+    try {
+      await settings.update(req.body || {});
+      res.json(settingsBody());
+    } catch (err) {
+      if (err.status !== 400) logger.error('[Settings] Save failed:', err);
+      res.status(err.status || 500).json({ error: err.message });
+    }
   });
 
   /**
@@ -120,7 +129,7 @@ export function createApiRouter() {
     storage.cleanupOldLabels(RETENTION_DAYS);
     // Schedule daily cleanup
     setInterval(() => storage.cleanupOldLabels(RETENTION_DAYS), 24 * 60 * 60 * 1000);
-    startCmIntake({ storage, dhlClient, getCredentials, topups, storagePath: PDF_STORAGE_PATH });
+    startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath: PDF_STORAGE_PATH });
   });
 
   return router;

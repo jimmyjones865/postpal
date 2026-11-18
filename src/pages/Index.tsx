@@ -25,7 +25,11 @@ const Index = () => {
     credentialsConfigured,
     updatePrinterConfig,
     updateSenderAddress,
-    updateFavoriteProducts
+    updateHiddenProducts,
+    updateIntake,
+    defaults,
+    storedIntake,
+    intakeEnabled
   } = useConfig();
   const {
     products,
@@ -47,7 +51,7 @@ const Index = () => {
   const [printMode, setPrintMode] = useState<PrintMode>('print');
 
   const { purchasedLabelId, voucherId, trackId, isPrinting, purchase } = useLabelPurchase(
-    config, products, isConfigured, recipientAddress
+    config!, products, isConfigured, recipientAddress
   );
 
   const validation = validateAddress(recipientAddress);
@@ -62,7 +66,7 @@ const Index = () => {
     onBalanceUpdate: setWalletBalance,
     onLabelSaved: addLabel,
   });
-  if (!isLoaded || productsLoading) {
+  if (!isLoaded || !config || !defaults || productsLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">{t('status.loading')}</div>
       </div>;
@@ -130,7 +134,7 @@ const Index = () => {
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
-              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} favoriteProducts={config.favoriteProducts} />
+              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} hiddenProducts={config.hiddenProducts} />
             </div>
           </TabsContent>
           
@@ -145,7 +149,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="settings">
-            <SettingsPanel config={config} products={products} onUpdatePrinterConfig={updatePrinterConfig} onUpdateSenderAddress={updateSenderAddress} onUpdateFavoriteProducts={updateFavoriteProducts} />
+            <SettingsPanel config={config} defaults={defaults} storedIntake={storedIntake} intakeEnabled={intakeEnabled} products={products} onUpdatePrinterConfig={updatePrinterConfig} onUpdateSenderAddress={updateSenderAddress} onUpdateHiddenProducts={updateHiddenProducts} onUpdateIntake={updateIntake} />
           </TabsContent>
         </Tabs>
       </main>

@@ -134,5 +134,20 @@
   "toast.refundFailed": "Refund failed",
   "wallet.topUp": "Top up Portokasse",
   "toast.topUpDone": "Portokasse topped up",
-  "toast.topUpFailed": "Top-up failed"
+  "toast.topUpFailed": "Top-up failed",
+  "settings.intake": "Automation",
+  "settings.intakeOff": "Email intake is off (MAIL_SERVER / MAIL_USERNAME / MAIL_PASSWORD not set). Values are saved but unused.",
+  "settings.live": "Live: buy and print labels from Cardmarket emails",
+  "settings.dryRunHint": "Dry run: orders are checked and posted to Discord, nothing is bought.",
+  "settings.liveHint": "LIVE: every new ship-order email buys a label and charges Portokasse. Stop buying Cardmarket labels by hand.",
+  "settings.maxLabelsPerDay": "Max labels per day",
+  "settings.autoTopupEur": "Auto top-up (€)",
+  "settings.autoTopupDailyMaxEur": "Auto top-up max/day (€)",
+  "settings.autoTopupHint": "Top-up when the balance is below the label price. 0 = off, otherwise 10 € (DHL minimum) up to TOPUP_MAX_EUR.",
+  "settings.printWindowWeekday": "Print window Mon–Fri",
+  "settings.printWindowWeekend": "Print window Sat–Sun",
+  "settings.printWindowHint": "HH:MM-HH:MM, Berlin time. Outside it orders wait. 00:00-24:00 = always.",
+  "settings.intakeHint": "Empty field = value from .env (in grey). Takes effect at the next mail poll; every change is posted to Discord.",
+  "settings.envDefault": ".env",
+  "settings.saveFailed": "Not saved"
 }

@@ -9,8 +9,7 @@ interface ProductSelectorProps {
   selectedProduct: string | null;
   onSelect: (productCode: string) => void;
   onDoubleClick: () => void;
-  /** Products in this list are EXCLUDED from display (hidden products) */
-  favoriteProducts: string[];
+  hiddenProducts: string[];
 }
 
 type ProductGroup = 'standard' | 'kompakt' | 'gross' | 'maxi';
@@ -27,20 +26,19 @@ export function ProductSelector({
   selectedProduct, 
   onSelect,
   onDoubleClick,
-  favoriteProducts,
+  hiddenProducts,
 }: ProductSelectorProps) {
   const { t } = useTranslation();
   const [showOther, setShowOther] = useState(false);
   
-  // favoriteProducts now acts as an EXCLUSION list (hidden products)
   // Products NOT in the list are shown as main products
-  const visibleProducts = products.filter((p) => !favoriteProducts.includes(p.code));
-  const hiddenProducts = products.filter((p) => favoriteProducts.includes(p.code));
+  const visibleProducts = products.filter((p) => !hiddenProducts.includes(p.code));
+  const hidden = products.filter((p) => hiddenProducts.includes(p.code));
   
   const visibleDomestic = visibleProducts.filter((p) => p.domestic);
   const visibleInternational = visibleProducts.filter((p) => !p.domestic);
-  const hiddenDomestic = hiddenProducts.filter((p) => p.domestic);
-  const hiddenInternational = hiddenProducts.filter((p) => !p.domestic);
+  const hiddenDomestic = hidden.filter((p) => p.domestic);
+  const hiddenInternational = hidden.filter((p) => !p.domestic);
 
   const formatWeight = (grams: number) => {
     if (grams >= 1000) return `${(grams / 1000).toFixed(1)}kg`;
@@ -163,7 +161,7 @@ export function ProductSelector({
       )}
 
       {/* Hidden products (can be expanded) */}
-      {hiddenProducts.length > 0 && (
+      {hidden.length > 0 && (
         <div>
           <button
             onClick={() => setShowOther(!showOther)}
@@ -171,8 +169,8 @@ export function ProductSelector({
           >
             {showOther ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             {showOther 
-              ? t('product.hideProducts', { count: hiddenProducts.length })
-              : t('product.showHidden', { count: hiddenProducts.length })
+              ? t('product.hideProducts', { count: hidden.length })
+              : t('product.showHidden', { count: hidden.length })
             }
           </button>
           

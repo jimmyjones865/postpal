@@ -7,7 +7,7 @@ import { simpleParser } from 'mailparser';
 import { logger } from './logger.js';
 import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
-import { loadServerConfig, envNum, berlinDay } from './config.js';
+import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
 import { printStoredLabel } from './print-label.js';
 import { notify } from './discord.js';
@@ -37,7 +37,7 @@ export function stopCmIntake() {
   return current;
 }
 
-export function startCmIntake({ storage, dhlClient, getCredentials, topups, storagePath }) {
+export function startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath }) {
   const cfg = {
     host: process.env.MAIL_SERVER,
     port: envNum('MAIL_PORT', 993),
@@ -45,27 +45,34 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     pass: process.env.MAIL_PASSWORD,
     // Mail is moved to Archive quickly, so both are watched by default
     folders: (process.env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean),
-    dryRun: process.env.CM_DRY_RUN !== 'false',
     itemsList: process.env.DISCORD_MESSAGE_ITEMS_LIST !== 'false',
-    dailyCap: envNum('CM_MAX_LABELS_PER_DAY', 30),
-    pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000,
-    topupCents: Math.round(envNum('AUTO_TOPUP_EUR', 0) * 100)
+    pollMs: envNum('MAIL_POLL_SECONDS', 120) * 1000
   };
-  // Default = one top-up per day: a mistake (loop, wrong price) costs at most one charge
-  cfg.topupDailyMaxCents = Math.round(envNum('AUTO_TOPUP_DAILY_MAX_EUR', cfg.topupCents / 100) * 100);
-  if (cfg.topupCents && (cfg.topupCents < MIN_TOPUP_CENTS || cfg.topupCents > TOPUP_MAX_CENTS)) {
-    logger.warn(`[CM] AUTO_TOPUP_EUR must be ${MIN_TOPUP_CENTS / 100}–${TOPUP_MAX_CENTS / 100} (DHL min, TOPUP_MAX_EUR); auto top-up off`);
-    cfg.topupCents = 0;
-  }
-  cfg.windows = {};
-  for (const [key, env] of [['weekday', 'PRINT_WINDOW_WEEKDAY'], ['weekend', 'PRINT_WINDOW_WEEKEND']]) {
-    try {
-      cfg.windows[key] = parseWindow(process.env[env]);
-    } catch (err) {
-      logger.warn(`[CM] ${env}: ${err.message}; printing around the clock`);
-      cfg.windows[key] = null;
+  const warned = new Set();
+  const warnOnce = msg => { if (!warned.has(msg)) { warned.add(msg); logger.warn(msg); } };
+
+  /** UI-editable values (settings.json over env), re-read at the start of every poll. */
+  function applySettings() {
+    const s = settings.get().intake;
+    cfg.dryRun = s.dryRun;
+    cfg.dailyCap = s.maxLabelsPerDay;
+    cfg.topupCents = Math.round(s.autoTopupEur * 100);
+    cfg.topupDailyMaxCents = Math.round(s.autoTopupDailyMaxEur * 100);
+    if (cfg.topupCents && (cfg.topupCents < MIN_TOPUP_CENTS || cfg.topupCents > TOPUP_MAX_CENTS)) {
+      warnOnce(`[CM] auto top-up must be ${MIN_TOPUP_CENTS / 100}–${TOPUP_MAX_CENTS / 100} € (DHL min, TOPUP_MAX_EUR); auto top-up off`);
+      cfg.topupCents = 0;
+    }
+    cfg.windows = {};
+    for (const [key, name] of [['weekday', 'printWindowWeekday'], ['weekend', 'printWindowWeekend']]) {
+      try {
+        cfg.windows[key] = parseWindow(s[name]);
+      } catch (err) {
+        warnOnce(`[CM] ${name}: ${err.message}; printing around the clock`);
+        cfg.windows[key] = null;
+      }
     }
   }
+  applySettings();
   if (!cfg.host || !cfg.user || !cfg.pass) {
     logger.info('[CM] MAIL_SERVER/MAIL_USERNAME/MAIL_PASSWORD not set, email intake off');
     return;
@@ -81,7 +88,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
   /** What live mode needs that is missing; checked once so a bad config can't top up and then fail every order. */
   function liveConfigProblems() {
     const c = getCredentials();
-    const s = loadServerConfig().senderAddress || {};
+    const s = settings.get().senderAddress;
     const missing = [
       ...['apiKey', 'apiSecret', 'portokasseLogin', 'portokassePassword'].filter(k => !c[k]).map(k => `DHL ${k}`),
       ...['name', 'street', 'postalCode', 'city'].filter(k => !s[k]).map(k => `SENDER ${k}`)
@@ -207,8 +214,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
 
-    const server = loadServerConfig();
-    const s = server.senderAddress || {};
+    const s = settings.get().senderAddress;
     const result = await buyLabel({ storage, dhlClient, credentials: getCredentials() }, {
       shopOrderId,
       beforeCheckout: async id => {
@@ -228,7 +234,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       productCode: product.code,
       productName: product.name,
       priceInCents: priceCents,
-      pageFormatId: server.printerConfig?.paperFormatId,
+      pageFormatId: settings.get().printerConfig.paperFormatId || undefined,
       recipientAddress,
       meta: { cmOrderId: subjectOrderId }
     }).catch(err => ({ success: false, error: err.message })); // thrown = before checkout (auth, cart init)
@@ -250,7 +256,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
   /** Records a stored label, prints it, posts ✅. */
   async function finishBought(orderId, base, { label, newBalance }, what) {
     await record(orderId, 'bought', { ...base, labelId: label.id });
-    const printer = loadServerConfig().printerConfig || {};
+    const printer = settings.get().printerConfig;
     const balance = newBalance != null ? `, balance ${(newBalance / 100).toFixed(2)} €` : '';
     let printNote = 'not printed (direct print off)';
     if (printer.enableDirectPrint && printer.cupsUrl && printer.printerName) {
@@ -423,20 +429,38 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
     }
   }
 
+  let lastSummary;
+  let refusedFor;
+  /** Re-reads settings; a change after startup is posted to Discord (arming, caps and top-up move money). */
+  async function refreshSettings() {
+    applySettings();
+    const problems = cfg.dryRun ? [] : liveConfigProblems();
+    if (problems.length) {
+      cfg.dryRun = true;
+      const missing = problems.join(', ');
+      if (refusedFor !== missing) await notify(`🛑 CM intake: LIVE refused, running DRY RUN — missing ${missing}`);
+      refusedFor = missing;
+    } else {
+      refusedFor = undefined;
+    }
+    const summary = `${cfg.dryRun ? 'DRY RUN' : 'LIVE'}, max ${cfg.dailyCap} labels/day, print window weekday ${showWindow(cfg.windows.weekday)} / weekend ${showWindow(cfg.windows.weekend)}, auto top-up ${cfg.topupCents ? `${eur(cfg.topupCents)} € when balance < label, max ${eur(cfg.topupDailyMaxCents)} €/day` : 'off'}`;
+    if (summary === lastSummary) return;
+    logger.info(`[CM] ${summary}`);
+    if (lastSummary) await notify(`⚙️ CM intake settings changed: ${summary}`);
+    lastSummary = summary;
+  }
+
   function poll() {
     if (running || stopping) return;
     running = true;
-    current = pollOnce().finally(() => { running = false; });
+    current = refreshSettings().then(pollOnce)
+      .catch(err => logger.error('[CM] Poll failed:', err.message))
+      .finally(() => { running = false; });
   }
 
   loadState()
-    .then(async () => {
-      const problems = cfg.dryRun ? [] : liveConfigProblems();
-      if (problems.length) {
-        cfg.dryRun = true;
-        await notify(`🛑 CM intake: LIVE refused, running DRY RUN — missing ${problems.join(', ')}`);
-      }
-      logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}, print window weekday ${showWindow(cfg.windows.weekday)} / weekend ${showWindow(cfg.windows.weekend)}, auto top-up ${cfg.topupCents ? `${eur(cfg.topupCents)} € when balance < label, max ${eur(cfg.topupDailyMaxCents)} €/day` : 'off'}`);
+    .then(() => {
+      logger.info(`[CM] Email intake on, polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}`);
       poll();
       timer = setInterval(poll, cfg.pollMs);
     })

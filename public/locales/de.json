@@ -134,5 +134,20 @@
   "toast.refundFailed": "Erstattung fehlgeschlagen",
   "wallet.topUp": "Portokasse aufladen",
   "toast.topUpDone": "Portokasse aufgeladen",
-  "toast.topUpFailed": "Aufladen fehlgeschlagen"
+  "toast.topUpFailed": "Aufladen fehlgeschlagen",
+  "settings.intake": "Automatik",
+  "settings.intakeOff": "E-Mail-Abruf ist aus (MAIL_SERVER / MAIL_USERNAME / MAIL_PASSWORD fehlen). Werte werden gespeichert, aber nicht genutzt.",
+  "settings.live": "Live: Labels aus Cardmarket-Mails kaufen und drucken",
+  "settings.dryRunHint": "Trockenlauf: Bestellungen werden geprüft und an Discord gemeldet, nichts wird gekauft.",
+  "settings.liveHint": "LIVE: jede neue Versand-Mail kauft ein Label und belastet die Portokasse. Cardmarket-Labels nicht mehr von Hand kaufen.",
+  "settings.maxLabelsPerDay": "Max. Labels pro Tag",
+  "settings.autoTopupEur": "Auto-Aufladung (€)",
+  "settings.autoTopupDailyMaxEur": "Auto-Aufladung max./Tag (€)",
+  "settings.autoTopupHint": "Aufladung, wenn das Guthaben unter dem Labelpreis liegt. 0 = aus, sonst 10 € (DHL-Minimum) bis TOPUP_MAX_EUR.",
+  "settings.printWindowWeekday": "Druckfenster Mo–Fr",
+  "settings.printWindowWeekend": "Druckfenster Sa–So",
+  "settings.printWindowHint": "HH:MM-HH:MM, Berliner Zeit. Außerhalb warten Bestellungen. 00:00-24:00 = immer.",
+  "settings.intakeHint": "Leeres Feld = Wert aus .env (grau). Gilt ab dem nächsten Mail-Abruf; jede Änderung wird an Discord gemeldet.",
+  "settings.envDefault": ".env",
+  "settings.saveFailed": "Nicht gespeichert"
 }

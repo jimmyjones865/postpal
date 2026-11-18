@@ -1,7 +1,6 @@
 /**
- * Server-side configuration from environment variables.
- * Only includes keys where the env var is explicitly set (non-empty).
- * Client localStorage takes precedence over these values.
+ * Sender/printer values from environment variables; only keys explicitly set (non-empty).
+ * UI overrides in settings.json take precedence (lib/settings.js).
  */
 
 function env(key) {

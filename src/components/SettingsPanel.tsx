@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Settings, User, Printer, Package, Ruler, Loader2 } from 'lucide-react';
+import { Settings, User, Printer, Package, Ruler, Bot } from 'lucide-react';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,15 +13,66 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AppConfig, ShippingProduct } from '@/types/shipping';
+import { AppConfig, IntakeSettings, ShippingProduct } from '@/types/shipping';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface SettingsPanelProps {
   config: AppConfig;
+  defaults: AppConfig;
+  storedIntake: Partial<IntakeSettings>;
+  intakeEnabled: boolean;
   products: ShippingProduct[];
   onUpdatePrinterConfig: (printer: Partial<AppConfig['printerConfig']>) => void;
   onUpdateSenderAddress: (address: Partial<AppConfig['senderAddress']>) => void;
-  onUpdateFavoriteProducts: (favorites: string[]) => void;
+  onUpdateHiddenProducts: (hidden: string[]) => void;
+  onUpdateIntake: (values: Partial<{ [K in keyof IntakeSettings]: IntakeSettings[K] | null }>) => Promise<void>;
+}
+
+type IntakeTextKey = Exclude<keyof IntakeSettings, 'dryRun'>;
+
+/** Empty = env value (shown as placeholder). Saved on blur or Enter; a rejected value reverts. */
+function IntakeField({ name, label, hint, stored, envValue, numeric, onSave }: {
+  name: IntakeTextKey;
+  label: string;
+  hint?: string;
+  stored: IntakeSettings[IntakeTextKey] | undefined;
+  envValue: IntakeSettings[IntakeTextKey];
+  numeric?: boolean;
+  onSave: SettingsPanelProps['onUpdateIntake'];
+}) {
+  const { t } = useTranslation();
+  const shown = stored === undefined ? '' : String(stored);
+  const [draft, setDraft] = useState(shown);
+  useEffect(() => setDraft(shown), [shown]);
+
+  const commit = async () => {
+    const text = draft.trim();
+    if (text === shown) return;
+    const value = text === '' ? null : numeric ? Number(text.replace(',', '.')) : text;
+    try {
+      await onSave({ [name]: value });
+    } catch (e) {
+      toast.error(t('settings.saveFailed'), { description: (e as Error).message });
+      setDraft(shown);
+    }
+  };
+
+  return (
+    <div className="config-field">
+      <Label className="config-label">{label}</Label>
+      <Input
+        type="text"
+        inputMode={numeric ? 'decimal' : undefined}
+        placeholder={`${envValue === '' ? '24h' : envValue} (${t('settings.envDefault')})`}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        className="h-9 text-sm font-mono"
+      />
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
+    </div>
+  );
 }
 
 // Paper formats interfaces
@@ -46,10 +98,14 @@ interface PaperFormatsJson {
 
 export function SettingsPanel({
   config,
+  defaults,
+  storedIntake,
+  intakeEnabled,
   products,
   onUpdatePrinterConfig,
   onUpdateSenderAddress,
-  onUpdateFavoriteProducts
+  onUpdateHiddenProducts,
+  onUpdateIntake
 }: SettingsPanelProps) {
   const { t } = useTranslation();
 
@@ -84,14 +140,25 @@ export function SettingsPanel({
   const domesticProducts = products.filter(p => p.domestic);
   const internationalProducts = products.filter(p => !p.domestic);
 
-  const toggleFavorite = (productCode: string) => {
-    const current = config.favoriteProducts;
-    if (current.includes(productCode)) {
-      onUpdateFavoriteProducts(current.filter(code => code !== productCode));
-    } else {
-      onUpdateFavoriteProducts([...current, productCode]);
+  const toggleHidden = (productCode: string) => {
+    const current = config.hiddenProducts;
+    onUpdateHiddenProducts(current.includes(productCode)
+      ? current.filter(code => code !== productCode)
+      : [...current, productCode]);
+  };
+
+  const intake = config.intake;
+  const setLive = async (live: boolean) => {
+    try {
+      await onUpdateIntake({ dryRun: !live });
+    } catch (e) {
+      toast.error(t('settings.saveFailed'), { description: (e as Error).message });
     }
   };
+  const field = (name: IntakeTextKey, label: string, hint?: string, numeric = true) => (
+    <IntakeField name={name} label={label} hint={hint} numeric={numeric}
+      stored={storedIntake[name]} envValue={defaults.intake[name]} onSave={onUpdateIntake} />
+  );
 
   return (
     <div className="bg-card border border-border rounded-lg p-4">
@@ -101,7 +168,7 @@ export function SettingsPanel({
       </div>
 
       <Tabs defaultValue="sender" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 mb-4">
+        <TabsList className="w-full grid grid-cols-4 mb-4">
           <TabsTrigger value="sender" className="text-xs gap-1">
             <User className="w-3 h-3" /> {t('settings.sender')}
           </TabsTrigger>
@@ -110,6 +177,9 @@ export function SettingsPanel({
           </TabsTrigger>
           <TabsTrigger value="products" className="text-xs gap-1">
             <Package className="w-3 h-3" /> {t('settings.products')}
+          </TabsTrigger>
+          <TabsTrigger value="intake" className="text-xs gap-1">
+            <Bot className="w-3 h-3" /> {t('settings.intake')}
           </TabsTrigger>
         </TabsList>
 
@@ -449,12 +519,12 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">{t('product.domestic')}</Label>
             <div className="space-y-2">
               {domesticProducts.map(product => {
-                const isExcluded = config.favoriteProducts.includes(product.code);
+                const isExcluded = config.hiddenProducts.includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
                       checked={!isExcluded}
-                      onCheckedChange={() => toggleFavorite(product.code)}
+                      onCheckedChange={() => toggleHidden(product.code)}
                     />
                     <span className="text-sm">{product.name}</span>
                     <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
@@ -468,12 +538,12 @@ export function SettingsPanel({
             <Label className="config-label mb-2 block">{t('product.international')}</Label>
             <div className="space-y-2">
               {internationalProducts.map(product => {
-                const isExcluded = config.favoriteProducts.includes(product.code);
+                const isExcluded = config.hiddenProducts.includes(product.code);
                 return (
                   <label key={product.code} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
                       checked={!isExcluded}
-                      onCheckedChange={() => toggleFavorite(product.code)}
+                      onCheckedChange={() => toggleHidden(product.code)}
                     />
                     <span className="text-sm">{product.name}</span>
                     <span className="text-xs text-muted-foreground">{product.cost.toFixed(2)}€</span>
@@ -482,6 +552,34 @@ export function SettingsPanel({
               })}
             </div>
           </div>
+        </TabsContent>
+
+        {/* ----- EMAIL INTAKE TAB ----- */}
+        <TabsContent value="intake" className="space-y-3 mt-0">
+          {!intakeEnabled && (
+            <p className="text-xs text-amber-500">{t('settings.intakeOff')}</p>
+          )}
+          <div className={`rounded-md border p-3 ${intake.dryRun ? 'border-border' : 'border-destructive'}`}>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={!intake.dryRun} onCheckedChange={checked => setLive(checked === true)} />
+              <span className="text-sm font-medium">{t('settings.live')}</span>
+            </label>
+            <p className={`text-xs mt-2 ${intake.dryRun ? 'text-muted-foreground' : 'text-destructive'}`}>
+              {intake.dryRun ? t('settings.dryRunHint') : t('settings.liveHint')}
+            </p>
+          </div>
+          {field('maxLabelsPerDay', t('settings.maxLabelsPerDay'))}
+          <div className="grid grid-cols-2 gap-2">
+            {field('autoTopupEur', t('settings.autoTopupEur'))}
+            {field('autoTopupDailyMaxEur', t('settings.autoTopupDailyMaxEur'))}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('settings.autoTopupHint')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {field('printWindowWeekday', t('settings.printWindowWeekday'), undefined, false)}
+            {field('printWindowWeekend', t('settings.printWindowWeekend'), undefined, false)}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('settings.printWindowHint')}</p>
+          <p className="text-xs text-muted-foreground border-t border-border pt-3">{t('settings.intakeHint')}</p>
         </TabsContent>
       </Tabs>
     </div>
