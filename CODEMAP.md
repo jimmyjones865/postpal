@@ -26,7 +26,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/pdf-cropper.js` — pixel-scan content detection + page-box crop; rotation.
 - `lib/cups-printer.js` — IPP Print-Job with explicit media size.
 - `lib/european-address-parser.js` — heuristic parser; outputs German country names.
-- `lib/address-rules.js` — DP charset allowlist, sanitize, field limits, name/additionalName swap; also bundled into the frontend.
+- `lib/address-rules.js` — DP charset allowlist, sanitize, DE `Straße` → `Str.`, field limits, name/additionalName swap; also bundled into the frontend.
 - `lib/country-codes.js` — country name/ISO3 → ISO3; also bundled into the frontend.
 - `lib/logger.js` — level-filtered console logger (`LOG_LEVEL`).
 - `cm-shipping.json` — CM shipping cost → letter product code, or `paket.<ISO3|EU>.<cost>` → Paket product (`.<service>` = insurance); volume-mounted.

@@ -113,12 +113,24 @@ test('decide: no letter to Packstation / Postfiliale', () => {
 
 test('prepareReceiver paket: house number, Packstation needs Postnummer', () => {
   const r = x => prepareReceiver({ name: 'Erika Muster', postalCode: '53113', city: 'Bonn', country: 'DEU', ...x }, { paket: true }).errors;
-  assert.deepEqual(r({ addressLine1: 'Straße des 17. Juni' }), ['street "Straße des 17. Juni" has no house number']);
+  assert.deepEqual(r({ addressLine1: 'Straße des 17. Juni' }), ['street "Str. des 17. Juni" has no house number']);
   assert.deepEqual(r({ addressLine1: 'Packstation 123', additionalName: '12345678' }), []);
   assert.deepEqual(r({ addressLine1: 'Packstation 123' }), ['Packstation without Postnummer (6–10 digits)']);
   assert.deepEqual(r({ name: '12345678', addressLine1: 'Packstation 123' }), ['Packstation: recipient name missing']);
   assert.deepEqual(r({ addressLine1: '12 rue de la Paix', country: 'FRA' }), []);
   assert.deepEqual(prepareReceiver({ name: 'A', addressLine1: 'Hauptstr.', postalCode: '1', city: 'B', country: 'DEU' }).errors, [], 'letters unchanged');
+});
+
+test('prepareReceiver: Straße → Str., Germany only', () => {
+  const line = (addressLine1, country = 'DEU') => prepareReceiver({ name: 'A', addressLine1, postalCode: '1', city: 'B', country }).receiver.addressLine1;
+  assert.equal(line('Hauptstraße 5'), 'Hauptstr. 5');
+  assert.equal(line('Hauptstrasse 5a'), 'Hauptstr. 5a');
+  assert.equal(line('Lange Straße 3'), 'Lange Str. 3');
+  assert.equal(line('Straße des 17. Juni 1'), 'Str. des 17. Juni 1');
+  assert.equal(line('HAUPTSTRASSE 5'), 'HAUPTSTR. 5');
+  assert.equal(line('Straßenbahnring 2'), 'Straßenbahnring 2');
+  assert.equal(line('Hauptstr. 5'), 'Hauptstr. 5');
+  assert.equal(line('Hauptstrasse 5', 'CHE'), 'Hauptstrasse 5');
 });
 
 test('prepareReceiver paket: no swap, DHL limits', () => {

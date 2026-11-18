@@ -65,6 +65,11 @@ export function sanitizeText(text) {
   return out;
 }
 
+// "Hauptstraße 5" → "Hauptstr. 5", "Straße des 17. Juni" → "Str. des 17. Juni"; "Straßenbahnring" untouched
+export function shortenStrasse(line) {
+  return line.replace(/(s)(tra)(?:ß|ss)e(?!\p{L})/giu, (_, s, tra) => s + (tra === 'TRA' ? 'TR.' : 'tr.'));
+}
+
 /** Characters that remain invalid after sanitizing. */
 export function invalidChars(text) {
   return [...new Set([...sanitizeText(text)].filter(c => !ALLOWED.test(c)))];
@@ -79,6 +84,9 @@ export function prepareReceiver(input, { paket = false } = {}) {
   const receiver = {};
   for (const [key, value] of Object.entries(input)) {
     receiver[key] = typeof value === 'string' ? sanitizeText(value).trim() : value;
+  }
+  if (receiver.country === 'DEU' && receiver.addressLine1) {
+    receiver.addressLine1 = shortenStrasse(receiver.addressLine1);
   }
   if (!paket && receiver.name && receiver.additionalName) {
     [receiver.name, receiver.additionalName] = [receiver.additionalName, receiver.name];
