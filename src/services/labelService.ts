@@ -1,7 +1,19 @@
 import { PrinterConfig } from '@/types/shipping';
 import { ParsedAddress } from '@/lib/address';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = '/api';
+
+export async function json<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error([data.error, data.details].filter(Boolean).join(' — ') || `HTTP ${response.status}`);
+  return data as T;
+}
+
+export const post = (path: string, body?: unknown, init?: RequestInit) => fetch(`${API_BASE}${path}`, {
+  method: 'POST',
+  ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  ...init,
+});
 
 export interface StoredLabel {
   id: string;
@@ -53,11 +65,7 @@ export interface PurchaseResult {
 }
 
 async function postLabel(path: string, body: unknown): Promise<PurchaseResult> {
-  const response = await fetch(`${API_BASE}/labels/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  const response = await post(`/labels/${path}`, body);
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || !data.success) {
@@ -88,41 +96,20 @@ export function recoverLabel(params: { shopOrderId: string; productCode: string;
 }
 
 export async function getLabels(): Promise<StoredLabel[]> {
-  const response = await fetch(`${API_BASE}/labels`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch labels');
-  }
-  return response.json();
+  return json(await fetch(`${API_BASE}/labels`));
 }
 
 export async function deleteLabel(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/labels/${id}`, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new Error('Failed to delete label');
-  }
+  await json(await fetch(`${API_BASE}/labels/${id}`, { method: 'DELETE' }));
 }
 
 export async function refundLabel(id: string): Promise<StoredLabel> {
-  const response = await fetch(`${API_BASE}/labels/${id}/refund`, { method: 'POST' });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.details || data.error || 'Refund failed');
-  }
-  return data.label;
+  return (await json<{ label: StoredLabel }>(await post(`/labels/${id}/refund`))).label;
 }
 
 /** @returns new balance in cents, null when DHL didn't report it */
 export async function chargeWallet(amountCents: number): Promise<number | null> {
-  const response = await fetch(`${API_BASE}/wallet/charge`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amountCents })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || 'Top-up failed');
-  }
-  return data.balance;
+  return (await json<{ balance: number | null }>(await post('/wallet/charge', { amountCents }))).balance;
 }
 
 /** Original, uncropped PDF. */
@@ -190,33 +177,12 @@ export async function downloadLabel(labelId: string, config: PrinterConfig): Pro
 }
 
 export async function parseAddress(address: string): Promise<ParsedAddress> {
-  const response = await fetch(`${API_BASE}/parse-address`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address }),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to parse address');
-  }
-  return response.json();
+  return json(await post('/parse-address', { address }));
 }
 
-/**
- * Fetches the Portokasse balance in cents (forces a token refresh server-side).
- */
+/** Portokasse balance in cents (forces a token refresh server-side). */
 export async function getWalletBalance(): Promise<number | null> {
-  const response = await fetch(`${API_BASE}/wallet/balance`, { method: 'POST' });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || `HTTP ${response.status}`);
-  }
-  return data.balance ?? null;
-}
-
-async function json<T>(response: Response): Promise<T> {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  return data as T;
+  return (await json<{ balance?: number | null }>(await post('/wallet/balance'))).balance ?? null;
 }
 
 export interface PaketProduct {
@@ -234,16 +200,12 @@ export async function getPaketProducts(country: string): Promise<PaketProduct[] 
 }
 
 export async function createPaketOrder(params: { productId: string; insurance: string | null; receiver: DhlAddress; recipientAddress: string }): Promise<{ payUrl: string }> {
-  return json(await fetch(`${API_BASE}/paket/orders`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  }));
+  return json(await post('/paket/orders', params));
 }
 
 /** Warenkorb-Nr from DHL's thank-you page → label, when the confirmation mail doesn't come. */
 export async function submitPaketCart(cartId: string): Promise<{ status: string; state?: string; orderId?: string; reason?: string; error?: string }> {
-  return json(await fetch(`${API_BASE}/paket/carts/${encodeURIComponent(cartId)}`, { method: 'POST' }));
+  return json(await post(`/paket/carts/${encodeURIComponent(cartId)}`));
 }
 
 export interface IntakeOrder {

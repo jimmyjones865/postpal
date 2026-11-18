@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { AppConfig, IntakeSettings } from '@/types/shipping';
+import { json, post } from '@/services/labelService';
 
 type Patch = { [S in keyof AppConfig]?: AppConfig[S] extends unknown[] ? AppConfig[S] : Partial<{ [K in keyof AppConfig[S]]: AppConfig[S][K] | null }> };
 
@@ -11,17 +12,8 @@ interface SettingsResponse {
   intakeEnabled: boolean;
 }
 
-async function send(patch: Patch, keepalive = false): Promise<SettingsResponse> {
-  const res = await fetch('/api/settings', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-    keepalive,
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-  return body;
-}
+const send = async (patch: Patch, keepalive = false): Promise<SettingsResponse> =>
+  json(await post('/settings', patch, { method: 'PATCH', keepalive }));
 
 export function useConfig() {
   const [data, setData] = useState<SettingsResponse | null>(null);
@@ -31,9 +23,7 @@ export function useConfig() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/settings');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setData(await res.json());
+      setData(await json(await fetch('/api/settings')));
     } catch (e) {
       toast.error('Settings', { description: (e as Error).message });
     }
