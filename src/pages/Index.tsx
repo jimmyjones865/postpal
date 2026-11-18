@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertCircle, History, Mail, Settings } from 'lucide-react';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
@@ -44,6 +44,7 @@ const Index = () => {
     refund: refundLabel,
     addLabel
   } = useLabelHistory();
+  const trackedCodes = useMemo(() => new Set(products.filter(p => p.tracked).map(p => p.code)), [products]);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [parsedRecipient, setParsedRecipient] = useState<ParsedAddress>(emptyAddress());
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
@@ -144,7 +145,7 @@ const Index = () => {
                 <History className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-sm">{t('history.printHistory')}</h2>
               </div>
-              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} onRefund={refundLabel} printerConfig={config.printerConfig} />
+              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} onRefund={refundLabel} printerConfig={config.printerConfig} trackedCodes={trackedCodes} />
             </div>
           </TabsContent>
           

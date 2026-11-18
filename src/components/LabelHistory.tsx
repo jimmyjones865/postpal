@@ -18,9 +18,10 @@ interface LabelHistoryProps {
   onDelete: (id: string) => Promise<void>;
   onRefund: (id: string) => Promise<void>;
   printerConfig: PrinterConfig;
+  trackedCodes: Set<string>;
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, onRefund, printerConfig }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, onRefund, printerConfig, trackedCodes }: LabelHistoryProps) {
   const { t } = useTranslation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
@@ -162,9 +163,9 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                         </span>
                         <Copy className="w-3 h-3 flex-shrink-0" />
                       </button>
-                      {label.trackId && (
+                      {(label.trackId || (label.voucherId && trackedCodes.has(label.productCode))) && (
                         <a
-                          href={`https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId}`}
+                          href={`https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=${label.trackId || label.voucherId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-primary"
