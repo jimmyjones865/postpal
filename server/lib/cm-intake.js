@@ -275,9 +275,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
-    const { payUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
+    const { payUrl, openCount, payAllUrl } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
     await record(orderId, 'paket', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
-    await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}\n\`\`\`\n${recipientAddress}\n\`\`\``);
+    const payAll = openCount > 1 ? `\n💳 All ${openCount} open in one payment: ${payAllUrl}` : '';
+    await say(`💳 CM ${orderId}: ${what} — pay: ${payUrl}${payAll}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
 
   /** Records a stored label, prints it, posts ✅. */

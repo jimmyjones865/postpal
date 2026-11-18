@@ -171,5 +171,6 @@
   "intake.recent": "Letzte Bestellungen",
   "intake.noOrders": "Keine Bestellungen in den letzten 14 Tagen.",
   "intake.dryRun": "Testlauf",
-  "intake.live": "Live"
+  "intake.live": "Live",
+  "intake.payAll": "Alle bezahlen ({count})"
 }

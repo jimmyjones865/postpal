@@ -92,7 +92,14 @@ export function IntakeView() {
         <div className="flex items-center gap-2 mb-4">
           <CreditCard className="w-4 h-4 text-primary" />
           <h2 className="font-semibold text-sm">{t('intake.toPay')} ({toPay.length})</h2>
-          <Button variant="ghost" size="sm" className="h-7 px-2 ml-auto" onClick={load} disabled={loading} title={t('history.retry')}>
+          {toPay.length > 1 && (
+            <Button asChild size="sm" className="h-8 ml-auto">
+              <a href="/api/paket/pay-all" target="_blank" rel="noopener noreferrer">
+                {t('intake.payAll', { count: toPay.length })}
+              </a>
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className={cn('h-7 px-2', toPay.length <= 1 && 'ml-auto')} onClick={load} disabled={loading} title={t('history.retry')}>
             <RefreshCw className={cn('w-3 h-3', loading && 'animate-spin')} />
           </Button>
         </div>

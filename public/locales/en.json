@@ -171,5 +171,6 @@
   "intake.recent": "Recent orders",
   "intake.noOrders": "No orders in the last 14 days.",
   "intake.dryRun": "Dry run",
-  "intake.live": "Live"
+  "intake.live": "Live",
+  "intake.payAll": "Pay all ({count})"
 }

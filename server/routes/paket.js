@@ -45,6 +45,25 @@ export function createPaketRouter(paket) {
     }
   });
 
+  // Every order awaiting payment in one DHL cart → one payment
+  router.get('/pay-all', async (req, res) => {
+    try {
+      const r = await paket.payAll({ force: req.query.force === '1' });
+      if (r.entryUrl) return res.redirect(303, r.entryUrl);
+      if (r.empty) return res.send(page('Nothing to pay', '<p>No Paket orders are waiting for payment.</p>'));
+      if (r.confirm) {
+        const at = new Date(r.confirm).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+        return res.send(page('Cart already opened', `<p>${r.count} of ${r.total} open orders were put in a DHL cart at ${esc(at)} that isn't confirmed paid yet.
+If you paid, wait for DHL's confirmation mail (~1 min) — opening a new cart risks paying twice.</p>
+<a class="btn" href="?force=1">Open one cart for all ${r.total} anyway</a>`));
+      }
+      res.status(r.status || 500).send(page('Cannot open cart', `<p>${esc(r.error)}</p>`));
+    } catch (err) {
+      logger.error('[Paket] Pay all failed:', err);
+      res.status(502).send(page('DHL error', `<p>${esc(err.message)}</p><p>Nothing was paid. Reload to try again.</p>`));
+    }
+  });
+
   // Discord/UI link: opens a fresh DHL cart for the order and redirects to DHL's checkout
   router.get('/pay/:id', async (req, res) => {
     const { id } = req.params;
