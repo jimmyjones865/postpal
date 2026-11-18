@@ -90,7 +90,10 @@ test('untagged, unknown, unpaid, lookup error', async () => {
   const t = await setup({ cart: () => { if (cart instanceof Error) throw cart; return cart; } });
   await t.svc.addOrder(order);
   assert.equal((await t.svc.handlePaidCart('AAAAAAAAAAAA')).status, 'ignored');
-  assert.match(t.notices.at(-1), /not made by postpal/);
+  assert.equal(t.notices.length, 0, 'outside purchase: no notice');
+  cart = paidCart('gone');
+  assert.equal((await t.svc.handlePaidCart('EEEEEEEEEEEE')).status, 'ignored');
+  assert.match(t.notices.at(-1), /order gone unknown/);
   cart = null;
   assert.equal((await t.svc.handlePaidCart('BBBBBBBBBBBB')).status, 'ignored');
   cart = { ...paidCart('o1'), state: 'PREPAID' };

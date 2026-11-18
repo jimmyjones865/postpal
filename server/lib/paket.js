@@ -212,7 +212,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       const orderId = tagOrderId(cart.notifyUrl);
       const o = orderId && state.orders[orderId];
       if (!o) {
-        await notify(`⚠️ Paket cart ${cartId}: paid but not made by postpal${orderId ? ` (order ${orderId} unknown)` : ''} — label not fetched.`);
+        // Untagged = bought outside postpal (DHL web shop): expected, log only. Tagged but unknown = postpal's, so warn.
+        if (orderId) await notify(`⚠️ Paket cart ${cartId}: paid, made by postpal but order ${orderId} unknown — label not fetched.`);
+        else logger.info(`[Paket] Cart ${cartId} paid outside postpal, ignored`);
         return mark('ignored', { reason: 'no postpal tag', orderId });
       }
 
