@@ -1,6 +1,8 @@
 import express from 'express';
 import { logger } from '../lib/logger.js';
-import { pakProductName } from '../lib/paket.js';
+import { pakProductName, PAK_PRODUCT_IDS, PAK_INSURANCES } from '../lib/paket.js';
+import { prepareReceiver } from '../lib/address-rules.js';
+import { EU_ISO3 } from '../lib/country-codes.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const page = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -31,8 +33,21 @@ export function createPaketRouter(paket) {
     if (receiver.email && (receiver.email.length > 70 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(receiver.email))) {
       return res.status(400).json({ error: 'Invalid recipient email (max 70 chars)' });
     }
+    // One bad order would fail every pay-all cart at DHL: product, country and characters checked up front
+    if (!PAK_PRODUCT_IDS.includes(productId) || (insurance && !PAK_INSURANCES.includes(insurance))) {
+      return res.status(400).json({ error: `Unknown product ${productId}${insurance ? `.${insurance}` : ''}` });
+    }
+    if (receiver.country !== 'DEU' && !EU_ISO3.has(receiver.country)) {
+      return res.status(400).json({ error: 'Paket only to DE + EU (no customs data)' });
+    }
+    const offered = await paket.products(receiver.country);
+    if (offered && !offered.some(p => p.productId === productId && p.insurance === (insurance || null))) {
+      return res.status(400).json({ error: `${pakProductName(productId, insurance)} not offered to ${receiver.country}` });
+    }
+    const prepared = prepareReceiver(receiver, { paket: true });
+    if (prepared.errors.length) return res.status(400).json({ error: prepared.errors.join('; ') });
     const id = `ui-${Date.now().toString(36)}`;
-    const r = await paket.addOrder({ id, source: 'ui', productId, productName: pakProductName(productId, insurance), insurance: insurance || null, receiver, recipientAddress });
+    const r = await paket.addOrder({ id, source: 'ui', productId, productName: pakProductName(productId, insurance), insurance: insurance || null, receiver: prepared.receiver, recipientAddress });
     res.status(201).json(r);
   });
 

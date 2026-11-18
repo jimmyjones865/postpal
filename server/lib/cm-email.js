@@ -26,6 +26,11 @@ export function topHeader(raw, name) {
   return text.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'im'))?.[1] ?? null;
 }
 
+/** Authentication-Results shows DKIM pass for domainRe (a regex source) or a subdomain of it. */
+export function dkimPasses(authResults, domainRe) {
+  return new RegExp(`\\bdkim=pass\\b[^;]*\\bheader\\.d=(?:[\\w-]+\\.)*${domainRe}(?=[\\s;]|$)`, 'i').test(authResults);
+}
+
 /**
  * Null if the mail is from Cardmarket, else the reason. Domain, not full address: CM may change the sender.
  * DKIM is checked only when the receiving server added Authentication-Results.
@@ -33,7 +38,7 @@ export function topHeader(raw, name) {
 export function senderProblem(fromAddress, authResults) {
   const domain = (fromAddress || '').split('@').pop();
   if (!fromAddress?.includes('@') || !CM_DOMAIN.test(domain)) return `sender ${fromAddress || '(none)'} is not cardmarket.com`;
-  if (authResults && !/\bdkim=pass\b[^;]*\bheader\.d=(?:[\w-]+\.)*cardmarket\.com(?=[\s;]|$)/i.test(authResults)) {
+  if (authResults && !dkimPasses(authResults, 'cardmarket\\.com')) {
     return 'no DKIM pass for cardmarket.com';
   }
   return null;
@@ -115,7 +120,8 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
   if (!/\p{L}/u.test(parsed.city)) return { ok: false, reason: `city "${parsed.city}" has no letters` };
   if (!/\d/.test(parsed.street)) return { ok: false, reason: `street "${parsed.street}" has no house number` };
 
-  // buyLabel prepares (sanitize + swap) again; checked here too so dry runs report bad addresses
+  // Letter: buyLabel prepares (sanitize + swap) again; checked here too so dry runs report bad addresses.
+  // Paket: the prepared receiver goes to DHL as is.
   const receiver = {
     name: parsed.name,
     additionalName: parsed.additionalName || undefined,
@@ -125,8 +131,8 @@ export function decide({ subjectOrderId, orderId, addressLines, costEur }, { cos
     city: parsed.city,
     country
   };
-  const { errors } = prepareReceiver(receiver);
-  if (errors.length) return { ok: false, reason: errors.join('; ') };
+  const prepared = prepareReceiver(receiver, { paket: !!paket });
+  if (prepared.errors.length) return { ok: false, reason: prepared.errors.join('; ') };
 
-  return { ok: true, product, priceCents, paket, receiver, recipientAddress: addressLines.join('\n') };
+  return { ok: true, product, priceCents, paket, receiver: paket ? prepared.receiver : receiver, recipientAddress: addressLines.join('\n') };
 }

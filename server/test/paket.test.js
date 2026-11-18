@@ -21,6 +21,7 @@ test('toPakAddress', () => {
 test('tagOrderIds', () => {
   assert.deepEqual(tagOrderIds('http://postpal.lan/dhl-paid?order=123&cart=2'), ['123']);
   assert.deepEqual(tagOrderIds('http://postpal.lan/dhl-paid?order=1&order=ui-x&cart=1'), ['1', 'ui-x']);
+  assert.deepEqual(tagOrderIds('https://host.ts.net/postpal/dhl-paid?order=7&cart=1'), ['7'], 'path prefix in POSTPAL_URL');
   assert.deepEqual(tagOrderIds('https://www.dhl.de'), []);
   assert.deepEqual(tagOrderIds(undefined), []);
 });
@@ -30,6 +31,7 @@ test('dhlSenderProblem', () => {
   assert.equal(dhlSenderProblem('noreply@dhl.com', undefined), null);
   assert.match(dhlSenderProblem('noreply@dhl.com.evil.io', undefined), /not @dhl.com/);
   assert.match(dhlSenderProblem('noreply@dhl.com', 'mx; dkim=fail header.d=dhl.com'), /DKIM/);
+  assert.match(dhlSenderProblem('noreply@dhl.com', 'mx; dkim=pass header.d=dhl.com.evil.io'), /DKIM/);
 });
 
 async function setup({ cart } = {}) {
@@ -44,8 +46,8 @@ async function setup({ cart } = {}) {
   };
   const storage = { saveLabel: async (pdf, info) => { const l = { id: `l${saved.length + 1}`, ...info }; saved.push(l); return l; } };
   const settings = { get: () => ({ senderAddress: { name: 'S', company: 'C', street: 'Zimmerstr. 23', postalCode: '10969', city: 'Berlin', country: 'Deutschland' }, printerConfig: { enableDirectPrint: false } }) };
-  const svc = createPaketService({ storage, settings, pakClient, storagePath: dir, publicUrl: 'http://pp', localUrl: 'http://10.0.0.50:3001', confirmEmail: 'm@x.io', notify: async t => notices.push(t), print: async () => ({ skipped: true }) });
-  return { svc, notices, carts, saved, dir };
+  const deps = { storage, settings, pakClient, storagePath: dir, publicUrl: 'http://pp', localUrl: 'http://10.0.0.50:3001', confirmEmail: 'm@x.io', notify: async t => notices.push(t), print: async () => ({ skipped: true }) };
+  return { svc: createPaketService(deps), deps, notices, carts, saved, dir };
 }
 
 const order = { id: 'o1', source: 'ui', productId: 'PAK02', productName: 'Paket 2 kg', insurance: null, receiver: { name: 'R', addressLine1: 'Weg 2', postalCode: '10115', city: 'Berlin', country: 'DEU' }, recipientAddress: 'R\nWeg 2\n10115 Berlin' };
@@ -97,7 +99,9 @@ test('untagged, unknown, unpaid, lookup error', async () => {
   assert.equal((await t.svc.handlePaidCart('EEEEEEEEEEEE')).status, 'ignored');
   assert.match(t.notices.at(-1), /order gone unknown/);
   cart = null;
-  assert.equal((await t.svc.handlePaidCart('BBBBBBBBBBBB')).status, 'ignored');
+  assert.equal((await t.svc.handlePaidCart('BBBBBBBBBBBB')).status, 'error', 'unknown at DHL: retried, not dropped');
+  assert.match(t.notices.at(-1), /BBBBBBBBBBBB.*doesn't know the cart/);
+  assert.equal((await t.svc.handlePaidCart('XXXXXXXXXXXX', { source: 'manual' })).status, 'ignored', 'manual paste: not remembered');
   cart = { ...paidCart('o1'), state: 'PREPAID' };
   assert.equal((await t.svc.handlePaidCart('CCCCCCCCCCCC', { source: 'manual' })).status, 'not-paid');
   cart = new Error('timeout');
@@ -191,7 +195,61 @@ test('pay all: unmatched item → warned, matched ones still stored', async () =
   await t.svc.payAll();
   await t.svc.handlePaidCart('CART00000009');
   assert.deepEqual(t.saved.map(l => l.pakId), ['P1']);
-  assert.match(t.notices.at(-1), /1 paid item\(s\) not matched.*SX → Nobody/);
+  assert.match(t.notices.at(-1), /1 paid item\(s\) not matched.*SX → Nobody.*o2 set to check-manually/);
+  const list = Object.fromEntries((await t.svc.listOrders()).map(o => [o.id, o.status]));
+  assert.deepEqual(list, { o1: 'done', o2: 'check-manually' });
+  assert.ok((await t.svc.payAll()).empty, 'paid-but-unmatched order not payable again');
+});
+
+test('pay all: DHL-normalized name still matches by postcode + name, then postcode', async () => {
+  const t = await setup({ cart: (id, carts) => ({
+    cartId: id, state: 'PAYED', notifyUrl: carts[0].notifyUrl,
+    items: [
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P1', shipmentNumber: 'S1', position: 5, receiver: { name2: 'JOSE GARCIA', plz: '10115' } },
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P2', shipmentNumber: 'S2', position: 6, receiver: { name2: 'Somebody', plz: '20095' } },
+    ],
+  }) });
+  await t.svc.addOrder({ ...order, receiver: { ...order.receiver, name: 'José García' } });
+  await t.svc.addOrder({ ...order, id: 'o2', receiver: { ...order.receiver, name: 'Anna', postalCode: '20095' } });
+  await t.svc.payAll();
+  assert.equal((await t.svc.handlePaidCart('CART00000009')).status, 'done');
+  assert.deepEqual(t.saved.map(l => [l.meta.paketOrderId, l.pakId]), [['o1', 'P1'], ['o2', 'P2']]);
+});
+
+test('pay all: one label fetch fails → others done + notified once, failed one retried', async () => {
+  let failP2 = true;
+  const t = await setup({ cart: (id, carts) => ({
+    cartId: id, state: 'PAYED', notifyUrl: carts[0].notifyUrl,
+    items: [
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P1', shipmentNumber: 'S1', position: 0, receiver: { name2: 'R', plz: '10115' } },
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P2', shipmentNumber: 'S2', position: 1, receiver: { name2: 'Other', plz: '10115' } },
+    ],
+  }) });
+  const getLabel = async pakId => { if (pakId === 'P2' && failP2) throw new Error('timeout'); return Buffer.from('%PDF-'); };
+  t.svc = createPaketService({ ...t.deps, pakClient: { ...t.deps.pakClient, getLabel } });
+  await t.svc.addOrder(order);
+  await t.svc.addOrder({ ...order, id: 'o2', receiver: { ...order.receiver, name: 'Other' } });
+  await t.svc.payAll();
+  assert.equal((await t.svc.handlePaidCart('CART00000009')).status, 'error');
+  let list = Object.fromEntries((await t.svc.listOrders()).map(o => [o.id, o.status]));
+  assert.deepEqual(list, { o1: 'done', o2: 'awaiting-pay' });
+  assert.equal(t.notices.filter(n => n.includes('✅ Paket o1')).length, 1);
+  assert.match(t.notices.at(-1), /o2: timeout/);
+  failP2 = false;
+  assert.equal((await t.svc.handlePaidCart('CART00000009')).status, 'done');
+  list = Object.fromEntries((await t.svc.listOrders()).map(o => [o.id, o.status]));
+  assert.deepEqual(list, { o1: 'done', o2: 'done' });
+  assert.deepEqual(t.saved.map(l => l.pakId), ['P1', 'P2']);
+  assert.equal(t.notices.filter(n => n.includes('✅ Paket o1')).length, 1, 'o1 not announced twice');
+});
+
+test('addOrder twice: existing order returned with links', async () => {
+  const t = await setup();
+  await t.svc.addOrder(order);
+  const again = await t.svc.addOrder(order);
+  assert.equal(again.existed, true);
+  assert.match(again.payMd, /pay\/o1/);
+  assert.equal((await t.svc.getOrder('o1')).status, 'awaiting-pay');
 });
 
 test('manual order: recipient email passed to DHL', async () => {

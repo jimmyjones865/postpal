@@ -279,8 +279,12 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
-    const { payMd, openCount, payAllMd } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
+    const { order, existed, payMd, openCount, payAllMd } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
     await record(orderId, 'paket', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
+    if (existed && order.status !== 'awaiting-pay') {
+      await say(`💳 CM ${orderId}: Paket order already exists (${order.status}) — nothing new to pay.`);
+      return;
+    }
     const payAll = openCount > 1 ? `\n💳 All ${openCount} open in one payment: ${payAllMd}` : '';
     await say(`💳 CM ${orderId}: ${what} — pay: ${payMd}${payAll}\n\`\`\`\n${recipientAddress}\n\`\`\``);
   }
@@ -432,7 +436,15 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
                 const { status: _s, at: _a, ...keep } = prev || {};
                 await record(orderId, 'error', { ...keep, error: err.message });
               }
-              await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
+              // A Paket order created before the error is still payable: point there instead of a manual buy
+              const po = await paket?.getOrder(orderId).catch(() => null);
+              if (po?.status === 'awaiting-pay') {
+                const { status: _s, at: _a, ...rest } = state.orders[orderId] || {};
+                await record(orderId, 'paket', { ...rest, error: err.message }).catch(e => logger.error('[CM] Record failed:', e.message));
+                await notify(`${buyer}\n⚠️ CM ${orderId}: error after the Paket order was created — ${err.message}. Don't buy manually; pay: ${po.payMd}`);
+              } else {
+                await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
+              }
             }
           }
           await archiveMails(client, folder, genuine.filter(m => ARCHIVE.has(state.orders[m.orderId]?.status)).map(m => m.uid), cfg.archiveFolder);

@@ -101,8 +101,11 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - Discord pay links are markdown `[Tailscale](<POSTPAL_URL…>) · [LAN](<POSTPAL_LOCAL_URL…>)`; UI/API still get plain `payUrl`.
 - Payment is always manual in DHL's checkout (`entryUrl`); `createCart` returns no cart id. `notifyUrl` (`POSTPAL_URL/dhl-paid?order=<id>&cart=<n>`) is never called, only echoed by `getCart` — used as the order tag.
 - Paid state comes from DHL's confirmation mail (`noreply@dhl.com` + DKIM, cart id in subject), polled with the CM IMAP client, also in dry run. Unpaid carts can't be looked up, so any order in a cart opened <30 min ago gets a confirm page instead of a new cart.
-- Pay-all cart matches items by `position` (= request order) with receiver plz + name2 check, else unique plz+name2 match, else `⚠️` unmatched and no label. Single-order tag: all items belong to it.
-- Untagged carts (bought outside postpal) → log line only; tagged but unknown order → one notice; lookup/store errors retried each poll, notified once. 2nd paid cart for an order → stored + double-payment warning.
+- Pay-all cart matches items by `position` (= request order) confirmed by plz, else unique plz + name (case/accent/truncation tolerant), else unique plz, else `⚠️` unmatched: no label, the cart's still-open orders → `check-manually` (out of pay-all + reminders). Single-order tag: all items belong to it. Tag path matched by suffix (`POSTPAL_URL` may carry a path).
+- Each order → `done` as soon as its label is stored; a failed item marks the cart `error` (retried each poll, notified once) without holding back the others.
+- Untagged carts (bought outside postpal) → log line only; tagged but unknown order → one notice; cart unknown at DHL (404/`WRONG_SCID`, e.g. sandbox/prod mismatch) → `error`, notified once, retried. 2nd paid cart for an order → stored + double-payment warning.
+- Paket receivers: `prepareReceiver(…, { paket: true })` — sanitized, no letter swap, no letter length limits. Manual `POST /orders` checks product/insurance, DE+EU, catalog availability.
+- Intake error after the Paket order exists → CM order `paket` + pay link, not "do it manually".
 - CM orders get recipient email `shipment-<id>@cardmarket.com` (CM relay → DHL tracking mails reach the buyer). Non-DEU → `preAdvice PA_RETURN`. Region `EU` resolved via `EU_ISO3` (API has no member list).
 - `paket.js` is serialized by one promise queue. Labels print with no print window.
 - UI opens the DHL checkout tab before awaiting the order POST (popup blocker).

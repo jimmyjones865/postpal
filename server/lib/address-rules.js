@@ -34,16 +34,16 @@ export function invalidChars(text) {
 }
 
 /**
- * Sanitizes a DHL receiver object. DHL prints additionalName above name, so when both exist they are
- * swapped to keep the input's first line (the person) on top.
+ * Sanitizes a DHL receiver object. Internetmarke prints additionalName above name, so when both exist they are
+ * swapped to keep the input's first line (the person) on top. paket: no swap, no letter length limits.
  * Returns { receiver, errors }; errors non-empty → do not buy.
  */
-export function prepareReceiver(input) {
+export function prepareReceiver(input, { paket = false } = {}) {
   const receiver = {};
   for (const [key, value] of Object.entries(input)) {
     receiver[key] = typeof value === 'string' ? sanitizeText(value).trim() : value;
   }
-  if (receiver.name && receiver.additionalName) {
+  if (!paket && receiver.name && receiver.additionalName) {
     [receiver.name, receiver.additionalName] = [receiver.additionalName, receiver.name];
   }
 
@@ -51,7 +51,7 @@ export function prepareReceiver(input) {
   for (const [key, max] of Object.entries(FIELD_LIMITS)) {
     const value = receiver[key];
     if (!value) continue;
-    if (value.length > max) errors.push(`${key} has ${value.length} chars (max ${max})`);
+    if (!paket && value.length > max) errors.push(`${key} has ${value.length} chars (max ${max})`);
     const bad = invalidChars(value);
     if (bad.length) errors.push(`${key} contains invalid characters: ${bad.join(' ')}`);
   }

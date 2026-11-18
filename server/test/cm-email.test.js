@@ -95,6 +95,16 @@ test('Paket costs: per destination, insurance suffix, no cap', () => {
   const ch = ['Hans Muster', 'Bahnhofstrasse 1', '8001 Zürich', 'Switzerland'];
   assert.match(d({ costEur: '15.49', addressLines: ch }).reason, /no Paket product for CHE/);
   assert.equal(d({ costEur: '1.25' }).paket, undefined);
+  const longName = ['Łukasz ' + 'x'.repeat(50), 'Kerkstraat 7', '1017 GC Amsterdam', 'Netherlands'];
+  const pk = d({ costEur: '32.49', addressLines: longName });
+  assert.equal(pk.ok, true, 'letter length limits not applied to Paket');
+  assert.match(pk.receiver.name, /^Lukasz x/, 'Paket receiver sanitized');
+});
+
+test('prepareReceiver paket: no swap, no length limits', () => {
+  const r = prepareReceiver({ name: 'A', additionalName: 'Firma ' + 'x'.repeat(45), addressLine1: 'X 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.receiver.name, 'A');
 });
 
 test('swap puts the first input line on top (DHL prints additionalName above name)', () => {

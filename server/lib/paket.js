@@ -4,7 +4,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from './logger.js';
-import { topHeader } from './cm-email.js';
+import { topHeader, dkimPasses } from './cm-email.js';
 import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
@@ -51,7 +51,7 @@ export const cmShipmentEmail = cmOrderId => `shipment-${cmOrderId}@cardmarket.co
 export function tagOrderIds(notifyUrl) {
   try {
     const u = new URL(notifyUrl);
-    return u.pathname === TAG_PATH ? u.searchParams.getAll('order') : [];
+    return u.pathname.endsWith(TAG_PATH) ? u.searchParams.getAll('order') : [];
   } catch {
     return [];
   }
@@ -60,9 +60,16 @@ export function tagOrderIds(notifyUrl) {
 // Top Authentication-Results present → must show DKIM pass for dhl.com
 export function dhlSenderProblem(from = '', authResults) {
   if (!/@dhl\.com$/i.test(from)) return `sender ${from || '(none)'} is not @dhl.com`;
-  if (authResults && !/dkim=pass[^;]*header\.d=dhl\.com/i.test(authResults)) return 'no DKIM pass for dhl.com';
+  if (authResults && !dkimPasses(authResults, 'dhl\\.com')) return 'no DKIM pass for dhl.com';
   return null;
 }
+
+// Name compare tolerant of DHL normalizing case, accents, punctuation or truncating
+const normName = s => (s || '').normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+const sameName = (a, b) => { a = normName(a); b = normName(b); return !!a && !!b && (a.startsWith(b) || b.startsWith(a)); };
+
+export const PAK_PRODUCT_IDS = Object.keys(NAMES);
+export const PAK_INSURANCES = Object.keys(INSURANCE_NAMES);
 
 // print(labelId) → { success } | { skipped } | { success: false, error }
 export function createPaketService({ storage, settings, pakClient, storagePath, publicUrl, localUrl, confirmEmail, notify, print }) {
@@ -106,11 +113,19 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   function addOrder(order) {
     return serial(async () => {
       await load();
-      if (state.orders[order.id]) return { order: state.orders[order.id], existed: true };
-      state.orders[order.id] = { ...order, status: 'awaiting-pay', carts: [], labels: [], at: new Date().toISOString() };
-      await save();
-      return { order: state.orders[order.id], payUrl: payLink(order.id), payMd: payMd(order.id), openCount: openIds().length, payAllUrl: payAllLink, payAllMd: payAllMd() };
+      const existed = !!state.orders[order.id];
+      if (!existed) {
+        state.orders[order.id] = { ...order, status: 'awaiting-pay', carts: [], labels: [], at: new Date().toISOString() };
+        await save();
+      }
+      return { order: state.orders[order.id], existed, payUrl: payLink(order.id), payMd: payMd(order.id), openCount: openIds().length, payAllUrl: payAllLink, payAllMd: payAllMd() };
     });
+  }
+
+  async function getOrder(id) {
+    await load();
+    const o = state.orders[id];
+    return o ? { ...o, payMd: payMd(id) } : null;
   }
 
   async function listOrders() {
@@ -239,7 +254,13 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         if (first) await notify(`⚠️ Paket cart ${cartId}: lookup failed — ${err.message}. Retrying each poll.`);
         return r;
       }
-      if (!cart) return mark('ignored', { reason: 'unknown at DHL (other environment?)' });
+      if (!cart) {
+        if (source === 'manual') return { status: 'ignored', reason: 'unknown at DHL' };
+        // A DHL-sent paid mail whose cart DHL doesn't know: environment mismatch or API glitch, never silent
+        const r = await mark('error', { error: 'unknown at DHL' });
+        if (!known) await notify(`⚠️ Paket cart ${cartId}: paid mail received but DHL ${pakClient.sandbox ? 'sandbox' : 'prod'} API doesn't know the cart — label not fetched. Retrying each poll.`);
+        return r;
+      }
       if (cart.state !== 'PAYED') {
         // Mail only comes after payment; a manual paste may be early → don't remember it
         if (source === 'manual') return { status: 'not-paid', state: cart.state };
@@ -257,45 +278,55 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         return mark('ignored', { reason: 'orders unknown', orderId });
       }
 
-      // Item → order: position = index in the tag (DHL keeps request order); recipient postcode + name confirm it
-      const fits = (id, r) => state.orders[id] && (!r || (r.plz === state.orders[id].receiver.postalCode && r.name2 === state.orders[id].receiver.name));
+      // Item → order: position = index in the tag (DHL keeps request order) confirmed by postcode;
+      // else a unique postcode + name match; else a unique postcode match
+      const fits = (id, r, byName) => {
+        const o = state.orders[id];
+        if (!o) return false;
+        if (!r) return true;
+        return r.plz === o.receiver.postalCode && (!byName || sameName(r.name2, o.receiver.name));
+      };
       const assign = item => {
         if (ids.length === 1) return ids[0];
-        const r = item.receiver;
         const byPos = ids[item.position];
-        if (byPos && fits(byPos, r)) return byPos;
-        const m = ids.filter(id => fits(id, r));
-        return m.length === 1 ? m[0] : null;
+        if (byPos && fits(byPos, item.receiver, false)) return byPos;
+        for (const byName of [true, false]) {
+          const m = ids.filter(id => fits(id, item.receiver, byName));
+          if (m.length === 1) return m[0];
+        }
+        return null;
       };
       const hadLabels = new Set(ids.filter(id => state.orders[id]?.labels.length));
       const stored = [];
       const unmatched = [];
-      try {
-        for (const item of cart.items.filter(i => i.state === 'PAYED' && i.pakId)) {
-          const id = assign(item);
-          const o = id && state.orders[id];
-          if (!o) {
-            unmatched.push(item);
-            continue;
-          }
-          if (o.labels.some(l => l.pakId === item.pakId)) continue;
+      const failed = [];
+      for (const item of cart.items.filter(i => i.state === 'PAYED')) {
+        const id = assign(item);
+        const o = id && state.orders[id];
+        if (!o) {
+          unmatched.push(item);
+          continue;
+        }
+        if (!item.pakId) {
+          failed.push({ id, error: 'no label id yet' });
+          continue;
+        }
+        if (o.labels.some(l => l.pakId === item.pakId)) continue;
+        try {
           const pdf = await pakClient.getLabel(item.pakId, 'MOPS');
           const label = await storage.saveLabel(pdf, {
             provider: 'dhl-paket', productCode: item.productId, productName: o.productName, recipientAddress: o.recipientAddress,
             trackId: item.shipmentNumber, pakId: item.pakId, cartId, price: item.price, meta: { paketOrderId: id, cmOrderId: o.cmOrderId },
           });
+          // Done per order as soon as its label is stored: a later item failing must not leave it payable again
           o.labels.push({ labelId: label.id, pakId: item.pakId, shipmentNumber: item.shipmentNumber, cartId });
-          stored.push({ label, item, id, o });
+          o.status = 'done';
           await save();
+          stored.push({ label, item, id, o });
+        } catch (err) {
+          failed.push({ id, error: err.message });
         }
-      } catch (err) {
-        const first = !known;
-        const r = await mark('error', { error: err.message, orderId });
-        if (first) await notify(`⚠️ Paket ${orderId}: paid (cart ${cartId}) but label fetch/store failed — ${err.message}. Retrying each poll.`);
-        return r;
       }
-      for (const { o } of stored) o.status = 'done';
-      await save();
 
       for (const { label, item, id, o } of stored) {
         const p = await print(label.id).catch(err => ({ success: false, error: err.message }));
@@ -305,10 +336,23 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         const price = item.price ? ` ${item.price.toFixed(2)} €` : '';
         await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 **${item.shipmentNumber}** [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
       }
-      if (unmatched.length) {
-        await notify(`⚠️ Paket cart ${cartId}: ${unmatched.length} paid item(s) not matched to an order (${unmatched.map(i => `${i.shipmentNumber} → ${i.receiver?.name2 ?? '?'}`).join(', ')}) — labels not fetched, get them from DHL's confirmation page.`);
+      if (unmatched.length && !known?.unmatchedNoted) {
+        // Paid but not mapped: taken out of pay-all and reminders so they can't be paid again
+        const failedIds = new Set(failed.map(f => f.id));
+        const held = ids.filter(id => state.orders[id]?.status === 'awaiting-pay' && !failedIds.has(id));
+        for (const id of held) state.orders[id].status = 'check-manually';
+        await save();
+        const heldNote = held.length ? ` Order(s) ${held.join(', ')} set to check-manually (out of pay-all and reminders).` : '';
+        await notify(`⚠️ Paket cart ${cartId}: ${unmatched.length} paid item(s) not matched to an order (${unmatched.map(i => `${i.shipmentNumber} → ${i.receiver?.name2 ?? '?'}`).join(', ')}) — labels not fetched, get them from DHL's confirmation page.${heldNote}`);
       }
-      return mark('done', { orderId, labels: stored.map(s => s.label.id) });
+      const noted = unmatched.length ? { unmatchedNoted: true } : {};
+      if (failed.length) {
+        const error = failed.map(f => `${f.id}: ${f.error}`).join('; ');
+        const r = await mark('error', { error, orderId, ...noted });
+        if (!known) await notify(`⚠️ Paket ${orderId}: paid (cart ${cartId}) but label fetch/store failed — ${error}. Retrying each poll.`);
+        return r;
+      }
+      return mark('done', { orderId, labels: stored.map(s => s.label.id), ...noted });
     });
   }
 
@@ -350,5 +394,5 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await remindUnpaid();
   }
 
-  return { addOrder, listOrders, startPayment, payAll, payAllLink, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
+  return { addOrder, getOrder, listOrders, startPayment, payAll, payAllLink, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
 }
