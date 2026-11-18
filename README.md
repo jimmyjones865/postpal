@@ -70,7 +70,7 @@ Two modes, selectable in the UI:
 If you don't have an existing CUPS instance, use the included CUPS sidecar:
 
 ```sh
-docker compose -f docker-compose.cups.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.cups.yml up -d
 ```
 
 CUPS web admin: `http://localhost:631` (default login: `print` / `print`)

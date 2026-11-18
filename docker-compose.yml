@@ -11,67 +11,12 @@ services:
       - ./public/products.json:/app/public/products.json:ro
       # Cardmarket shipping cost → product code; edit, then recreate the container
       - ./server/cm-shipping.json:/app/cm-shipping.json:ro
+    # All settings from .env (see .env.example); container paths fixed here
+    env_file: .env
     environment:
       - PORT=3000
-      - LANGUAGE=${LANGUAGE:-de}
-      - LOG_LEVEL=info
       - PDF_STORAGE_PATH=/data/labels
-      - RETENTION_DAYS=60
-      - TOPUP_MAX_EUR=${TOPUP_MAX_EUR:-50}
-      - TOPUP_DAILY_MAX_EUR=${TOPUP_DAILY_MAX_EUR:-100}
       - STATIC_PATH=/app/public
-      # Set DHL credentials and optional server config via .env file (see .env.example)
-      - DHL_API_KEY=${DHL_API_KEY}
-      - DHL_API_SECRET=${DHL_API_SECRET}
-      - DHL_PORTOKASSE_LOGIN=${DHL_PORTOKASSE_LOGIN}
-      - DHL_PORTOKASSE_PASSWORD=${DHL_PORTOKASSE_PASSWORD}
-      - DPOST_DIRECT_CHECKOUT=${DPOST_DIRECT_CHECKOUT:-false}
-      - SENDER_NAME=${SENDER_NAME}
-      - SENDER_COMPANY=${SENDER_COMPANY}
-      - SENDER_STREET=${SENDER_STREET}
-      - SENDER_CITY=${SENDER_CITY}
-      - SENDER_POSTAL_CODE=${SENDER_POSTAL_CODE}
-      - SENDER_COUNTRY=${SENDER_COUNTRY}
-      - CUPS_URL=${CUPS_URL}
-      - CUPS_PRINTER_NAME=${CUPS_PRINTER_NAME}
-      - PAPER_FORMAT_ID=${PAPER_FORMAT_ID}
-      - PRINTER_ORIENTATION=${PRINTER_ORIENTATION}
-      - CROP_MARGIN_TOP=${CROP_MARGIN_TOP}
-      - CROP_MARGIN_RIGHT=${CROP_MARGIN_RIGHT}
-      - CROP_MARGIN_BOTTOM=${CROP_MARGIN_BOTTOM}
-      - CROP_MARGIN_LEFT=${CROP_MARGIN_LEFT}
-      - DISABLE_CROPPING=${DISABLE_CROPPING}
-      - ENABLE_DIRECT_PRINT=${ENABLE_DIRECT_PRINT}
-      - PAPER_WIDTH_MM=${PAPER_WIDTH_MM}
-      - PAPER_HEIGHT_MM=${PAPER_HEIGHT_MM}
-      - ENDLESS_ROLL=${ENDLESS_ROLL}
-      # Cardmarket email intake (off unless MAIL_* set)
-      - MAIL_SERVER=${MAIL_SERVER}
-      - MAIL_PORT=${MAIL_PORT:-993}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_FOLDER=${MAIL_FOLDER:-INBOX,Archive}
-      # Handled mails marked read + moved here; set empty to leave the mailbox untouched
-      - MAIL_ARCHIVE_FOLDER=${MAIL_ARCHIVE_FOLDER-Archive}
-      - MAIL_POLL_SECONDS=${MAIL_POLL_SECONDS:-120}
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-      - DISCORD_MESSAGE_ITEMS_LIST=${DISCORD_MESSAGE_ITEMS_LIST:-true}
-      - CM_DRY_RUN=${CM_DRY_RUN:-true}
-      - CM_MAX_LABELS_PER_DAY=${CM_MAX_LABELS_PER_DAY:-30}
-      - PRINT_WINDOW_WEEKDAY=${PRINT_WINDOW_WEEKDAY:-}
-      - PRINT_WINDOW_WEEKEND=${PRINT_WINDOW_WEEKEND:-}
-      # DHL Paket (Online-Frankierung carts, paid by hand in DHL's checkout)
-      - DHL_PAKET_API_KEY=${DHL_PAKET_API_KEY}
-      - DHL_PAKET_API_KEY_SANDBOX=${DHL_PAKET_API_KEY_SANDBOX}
-      - DHL_PAKET_SANDBOX=${DHL_PAKET_SANDBOX:-false}
-      # DHL's payment confirmation goes here; must be the intake mailbox (paid detection)
-      - DHL_PAKET_EMAIL=${DHL_PAKET_EMAIL}
-      # URL postpal is opened at: /pay links in Discord + cart tag
-      - POSTPAL_URL=${POSTPAL_URL}
-      # Optional 2nd pay link in Discord (LAN address)
-      - POSTPAL_LOCAL_URL=${POSTPAL_LOCAL_URL}
-      - AUTO_TOPUP_EUR=${AUTO_TOPUP_EUR:-0}
-      - AUTO_TOPUP_DAILY_MAX_EUR=${AUTO_TOPUP_DAILY_MAX_EUR:-}
     restart: unless-stopped
 
 volumes:

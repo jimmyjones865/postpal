@@ -1,38 +1,13 @@
-# Docker Compose with integrated CUPS print server
-# For users who don't have an existing CUPS server
-#
-# Usage:
-#   docker-compose -f docker-compose.cups.yml up -d
-#
-# CUPS Web Admin: http://localhost:631 (user: print, password: print)
+# Add-on: CUPS sidecar for setups without a CUPS server
+#   docker compose -f docker-compose.yml -f docker-compose.cups.yml up -d
+# Web admin: http://localhost:631 (print / print)
 
 services:
   app:
-    build: .
-    container_name: postpal
-    stop_grace_period: 30s
-    ports:
-      - "3001:3000"
-    volumes:
-      - labels-data:/data/labels
-      - ./public/products.json:/app/public/products.json:ro
     environment:
-      - PORT=3000
-      - LOG_LEVEL=info
-      - PDF_STORAGE_PATH=/data/labels
-      - RETENTION_DAYS=60
-      - TOPUP_MAX_EUR=${TOPUP_MAX_EUR:-50}
-      - STATIC_PATH=/app/public
-      # DHL credentials
-      - DHL_API_KEY=${DHL_API_KEY}
-      - DHL_API_SECRET=${DHL_API_SECRET}
-      - DHL_PORTOKASSE_LOGIN=${DHL_PORTOKASSE_LOGIN}
-      - DHL_PORTOKASSE_PASSWORD=${DHL_PORTOKASSE_PASSWORD}
-      # Pre-configured CUPS URL (points to cups service)
-      - DEFAULT_CUPS_URL=http://cups:631
+      - CUPS_URL=http://cups:631
     depends_on:
       - cups
-    restart: unless-stopped
 
   cups:
     image: olbat/cupsd:latest
@@ -51,5 +26,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  labels-data:
   cups-data:
