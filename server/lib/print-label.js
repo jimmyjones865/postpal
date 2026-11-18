@@ -2,6 +2,9 @@ import { logger } from './logger.js';
 import { cropPdfWithPaddingAndDimensions, rotatePdf } from './pdf-cropper.js';
 import { sendToCups } from './cups-printer.js';
 
+// DHL Paket (MOPS) labels need more room than letters at the same settings; added in printed orientation
+const PAKET_EXTRA_MM = { top: 2, bottom: 3 };
+
 /**
  * Crops, sizes, rotates and sends a stored label to CUPS. Shared by POST /print and the email intake.
  * Returns { success, jobId, mediaDimensions } or { success: false, status, error, details? }.
@@ -24,9 +27,10 @@ export async function printStoredLabel(storage, labelId, {
   const parseMargin = v => { const n = parseFloat(v); return isNaN(n) ? 5 : n; };
 
   // Parse 4-direction crop margins as the user intends them (relative to printed orientation)
-  const marginTop = parseMargin(cropTop);
+  const extra = label.provider === 'dhl-paket' ? PAKET_EXTRA_MM : { top: 0, bottom: 0 };
+  const marginTop = parseMargin(cropTop) + extra.top;
   const marginRight = parseMargin(cropRight);
-  const marginBottom = parseMargin(cropBottom);
+  const marginBottom = parseMargin(cropBottom) + extra.bottom;
   const marginLeft = parseMargin(cropLeft);
   const isLandscape = orientation === 'landscape';
 
