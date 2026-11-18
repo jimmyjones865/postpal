@@ -58,6 +58,7 @@ test('pay flow: cart tagged, reopen guard, paid → stored once', async () => {
   assert.equal(payUrl, 'http://pp/api/paket/pay/o1');
   const r1 = await t.svc.startPayment('o1');
   assert.equal(r1.entryUrl, 'https://dhl/entry/1');
+  assert.equal(t.carts[0].shipments[0].receiver.email, undefined);
   assert.equal(t.carts[0].notifyUrl, 'http://pp/dhl-paid?order=o1&cart=1');
   assert.deepEqual(t.carts[0].sender, { name2: 'S', name3: 'C', street: 'Zimmerstr.', streetNumber: '23', plz: '10969', city: 'Berlin', country: 'DEU' });
   assert.ok((await t.svc.startPayment('o1')).confirm);
@@ -190,4 +191,11 @@ test('pay all: unmatched item → warned, matched ones still stored', async () =
   await t.svc.handlePaidCart('CART00000009');
   assert.deepEqual(t.saved.map(l => l.pakId), ['P1']);
   assert.match(t.notices.at(-1), /1 paid item\(s\) not matched.*SX → Nobody/);
+});
+
+test('manual order: recipient email passed to DHL', async () => {
+  const t = await setup();
+  await t.svc.addOrder({ ...order, receiver: { ...order.receiver, email: 'r@x.io' } });
+  await t.svc.startPayment('o1');
+  assert.equal(t.carts[0].shipments[0].receiver.email, 'r@x.io');
 });

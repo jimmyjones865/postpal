@@ -45,7 +45,7 @@ export function usePaket(parsedCountry: string) {
     : undefined;
 
   /** Window opened before the await: a popup opened after it is blocked. Resolves true when the order exists. */
-  const order = async (code: string, parsed: ParsedAddress, recipientAddress: string): Promise<boolean> => {
+  const order = async (code: string, parsed: ParsedAddress, recipientAddress: string, email = ''): Promise<boolean> => {
     if (inFlight.current) return false;
     const product = products.find(p => p.code === code);
     if (!product || !country) return false;
@@ -69,6 +69,7 @@ export function usePaket(parsedCountry: string) {
           postalCode: parsed.zip,
           city: parsed.city,
           country,
+          ...(email.trim() ? { email: email.trim() } : {}),
         },
         recipientAddress,
       });

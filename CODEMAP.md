@@ -43,7 +43,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/ParsedAddressEditor.tsx` — debounced parse → editable fields; edits rewrite the raw text.
 - `components/LabelResult.tsx` — recipient preview, reprint/download, copy ID for the last purchase.
 - `components/LabelHistory.tsx` — stored labels: copy ID, tracking link (voucherId for tracked products without trackId; DHL link for `provider: dhl-paket`), download (uncropped), print, refund (confirm dialog; hidden once requested), delete.
-- `components/ProductSelector.tsx` — product grid by domestic/international + group; DHL Paket section below (never hidden). Paket selected → main button = "Pay at DHL".
+- `components/ProductSelector.tsx` — product grid by domestic/international + group; DHL Paket section below (never hidden) with optional recipient email (manual orders; DHL tracking mails). Paket selected → main button = "Pay at DHL".
 - `components/IntakeView.tsx` — Intake tab: To pay (Pay links, "Pay all (N)" when >1, cart-id fallback), recent CM + Paket orders (status, tracking, address, items). 30 s refresh while open.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) tab: empty field = env (shown as placeholder), saved on blur/Enter.
 - `components/WalletBalance.tsx` — header balance with refresh and top-up chips (10/25/50 €).

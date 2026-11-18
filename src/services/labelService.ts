@@ -18,6 +18,7 @@ export interface StoredLabel {
 
 interface DhlAddress {
   name: string;
+  email?: string;
   additionalName?: string;
   addressLine1: string;
   addressLine2?: string;

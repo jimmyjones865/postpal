@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Home, Globe, Package } from 'lucide-react';
 import { ShippingProduct } from '@/types/shipping';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface ProductSelectorProps {
@@ -14,6 +15,9 @@ interface ProductSelectorProps {
   paketProducts: ShippingProduct[];
   /** Replaces the Paket cards (catalog down, country not served) */
   paketNote?: string;
+  /** Recipient email for DHL tracking mails (optional) */
+  paketEmail: string;
+  onPaketEmailChange: (email: string) => void;
 }
 
 type ProductGroup = 'standard' | 'kompakt' | 'gross' | 'maxi';
@@ -33,6 +37,8 @@ export function ProductSelector({
   hiddenProducts,
   paketProducts,
   paketNote,
+  paketEmail,
+  onPaketEmailChange,
 }: ProductSelectorProps) {
   const { t } = useTranslation();
   const [showOther, setShowOther] = useState(false);
@@ -176,11 +182,21 @@ export function ProductSelector({
         {paketNote ? (
           <p className="text-xs text-muted-foreground px-1">{paketNote}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {paketProducts.map((product) => (
-              <ProductCard key={product.code} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {paketProducts.map((product) => (
+                <ProductCard key={product.code} product={product} />
+              ))}
+            </div>
+            <Input
+              type="email"
+              value={paketEmail}
+              onChange={(e) => onPaketEmailChange(e.target.value)}
+              placeholder={t('product.paketEmail')}
+              maxLength={70}
+              className="mt-3 max-w-sm font-mono"
+            />
+          </>
         )}
       </div>
 

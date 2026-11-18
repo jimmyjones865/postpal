@@ -59,13 +59,17 @@ const Index = () => {
 
   const paket = usePaket(parsedRecipient.country);
   const paketSelected = isPaketCode(selectedProduct);
+  const [paketEmail, setPaketEmail] = useState('');
 
   const validation = validateAddress(recipientAddress);
   const canPrint = isConfigured && !!recipientAddress.trim() && !!selectedProduct && validation.isValid;
 
   const handlePrint = async () => {
     if (paketSelected) {
-      if (await paket.order(selectedProduct!, parsedRecipient, recipientAddress)) setSelectedProduct(null);
+      if (await paket.order(selectedProduct!, parsedRecipient, recipientAddress, paketEmail)) {
+        setSelectedProduct(null);
+        setPaketEmail('');
+      }
       return;
     }
     await purchase({
@@ -150,7 +154,7 @@ const Index = () => {
             {/* Product selector */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-sm font-medium mb-4">{t('product.selectProduct')}</h2>
-              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} hiddenProducts={config.hiddenProducts} paketProducts={paket.products} paketNote={paket.note} />
+              <ProductSelector products={products} selectedProduct={selectedProduct} onSelect={setSelectedProduct} onDoubleClick={handlePrint} hiddenProducts={config.hiddenProducts} paketProducts={paket.products} paketNote={paket.note} paketEmail={paketEmail} onPaketEmailChange={setPaketEmail} />
             </div>
           </TabsContent>
           

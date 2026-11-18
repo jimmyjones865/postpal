@@ -28,6 +28,9 @@ export function createPaketRouter(paket) {
     if (!productId || !receiver?.name || !receiver?.addressLine1 || !receiver?.postalCode || !receiver?.city || !/^[A-Z]{3}$/.test(receiver?.country || '')) {
       return res.status(400).json({ error: 'productId and receiver (name, addressLine1, postalCode, city, ISO3 country) required' });
     }
+    if (receiver.email && (receiver.email.length > 70 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(receiver.email))) {
+      return res.status(400).json({ error: 'Invalid recipient email (max 70 chars)' });
+    }
     const id = `ui-${Date.now().toString(36)}`;
     const r = await paket.addOrder({ id, source: 'ui', productId, productName: pakProductName(productId, insurance), insurance: insurance || null, receiver, recipientAddress });
     res.status(201).json(r);

@@ -172,5 +172,6 @@
   "intake.noOrders": "No orders in the last 14 days.",
   "intake.dryRun": "Dry run",
   "intake.live": "Live",
-  "intake.payAll": "Pay all ({count})"
+  "intake.payAll": "Pay all ({count})",
+  "product.paketEmail": "Recipient email (optional, DHL tracking mails)"
 }
