@@ -15,7 +15,10 @@ test('splitStreet', () => {
 
 test('toPakAddress', () => {
   assert.deepEqual(toPakAddress({ name: 'A B', additionalName: 'Firma', addressLine1: 'Weg 1', addressLine2: 'HH', postalCode: '10115', city: 'Berlin', country: 'DEU' }),
-    { name2: 'A B', name3: 'Firma', street: 'Weg', streetNumber: '1', addressAddition1: 'HH', plz: '10115', city: 'Berlin', country: 'DEU' });
+    { name2: 'A B', name3: 'Firma, HH', street: 'Weg', streetNumber: '1', plz: '10115', city: 'Berlin', country: 'DEU' }, 'DE: line 2 in name3 (addressAddition1 not printed)');
+  assert.deepEqual(toPakAddress({ name: 'A B', addressLine1: 'Weg 1', addressLine2: 'HH', postalCode: '10115', city: 'Berlin', country: 'DEU' }).name3, 'HH');
+  assert.deepEqual(toPakAddress({ name: 'J', additionalName: 'Firma', addressLine1: 'Kerkstraat 7', addressLine2: 'Apt 4B', postalCode: '1017 GC', city: 'Amsterdam', country: 'NLD' }),
+    { name2: 'J', name3: 'Firma', street: 'Kerkstraat', streetNumber: '7', addressAddition1: 'Apt 4B', plz: '1017 GC', city: 'Amsterdam', country: 'NLD' });
 });
 
 test('tagOrderIds', () => {

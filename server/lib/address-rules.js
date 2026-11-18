@@ -18,6 +18,12 @@ const FIELD_LIMITS = { name: 50, additionalName: 40, addressLine1: 50, addressLi
 // DHL Parcel DE Private Shipping v1 Address schema; addressLine1 is checked as street + streetNumber
 const PAKET_LIMITS = { name: 35, additionalName: 35, addressLine2: 35, city: 35, postalCode: 17 };
 
+// DHL drops addressAddition1 from German labels (sandbox-tested; NLD prints it after the street) → DEU: line 2 joins name3
+export function pakExtraLines({ additionalName, addressLine2, country }) {
+  if (country === 'DEU') return { name3: [additionalName, addressLine2].filter(Boolean).join(', ') || undefined };
+  return { name3: additionalName || undefined, addressAddition1: addressLine2 || undefined };
+}
+
 // "Zimmerstr. 23a" → { street: "Zimmerstr.", streetNumber: "23a" }
 export function splitStreet(line = '') {
   const m = line.trim().match(/^(.*?\D)\s*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
@@ -64,6 +70,12 @@ export function prepareReceiver(input, { paket = false } = {}) {
     if (max && value.length > max) errors.push(`${key} has ${value.length} chars (max ${max})`);
     const bad = invalidChars(value);
     if (bad.length) errors.push(`${key} contains invalid characters: ${bad.join(' ')}`);
+  }
+  if (paket && receiver.country === 'DEU') {
+    const { name3 } = pakExtraLines(receiver);
+    if (receiver.additionalName && receiver.addressLine2 && name3.length > 35) {
+      errors.push(`additionalName + addressLine2 have ${name3.length} chars (max 35 together for DE Paket)`);
+    }
   }
   if (paket && receiver.addressLine1) {
     const { street, streetNumber } = splitStreet(receiver.addressLine1);

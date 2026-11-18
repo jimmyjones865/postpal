@@ -107,6 +107,8 @@ test('prepareReceiver paket: no swap, DHL limits', () => {
   assert.equal(ok.receiver.name, 'A');
   const long = prepareReceiver({ name: 'A', additionalName: 'x'.repeat(36), addressLine1: 'y'.repeat(36) + ' 1', postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
   assert.deepEqual(long.errors, ['additionalName has 36 chars (max 35)', 'street has 36 chars (max 35)']);
+  const de = prepareReceiver({ name: 'A', additionalName: 'x'.repeat(20), addressLine1: 'X 1', addressLine2: 'y'.repeat(14), postalCode: '1', city: 'B', country: 'DEU' }, { paket: true });
+  assert.deepEqual(de.errors, ['additionalName + addressLine2 have 36 chars (max 35 together for DE Paket)']);
 });
 
 test('swap puts the first input line on top (DHL prints additionalName above name)', () => {
