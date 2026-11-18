@@ -12,6 +12,7 @@ import { buyLabel, recoverLabel } from './purchase.js';
 import { printStoredLabel } from './print-label.js';
 import { notify } from './discord.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
+import { parseWindow, printWindowState, showWindow } from './print-window.js';
 
 // Dedupe needs entries back to the 7-day lookback (IMAP SINCE is day-granular); 14 leaves margin
 const KEEP_MS = 14 * 86_400_000;
@@ -21,6 +22,9 @@ const NOT_SPENT = new Set(['dry-run', 'failed', 'retry']);
 const RECOVER = new Set(['uncertain', 'bought-unstored', 'interrupted', 'error']);
 // Gives DHL time to finish a checkout whose response was lost before a 404 is trusted
 const RECOVER_AFTER_MS = 60_000;
+// Mail seen but not processed yet: picked up again on the next poll
+const WAITING = new Set(['retry', 'queued']);
+const TRACK_URL = 'https://www.deutschepost.de/en/s/shipment-tracking.html?piececode=';
 
 let stopping = false;
 let current = Promise.resolve();
@@ -51,6 +55,15 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
   if (cfg.topupCents && (cfg.topupCents < MIN_TOPUP_CENTS || cfg.topupCents > TOPUP_MAX_CENTS)) {
     logger.warn(`[CM] AUTO_TOPUP_EUR must be ${MIN_TOPUP_CENTS / 100}–${TOPUP_MAX_CENTS / 100} (DHL min, TOPUP_MAX_EUR); auto top-up off`);
     cfg.topupCents = 0;
+  }
+  cfg.windows = {};
+  for (const [key, env] of [['weekday', 'PRINT_WINDOW_WEEKDAY'], ['weekend', 'PRINT_WINDOW_WEEKEND']]) {
+    try {
+      cfg.windows[key] = parseWindow(process.env[env]);
+    } catch (err) {
+      logger.warn(`[CM] ${env}: ${err.message}; printing around the clock`);
+      cfg.windows[key] = null;
+    }
   }
   if (!cfg.host || !cfg.user || !cfg.pass) {
     logger.info('[CM] MAIL_SERVER/MAIL_USERNAME/MAIL_PASSWORD not set, email intake off');
@@ -188,7 +201,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
 
     // Persisted before the DHL call; shopOrderId added once reserved, so a crash or lost response can be looked up
     const prev = state.orders[subjectOrderId];
-    const base = { productCode: product.code, productName: product.name, recipientAddress, buyer, summary, itemList, attempts: prev?.attempts || 0 };
+    const base = { productCode: product.code, productName: product.name, tracked: !!product.tracked, recipientAddress, buyer, summary, itemList, attempts: prev?.attempts || 0 };
     let shopOrderId = prev?.status === 'retry' ? prev.shopOrderId : undefined;
     await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
@@ -255,7 +268,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
       }).catch(err => ({ success: false, error: err.message }));
       printNote = p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
     }
-    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${base.itemList ?? ''}`);
+    const tracking = base.tracked && label.trackId ? `\n📦 ${label.trackId} <${TRACK_URL}${encodeURIComponent(label.trackId)}>` : '';
+    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${base.itemList ?? ''}`);
   }
 
   /**
@@ -358,14 +372,23 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
               const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
               if (problem) { foreign.push({ msg, orderId, problem }); continue; }
               const known = state.orders[orderId];
-              if (!known || known.status === 'retry') candidates.push({ uid: msg.uid, orderId, buyer });
+              if (!known || WAITING.has(known.status)) candidates.push({ uid: msg.uid, orderId, buyer });
             }
           }
           for (const { msg, orderId, problem } of foreign) await rejectForeign(msg, folder, orderId, problem);
           for (const { uid, orderId, buyer } of candidates) {
             if (stopping) break;
             const known = state.orders[orderId];
-            if (known && known.status !== 'retry') continue; // same order mailed twice in one poll
+            if (known && !WAITING.has(known.status)) continue; // same order mailed twice in one poll
+            const win = printWindowState(cfg.windows);
+            if (!win.open) {
+              // Mail stays in the mailbox; the first poll inside the window processes it
+              if (!known) {
+                await record(orderId, 'queued', { buyer, opens: win.opens });
+                await notify(`${buyer}\n⏰ CM ${orderId}: queued until ${win.opens}`);
+              }
+              continue;
+            }
             const msg = await client.fetchOne(uid, { source: true }, { uid: true });
             if (!msg?.source) continue; // moved to another folder since the search; found there next poll
             logger.info(`[CM] Processing order ${orderId} (${folder})`);
@@ -376,7 +399,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
               // Recorded so one broken mail can't block every later order
               logger.error(`[CM] Order ${orderId} failed:`, err);
               const prev = state.orders[orderId];
-              if (!prev || prev.status === 'processing' || prev.status === 'retry') {
+              if (!prev || ['processing', 'retry', 'queued'].includes(prev.status)) {
                 // Purchase fields kept: an error mid-purchase may have been paid (cap, lookup by shopOrderId)
                 const { status: _s, at: _a, ...keep } = prev || {};
                 await record(orderId, 'error', { ...keep, error: err.message });
@@ -412,7 +435,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, stor
         cfg.dryRun = true;
         await notify(`🛑 CM intake: LIVE refused, running DRY RUN — missing ${problems.join(', ')}`);
       }
-      logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}, auto top-up ${cfg.topupCents ? `${eur(cfg.topupCents)} € when balance < label, max ${eur(cfg.topupDailyMaxCents)} €/day` : 'off'}`);
+      logger.info(`[CM] Email intake on (${cfg.dryRun ? 'DRY RUN' : 'LIVE'}), polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}, print window weekday ${showWindow(cfg.windows.weekday)} / weekend ${showWindow(cfg.windows.weekend)}, auto top-up ${cfg.topupCents ? `${eur(cfg.topupCents)} € when balance < label, max ${eur(cfg.topupDailyMaxCents)} €/day` : 'off'}`);
       poll();
       timer = setInterval(poll, cfg.pollMs);
     })
