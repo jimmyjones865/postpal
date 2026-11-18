@@ -75,21 +75,22 @@ export function createPakClient({ apiKey, sandbox = false, fetchFn = fetch } = {
 
   // sender/receiver are DHL-shaped Address objects (name2, street, streetNumber, plz, city, country ISO3).
   // notifyUrl is never called back locally; it tags the cart so a paid cart maps to our order.
-  async function createCart({ productId, insurance, sender, receiver, email, notifyUrl }) {
-    const item = {
+  // shipments: [{ productId, insurance, receiver }] → one cart, one payment; DHL returns items with `position` = this order.
+  async function createCart({ shipments, sender, email, notifyUrl }) {
+    const items = shipments.map(({ productId, insurance, receiver }) => ({
       type: 'ShipmentItem',
       product: { id: insurance ? `${productId}.${insurance}` : productId },
       address: { sender: { ...sender, email }, receiver },
       ...(insurance ? { services: { [insurance]: {} } } : {}),
       ...(receiver.country !== 'DEU' ? { preAdvice: 'PA_RETURN' } : {}),
-    };
+    }));
     const data = await call('/shopping-carts/pre-paid', {
       method: 'POST',
-      body: { shoppingcart: { confirmation: { email, notifyUrl }, items: [item] } },
+      body: { shoppingcart: { confirmation: { email, notifyUrl }, items } },
     });
     const entryUrl = data.shoppingcart?.download?.entryUrl;
     if (!entryUrl) throw new Error('DHL Paket cart created without entryUrl');
-    logger.info('[DHL Paket] Cart created:', item.product.id, receiver.country);
+    logger.info('[DHL Paket] Cart created:', items.map(i => `${i.product.id} ${i.address.receiver.country}`).join(', '));
     return { entryUrl, state: data.shoppingcart.state };
   }
 
@@ -113,6 +114,7 @@ export function createPakClient({ apiKey, sandbox = false, fetchFn = fetch } = {
         pakId: i.pakId,
         shipmentNumber: i.shipmentNumber,
         receiver: i.address?.receiver,
+        position: i.position,
         price: (i.prices || []).reduce((sum, p) => sum + Number(p.amount || 0), 0),
       })),
     };

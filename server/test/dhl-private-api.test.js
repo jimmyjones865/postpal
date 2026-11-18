@@ -37,12 +37,14 @@ test('createCart: insurance + international payload', async () => {
     sent = JSON.parse(opts.body);
     return new Response(JSON.stringify({ shoppingcart: { state: 'PREPAID', download: { entryUrl: 'https://x' } } }), { status: 201 });
   } });
-  await client.createCart({ productId: 'PAK05', insurance: 'VERSI', sender: { name2: 'S' }, receiver: { name2: 'R', country: 'DEU' }, email: 'a@b.c', notifyUrl: 'http://t?order=1' });
+  await client.createCart({ shipments: [{ productId: 'PAK05', insurance: 'VERSI', receiver: { name2: 'R', country: 'DEU' } }], sender: { name2: 'S' }, email: 'a@b.c', notifyUrl: 'http://t?order=1' });
   const item = sent.shoppingcart.items[0];
   assert.equal(item.product.id, 'PAK05.VERSI');
   assert.deepEqual(item.services, { VERSI: {} });
   assert.equal(item.preAdvice, undefined);
   assert.equal(sent.shoppingcart.confirmation.notifyUrl, 'http://t?order=1');
-  await client.createCart({ productId: 'PAK02', sender: {}, receiver: { country: 'NLD' }, email: 'a@b.c' });
-  assert.equal(sent.shoppingcart.items[0].preAdvice, 'PA_RETURN');
+  await client.createCart({ shipments: [{ productId: 'PAK02', receiver: { country: 'DEU' } }, { productId: 'PAK02', receiver: { country: 'NLD' } }], sender: {}, email: 'a@b.c' });
+  assert.equal(sent.shoppingcart.items.length, 2);
+  assert.equal(sent.shoppingcart.items[0].preAdvice, undefined);
+  assert.equal(sent.shoppingcart.items[1].preAdvice, 'PA_RETURN');
 });

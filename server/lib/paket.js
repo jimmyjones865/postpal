@@ -39,16 +39,20 @@ export function toPakAddress(a) {
     plz: a.postalCode,
     city: a.city,
     country: a.country,
+    ...(a.email ? { email: a.email } : {}),
   };
 }
 
-// Order id from a cart's notifyUrl tag; null if the cart wasn't made by postpal
-export function tagOrderId(notifyUrl) {
+// CM's per-order relay address for carrier mails: DHL shipping updates reach the buyer without exposing their address
+export const cmShipmentEmail = cmOrderId => `shipment-${cmOrderId}@cardmarket.com`;
+
+// Order ids from a cart's notifyUrl tag (several for a pay-all cart); [] if the cart wasn't made by postpal
+export function tagOrderIds(notifyUrl) {
   try {
     const u = new URL(notifyUrl);
-    return u.pathname === TAG_PATH ? u.searchParams.get('order') : null;
+    return u.pathname === TAG_PATH ? u.searchParams.getAll('order') : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -89,6 +93,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   }
 
   const payLink = id => `${publicUrl}/api/paket/pay/${encodeURIComponent(id)}`;
+  const payAllLink = `${publicUrl}/api/paket/pay-all`;
+  // Oldest first (object order puts numeric CM ids before ui-… ids)
+  const openIds = () => Object.entries(state.orders).filter(([, o]) => o.status === 'awaiting-pay').sort(([, a], [, b]) => Date.parse(a.at) - Date.parse(b.at)).map(([id]) => id);
 
   /** { id, source, productId, productName, insurance, receiver, recipientAddress, buyer?, summary?, itemList? } */
   function addOrder(order) {
@@ -97,7 +104,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
       if (state.orders[order.id]) return { order: state.orders[order.id], existed: true };
       state.orders[order.id] = { ...order, status: 'awaiting-pay', carts: [], labels: [], at: new Date().toISOString() };
       await save();
-      return { order: state.orders[order.id], payUrl: payLink(order.id) };
+      return { order: state.orders[order.id], payUrl: payLink(order.id), openCount: openIds().length, payAllUrl: payAllLink };
     });
   }
 
@@ -150,7 +157,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await save();
     if (!open.length) return;
     const lines = open.map(([id, o]) => `• ${o.buyer ?? id}: ${o.productName} → ${payLink(id)}`);
-    await notify(`⏳ ${open.length} Paket order${open.length === 1 ? '' : 's'} not paid yet:\n${lines.join('\n')}`);
+    const all = openIds().length;
+    const payAll = all > 1 ? `\n💳 All ${all} open in one payment: ${payAllLink}` : '';
+    await notify(`⏳ ${open.length} Paket order${open.length === 1 ? '' : 's'} not paid yet:\n${lines.join('\n')}${payAll}`);
   }
 
   function senderAddress() {
@@ -159,26 +168,48 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   }
 
   /**
-   * → { entryUrl } | { confirm: openedAt } | { done: true } | { error, status }
-   * A cart can't be looked up before it's paid, so an unconfirmed earlier cart only triggers a confirm step.
+   * One DHL cart for the given orders → { entryUrl } | { confirm: openedAt } | { error, status }.
+   * A cart can't be looked up before it's paid, so an order in an unconfirmed recent cart only triggers a confirm step.
    */
+  async function openCart(ids, force) {
+    const orders = ids.map(id => state.orders[id]);
+    const recent = orders.map(o => o.carts.at(-1)?.at).filter(at => at && Date.now() - Date.parse(at) < REOPEN_GUARD_MS).sort();
+    if (recent.length && !force) return { confirm: recent.at(-1), count: recent.length };
+    if (!confirmEmail) return { error: 'DHL_PAKET_EMAIL not set (confirmation mail must reach the intake mailbox)', status: 500 };
+    const n = orders[0].carts.length + 1;
+    const notifyUrl = `${publicUrl}${TAG_PATH}?${ids.map(id => `order=${encodeURIComponent(id)}`).join('&')}&cart=${n}`;
+    const { entryUrl } = await pakClient.createCart({
+      shipments: orders.map(o => ({
+        productId: o.productId,
+        insurance: o.insurance,
+        receiver: toPakAddress({ ...o.receiver, email: o.receiver.email || (o.cmOrderId ? cmShipmentEmail(o.cmOrderId) : undefined) }),
+      })),
+      sender: senderAddress(), email: confirmEmail, notifyUrl,
+    });
+    const at = new Date().toISOString();
+    for (const o of orders) o.carts.push({ n, at, ...(ids.length > 1 ? { group: ids } : {}) });
+    await save();
+    return { entryUrl };
+  }
+
+  /** → { entryUrl } | { confirm: openedAt } | { done: true } | { error, status } */
   function startPayment(id, { force = false } = {}) {
     return serial(async () => {
       await load();
       const o = state.orders[id];
       if (!o) return { error: 'Unknown order', status: 404 };
       if (o.status === 'done') return { done: true };
-      const last = o.carts.at(-1);
-      if (last && !force && Date.now() - Date.parse(last.at) < REOPEN_GUARD_MS) return { confirm: last.at };
-      if (!confirmEmail) return { error: 'DHL_PAKET_EMAIL not set (confirmation mail must reach the intake mailbox)', status: 500 };
-      const n = o.carts.length + 1;
-      const notifyUrl = `${publicUrl}${TAG_PATH}?order=${encodeURIComponent(id)}&cart=${n}`;
-      const { entryUrl } = await pakClient.createCart({
-        productId: o.productId, insurance: o.insurance, sender: senderAddress(), receiver: toPakAddress(o.receiver), email: confirmEmail, notifyUrl,
-      });
-      o.carts.push({ n, at: new Date().toISOString() });
-      await save();
-      return { entryUrl };
+      return openCart([id], force);
+    });
+  }
+
+  /** Every order awaiting payment in one cart → { entryUrl, count } | { confirm, count } | { empty: true } | { error, status } */
+  function payAll({ force = false } = {}) {
+    return serial(async () => {
+      await load();
+      const ids = openIds();
+      if (!ids.length) return { empty: true };
+      return { ...(await openCart(ids, force)), total: ids.length };
     });
   }
 
@@ -209,27 +240,47 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         if (source === 'manual') return { status: 'not-paid', state: cart.state };
         return mark('error', { error: `state ${cart.state}` });
       }
-      const orderId = tagOrderId(cart.notifyUrl);
-      const o = orderId && state.orders[orderId];
-      if (!o) {
-        // Untagged = bought outside postpal (DHL web shop): expected, log only. Tagged but unknown = postpal's, so warn.
-        if (orderId) await notify(`⚠️ Paket cart ${cartId}: paid, made by postpal but order ${orderId} unknown — label not fetched.`);
-        else logger.info(`[Paket] Cart ${cartId} paid outside postpal, ignored`);
-        return mark('ignored', { reason: 'no postpal tag', orderId });
+      const ids = tagOrderIds(cart.notifyUrl);
+      if (!ids.length) {
+        // Bought outside postpal (DHL web shop): expected, log only
+        logger.info(`[Paket] Cart ${cartId} paid outside postpal, ignored`);
+        return mark('ignored', { reason: 'no postpal tag' });
+      }
+      const orderId = ids.join(', ');
+      if (!ids.some(id => state.orders[id])) {
+        await notify(`⚠️ Paket cart ${cartId}: paid, made by postpal but order ${orderId} unknown — label not fetched.`);
+        return mark('ignored', { reason: 'orders unknown', orderId });
       }
 
-      const second = o.labels.length > 0;
+      // Item → order: position = index in the tag (DHL keeps request order); recipient postcode + name confirm it
+      const fits = (id, r) => state.orders[id] && (!r || (r.plz === state.orders[id].receiver.postalCode && r.name2 === state.orders[id].receiver.name));
+      const assign = item => {
+        if (ids.length === 1) return ids[0];
+        const r = item.receiver;
+        const byPos = ids[item.position];
+        if (byPos && fits(byPos, r)) return byPos;
+        const m = ids.filter(id => fits(id, r));
+        return m.length === 1 ? m[0] : null;
+      };
+      const hadLabels = new Set(ids.filter(id => state.orders[id]?.labels.length));
       const stored = [];
+      const unmatched = [];
       try {
         for (const item of cart.items.filter(i => i.state === 'PAYED' && i.pakId)) {
+          const id = assign(item);
+          const o = id && state.orders[id];
+          if (!o) {
+            unmatched.push(item);
+            continue;
+          }
           if (o.labels.some(l => l.pakId === item.pakId)) continue;
           const pdf = await pakClient.getLabel(item.pakId, 'MOPS');
           const label = await storage.saveLabel(pdf, {
             provider: 'dhl-paket', productCode: item.productId, productName: o.productName, recipientAddress: o.recipientAddress,
-            trackId: item.shipmentNumber, pakId: item.pakId, cartId, price: item.price, meta: { paketOrderId: orderId, cmOrderId: o.cmOrderId },
+            trackId: item.shipmentNumber, pakId: item.pakId, cartId, price: item.price, meta: { paketOrderId: id, cmOrderId: o.cmOrderId },
           });
           o.labels.push({ labelId: label.id, pakId: item.pakId, shipmentNumber: item.shipmentNumber, cartId });
-          stored.push({ label, item });
+          stored.push({ label, item, id, o });
           await save();
         }
       } catch (err) {
@@ -238,15 +289,19 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         if (first) await notify(`⚠️ Paket ${orderId}: paid (cart ${cartId}) but label fetch/store failed — ${err.message}. Retrying each poll.`);
         return r;
       }
-      o.status = 'done';
+      for (const { o } of stored) o.status = 'done';
       await save();
 
-      for (const { label, item } of stored) {
+      for (const { label, item, id, o } of stored) {
         const p = await print(label.id).catch(err => ({ success: false, error: err.message }));
         const printNote = p.skipped ? 'not printed (direct print off)' : p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
-        const warn = second ? '\n⚠️ Another paid cart for this order — cancel one in DHL\'s checkout ("Versandmarke stornieren") if it was a double payment.' : '';
+        const warn = hadLabels.has(id) ? '\n⚠️ Another paid cart for this order — cancel one in DHL\'s checkout ("Versandmarke stornieren") if it was a double payment.' : '';
         const address = o.recipientAddress ? `\n\`\`\`\n${o.recipientAddress}\n\`\`\`` : '';
-        await notify(`${o.summary ?? o.buyer ?? orderId}\n✅ Paket ${orderId}: ${o.productName} ${item.price.toFixed(2)} €, ${printNote}\n📦 ${item.shipmentNumber} [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
+        const price = item.price ? ` ${item.price.toFixed(2)} €` : '';
+        await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 ${item.shipmentNumber} [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
+      }
+      if (unmatched.length) {
+        await notify(`⚠️ Paket cart ${cartId}: ${unmatched.length} paid item(s) not matched to an order (${unmatched.map(i => `${i.shipmentNumber} → ${i.receiver?.name2 ?? '?'}`).join(', ')}) — labels not fetched, get them from DHL's confirmation page.`);
       }
       return mark('done', { orderId, labels: stored.map(s => s.label.id) });
     });
@@ -287,5 +342,5 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await remindUnpaid();
   }
 
-  return { addOrder, listOrders, startPayment, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
+  return { addOrder, listOrders, startPayment, payAll, payAllLink, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
 }

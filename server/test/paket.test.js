@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { splitStreet, toPakAddress, tagOrderId, dhlSenderProblem, createPaketService } from '../lib/paket.js';
+import { splitStreet, toPakAddress, tagOrderIds, dhlSenderProblem, createPaketService } from '../lib/paket.js';
 
 test('splitStreet', () => {
   assert.deepEqual(splitStreet('Zimmerstr. 23'), { street: 'Zimmerstr.', streetNumber: '23' });
@@ -18,10 +18,11 @@ test('toPakAddress', () => {
     { name2: 'A B', name3: 'Firma', street: 'Weg', streetNumber: '1', addressAddition1: 'HH', plz: '10115', city: 'Berlin', country: 'DEU' });
 });
 
-test('tagOrderId', () => {
-  assert.equal(tagOrderId('http://postpal.lan/dhl-paid?order=123&cart=2'), '123');
-  assert.equal(tagOrderId('https://www.dhl.de'), null);
-  assert.equal(tagOrderId(undefined), null);
+test('tagOrderIds', () => {
+  assert.deepEqual(tagOrderIds('http://postpal.lan/dhl-paid?order=123&cart=2'), ['123']);
+  assert.deepEqual(tagOrderIds('http://postpal.lan/dhl-paid?order=1&order=ui-x&cart=1'), ['1', 'ui-x']);
+  assert.deepEqual(tagOrderIds('https://www.dhl.de'), []);
+  assert.deepEqual(tagOrderIds(undefined), []);
 });
 
 test('dhlSenderProblem', () => {
@@ -140,4 +141,53 @@ test('products: catalog prices per country, insurance variants, DE + EU only', a
   assert.deepEqual(await s.products('CHE'), []);
   const down = createPaketService({ storage: {}, settings: {}, pakClient: { getCatalog: async () => { throw new Error('x'); } }, storagePath: '/nonexistent', publicUrl: 'http://pp', notify: async () => {}, print: async () => ({}) });
   assert.equal(await down.products('DEU'), null);
+});
+
+test('pay all: one cart for every open order, items matched by position + recipient, CM email', async () => {
+  const cmOrder = { ...order, id: '1315370697', source: 'cm', cmOrderId: '1315370697', receiver: { ...order.receiver, name: 'Bert', postalCode: '53119' } };
+  const t = await setup({ cart: (id, carts) => ({
+    cartId: id, state: 'PAYED', notifyUrl: carts[0].notifyUrl,
+    // DHL returns items in request order; swapped here to prove recipient check wins over position
+    items: [
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P2', shipmentNumber: 'S2', price: 6.19, position: 0, receiver: { name2: 'Bert', plz: '53119' } },
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P1', shipmentNumber: 'S1', price: 6.19, position: 1, receiver: { name2: 'R', plz: '10115' } },
+    ],
+  }) });
+  assert.ok((await t.svc.payAll()).empty);
+  await t.svc.addOrder(order);
+  const added = await t.svc.addOrder(cmOrder);
+  assert.equal(added.openCount, 2);
+  assert.equal(added.payAllUrl, 'http://pp/api/paket/pay-all');
+
+  const r = await t.svc.payAll();
+  assert.equal(r.entryUrl, 'https://dhl/entry/1');
+  assert.equal(r.total, 2);
+  assert.match(t.carts[0].notifyUrl, /^http:\/\/pp\/dhl-paid\?order=(o1|1315370697)&order=(o1|1315370697)&cart=1$/);
+  const emails = Object.fromEntries(t.carts[0].shipments.map(s => [s.receiver.name2, s.receiver.email]));
+  assert.deepEqual(emails, { R: undefined, Bert: 'shipment-1315370697@cardmarket.com' });
+  assert.equal((await t.svc.payAll()).confirm !== undefined, true, 'reopen guard');
+  assert.ok((await t.svc.startPayment('o1')).confirm, 'single link guarded too');
+
+  assert.equal((await t.svc.handlePaidCart('CART00000009')).status, 'done');
+  assert.deepEqual(t.saved.map(l => [l.meta.paketOrderId, l.pakId]), [['1315370697', 'P2'], ['o1', 'P1']]);
+  const list = await t.svc.listOrders();
+  assert.deepEqual(list.map(o => o.status), ['done', 'done']);
+  assert.equal(t.notices.filter(n => n.includes('✅')).length, 2);
+  assert.ok((await t.svc.payAll()).empty);
+});
+
+test('pay all: unmatched item → warned, matched ones still stored', async () => {
+  const t = await setup({ cart: (id, carts) => ({
+    cartId: id, state: 'PAYED', notifyUrl: carts[0].notifyUrl,
+    items: [
+      { state: 'PAYED', productId: 'PAK02', pakId: 'P1', shipmentNumber: 'S1', price: 6.19, position: 0, receiver: { name2: 'R', plz: '10115' } },
+      { state: 'PAYED', productId: 'PAK02', pakId: 'PX', shipmentNumber: 'SX', price: 6.19, position: 1, receiver: { name2: 'Nobody', plz: '00000' } },
+    ],
+  }) });
+  await t.svc.addOrder(order);
+  await t.svc.addOrder({ ...order, id: 'o2', receiver: { ...order.receiver, name: 'Other' } });
+  await t.svc.payAll();
+  await t.svc.handlePaidCart('CART00000009');
+  assert.deepEqual(t.saved.map(l => l.pakId), ['P1']);
+  assert.match(t.notices.at(-1), /1 paid item\(s\) not matched.*SX → Nobody/);
 });
