@@ -49,7 +49,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) settings.
 - `components/WalletBalance.tsx` — header balance, refresh, top-up chips.
-- `components/ui/` — shadcn button/input/tabs/textarea/sonner; label, checkbox, select, scroll-area are thin native wrappers.
+- `components/ui/` — shadcn button/input/tabs/textarea/sonner; label, checkbox, select, scroll-area, confirm-dialog (`<dialog>`) are thin native wrappers.
 - `lib/address.ts` — `ParsedAddress` type, empty value, raw-text formatter.
 - `lib/addressValidation.ts` — line length + charset per line via `address-rules.js`.
 - `lib/countryCodes.ts` — re-export of `server/lib/country-codes.js`.

@@ -3,6 +3,7 @@ import { History, Printer, Trash2, RefreshCw, Calendar, Package, Copy, ExternalL
 import { copyToClipboard } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StoredLabel, printLabel, getLabelPdfUrl } from '@/services/labelService';
 import { PrinterConfig } from '@/types/shipping';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [refundingId, setRefundingId] = useState<string | null>(null);
+  const [refundTarget, setRefundTarget] = useState<StoredLabel | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
@@ -58,7 +60,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
   };
 
   const handleRefund = async (label: StoredLabel) => {
-    if (!window.confirm(t('history.refundConfirm', { id: label.voucherId! }))) return;
+    setRefundTarget(null);
     setRefundingId(label.id);
     try {
       await onRefund(label.id);
@@ -211,7 +213,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2"
-                      onClick={() => handleRefund(label)}
+                      onClick={() => setRefundTarget(label)}
                       disabled={refundingId === label.id}
                       title={t('history.refund')}
                     >
@@ -233,6 +235,15 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
           ))}
         </div>
       </ScrollArea>
+      <ConfirmDialog
+        open={refundTarget !== null}
+        title={t('history.refundTitle')}
+        description={t('history.refundConfirm', { id: refundTarget?.voucherId ?? '' })}
+        confirmLabel={t('history.refund')}
+        cancelLabel={t('history.cancel')}
+        onConfirm={() => refundTarget && handleRefund(refundTarget)}
+        onCancel={() => setRefundTarget(null)}
+      />
     </div>
   );
 }
