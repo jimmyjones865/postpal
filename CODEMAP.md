@@ -32,7 +32,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/country-codes.js` — country name/ISO3 → ISO3; also bundled into the frontend.
 - `lib/logger.js` — level-filtered console logger (`LOG_LEVEL`).
 - `cm-shipping.json` — CM shipping cost → letter product code, or `paket.<ISO3|EU>.<cost>` → Paket product (`.<service>` = insurance); volume-mounted.
-- `scripts/backfill-sales.js` — all CM ship mails (`MAIL_FOLDER`, read-only) + `labels.json` postage → turbostats; latest mail per order, idempotent, `--dry-run` = stats only. Run: `docker exec postpal node scripts/backfill-sales.js`. Letter postage = current `products.json` cost.
+- `scripts/backfill-sales.js` — all CM ship mails (`MAIL_FOLDER`, read-only) + `labels.json` postage → turbostats; latest mail per order, idempotent, `--dry-run` = stats only. Run: `docker exec postpal node scripts/backfill-sales.js`. Letter postage = current `products.json` cost. Label → order: `cmOrderId` (letter top-level, Paket in `meta`), else unique name line + postcode match within 7 days after the mail (UI-bought labels; address never sent).
 - `test/` — `npm test` (node:test) with anonymized fixtures; fake DHL client for `paket.js`.
 
 ## Frontend (`src/`)

@@ -16,7 +16,7 @@ if (!env.MAIL_SERVER || !env.MAIL_USERNAME || !env.MAIL_PASSWORD) throw new Erro
 if (!dryRun && !env.SALES_URL) throw new Error('SALES_URL not set');
 
 const folders = (env.MAIL_FOLDER || 'INBOX,Archive').split(',').map(f => f.trim()).filter(Boolean);
-const stats = { mails: 0, foreign: 0, orders: 0, sales: 0, salesFailed: 0, postage: 0, postageFailed: 0, noCountry: 0, items: 0, cutLines: 0, setLost: 0, setCut: 0 };
+const stats = { mails: 0, foreign: 0, orders: 0, sales: 0, salesFailed: 0, postage: 0, postageFailed: 0, postageByAddress: 0, postageUnmatched: 0, noCountry: 0, items: 0, cutLines: 0, setLost: 0, setCut: 0 };
 
 const port = envNum('MAIL_PORT', 993);
 const client = new ImapFlow({ host: env.MAIL_SERVER, port, secure: port === 993, auth: { user: env.MAIL_USERNAME, pass: env.MAIL_PASSWORD }, logger: false });
@@ -46,6 +46,11 @@ for (const folder of folders) {
 }
 stats.orders = latest.size;
 
+// Labels without an order ID: matched by recipient address (local only, never sent)
+const byAddress = new Map();
+// Name line + postcode-like numbers: survives UI edits (country names translated, street fixes)
+const addressKey = lines => [(lines[0] || '').toLowerCase().replace(/\s+/g, ' ').trim(), ...lines.slice(1).join(' ').match(/\b\d{4,6}\b/g) || []].join('|');
+
 // Pass 2: bodies → parse → push
 for (const folder of folders) {
   const picked = [...latest.entries()].filter(([, m]) => m.folder === folder);
@@ -60,7 +65,12 @@ for (const folder of folders) {
       for (const msg of batch) {
         const { orderId, buyer, date } = byUid.get(msg.uid);
         const mail = await simpleParser(msg.source);
-        const sale = saleFromMail(orderId, buyer, parseBody(mail.text), mail.date || date);
+        const parsed = parseBody(mail.text);
+        const sale = saleFromMail(orderId, buyer, parsed, mail.date || date);
+        if (parsed.addressLines) {
+          const key = addressKey(parsed.addressLines);
+          byAddress.set(key, [...(byAddress.get(key) || []), { orderId, at: Date.parse(sale.mailDate) }]);
+        }
         if (!sale.country) stats.noCountry++;
         for (const it of sale.items) {
           stats.items++;
@@ -81,13 +91,23 @@ for (const folder of folders) {
 await client.logout();
 
 // Postage: only what labels.json still holds (retention). Letter price = current products.json cost.
+const MATCH_DAYS = 7;
+/** Unique order with this exact address, mailed up to MATCH_DAYS before the label. */
+function matchByAddress(l) {
+  const t = Date.parse(l.createdAt);
+  const hits = (byAddress.get(addressKey((l.recipientAddress || '').split('\n').map(x => x.trim()).filter(Boolean))) || []).filter(o => o.at <= t && t - o.at <= MATCH_DAYS * 86_400_000);
+  return hits.length === 1 ? hits[0].orderId : null;
+}
 const labelsPath = path.join(env.PDF_STORAGE_PATH || './labels', 'labels.json');
 const productsPath = path.join(env.STATIC_PATH || new URL('../public', import.meta.url).pathname, 'products.json');
 const labels = JSON.parse(await fs.readFile(labelsPath, 'utf8').catch(() => '{"labels":[]}')).labels;
 const products = JSON.parse(await fs.readFile(productsPath, 'utf8'));
 for (const l of labels) {
-  const id = l.meta?.cmOrderId;
-  if (!id) continue;
+  // Letter labels carry cmOrderId top-level, Paket labels in meta
+  const linked = l.cmOrderId || l.meta?.cmOrderId;
+  const id = linked || matchByAddress(l);
+  if (!id) { stats.postageUnmatched++; continue; }
+  if (!linked) stats.postageByAddress++;
   const price = l.provider === 'dhl-paket' ? l.price : products.find(p => p.code === l.productCode)?.cost;
   if (typeof price !== 'number') continue;
   if (dryRun) { stats.postage++; continue; }
