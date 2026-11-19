@@ -10,9 +10,10 @@ interface ConfirmDialogProps {
   cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  destructive?: boolean;
 }
 
-export function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, onConfirm, onCancel, destructive }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
       </div>
       <div className="flex justify-end gap-2 border-t border-border p-3">
         <Button variant="ghost" size="sm" onClick={onCancel} autoFocus>{cancelLabel}</Button>
-        <Button variant="destructive" size="sm" onClick={onConfirm}>{confirmLabel}</Button>
+        <Button variant={destructive ? "destructive" : "default"} size="sm" onClick={onConfirm}>{confirmLabel}</Button>
       </div>
     </dialog>
   );

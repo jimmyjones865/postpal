@@ -34,7 +34,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [refundingId, setRefundingId] = useState<string | null>(null);
-  const [refundTarget, setRefundTarget] = useState<StoredLabel | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: 'refund' | 'delete'; label: StoredLabel } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handlePrint = async (label: StoredLabel) => {
@@ -49,6 +49,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
   };
 
   const handleDelete = async (id: string) => {
+    setConfirm(null);
     setDeletingId(id);
     try {
       await onDelete(id);
@@ -60,7 +61,7 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
   };
 
   const handleRefund = async (label: StoredLabel) => {
-    setRefundTarget(null);
+    setConfirm(null);
     setRefundingId(label.id);
     try {
       await onRefund(label.id);
@@ -208,27 +209,28 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                     <Printer className="w-3 h-3 mr-1" />
                     {t('print.print')}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setConfirm({ kind: 'delete', label })}
+                    disabled={deletingId === label.id}
+                    title={t('history.delete')}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                   {label.voucherId && !label.refund && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2"
-                      onClick={() => setRefundTarget(label)}
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                      onClick={() => setConfirm({ kind: 'refund', label })}
                       disabled={refundingId === label.id}
                       title={t('history.refund')}
                     >
                       <Undo2 className="w-3 h-3" />
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(label.id)}
-                    disabled={deletingId === label.id}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
                 </div>
               </div>
             </div>
@@ -236,13 +238,19 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
         </div>
       </ScrollArea>
       <ConfirmDialog
-        open={refundTarget !== null}
-        title={t('history.refundTitle')}
-        description={t('history.refundConfirm', { id: refundTarget?.voucherId ?? '' })}
-        confirmLabel={t('history.refund')}
+        open={confirm !== null}
+        destructive={confirm?.kind === 'refund'}
+        title={t(confirm?.kind === 'delete' ? 'history.deleteTitle' : 'history.refundTitle')}
+        description={confirm?.kind === 'delete'
+          ? t('history.deleteConfirm')
+          : t('history.refundConfirm', { id: confirm?.label.voucherId ?? '' })}
+        confirmLabel={t(confirm?.kind === 'delete' ? 'history.delete' : 'history.refund')}
         cancelLabel={t('history.cancel')}
-        onConfirm={() => refundTarget && handleRefund(refundTarget)}
-        onCancel={() => setRefundTarget(null)}
+        onConfirm={() => {
+          if (confirm?.kind === 'delete') handleDelete(confirm.label.id);
+          else if (confirm) handleRefund(confirm.label);
+        }}
+        onCancel={() => setConfirm(null)}
       />
     </div>
   );
