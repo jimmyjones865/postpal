@@ -136,13 +136,13 @@ test('untagged, unknown, unpaid, lookup error', async () => {
 test('remindUnpaid: once per Berlin day from 09:00, only older orders', async () => {
   const t = await setup();
   await t.svc.addOrder({ ...order, buyer: 'bob' });
-  const morning = new Date('2026-11-19T07:30:00Z'); // 08:30 Berlin
+  const morning = new Date('2099-01-02T07:30:00Z'); // 08:30 Berlin
   await t.svc.remindUnpaid(morning);
   assert.equal(t.notices.length, 0);
-  const later = new Date('2026-11-19T08:30:00Z');
+  const later = new Date('2099-01-02T08:30:00Z');
   await t.svc.remindUnpaid(later);
   assert.match(t.notices.at(-1), /⏳ 1 Paket order not paid yet:\n• bob: Paket 2 kg → \[Tailscale\]\(<http:\/\/pp\/api\/paket\/pay\/o1>\) · \[LAN\]\(<http:\/\/10\.0\.0\.50:3001\/api\/paket\/pay\/o1>\)$/);
-  await t.svc.remindUnpaid(new Date('2026-11-19T15:00:00Z'));
+  await t.svc.remindUnpaid(new Date('2099-01-02T15:00:00Z'));
   assert.equal(t.notices.length, 1);
 });
 
@@ -163,8 +163,11 @@ test('products: catalog prices per country, insurance variants, DE + EU only', a
   ]);
   assert.deepEqual((await s.products('NLD')).map(p => [p.productId, p.insurance, p.price]), [['PAK05', null, 17.49], ['PAK05', 'HVERSI1000', 31.49]]);
   assert.deepEqual(await s.products('CHE'), []);
+  assert.deepEqual((await s.allProducts()).map(p => [p.productId, p.insurance, p.price]),
+    [['PAECKS', null, 4.19], ['PAK05', null, 7.69], ['PAK05', 'VERSI', 14.68], ['PAK05', 'HVERSI1000', 31.49]]);
   const down = createPaketService({ storage: {}, settings: {}, pakClient: { getCatalog: async () => { throw new Error('x'); } }, storagePath: '/nonexistent', publicUrl: 'http://pp', notify: async () => {}, print: async () => ({}) });
   assert.equal(await down.products('DEU'), null);
+  assert.equal(await down.allProducts(), null);
 });
 
 test('pay all: one cart for every open order, items matched by position + recipient, CM email', async () => {
