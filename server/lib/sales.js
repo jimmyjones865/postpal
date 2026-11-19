@@ -32,9 +32,10 @@ export function saleFromMail(shipmentId, buyer, parsed, mailDate) {
   };
 }
 
+/** → true if turbostats accepted it. */
 async function post(urlPath, body) {
   const base = process.env.SALES_URL;
-  if (!base) return;
+  if (!base) return false;
   try {
     const res = await fetch(new URL(urlPath, base), {
       method: 'POST',
@@ -42,26 +43,28 @@ async function post(urlPath, body) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(5_000)
     });
-    if (!res.ok) logger.warn('[Sales] Push failed:', urlPath, res.status, await res.text());
+    if (res.ok) return true;
+    logger.warn('[Sales] Push failed:', urlPath, res.status, await res.text());
   } catch (err) {
     logger.warn('[Sales] Push error:', urlPath, err.message);
   }
+  return false;
 }
 
 export const pushSale = sale => post('/api/sales', sale);
 
 /** Never throws, even on an odd parse: the caller moves money. */
 export function pushMailSale(shipmentId, buyer, parsed, mailDate) {
-  if (!process.env.SALES_URL) return Promise.resolve();
+  if (!process.env.SALES_URL) return Promise.resolve(false);
   try {
     return pushSale(saleFromMail(shipmentId, buyer, parsed, mailDate));
   } catch (err) {
     logger.warn('[Sales] Sale build error:', shipmentId, err.message);
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
 }
 
 export function pushPostage(shipmentId, postageEur, product) {
-  if (!shipmentId || typeof postageEur !== 'number') return Promise.resolve();
+  if (!shipmentId || typeof postageEur !== 'number') return Promise.resolve(false);
   return post(`/api/sales/${encodeURIComponent(shipmentId)}/postage`, { postageEur, product: product || null });
 }
