@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } from '../lib/cm-email.js';
+import { matchSubject, parseBody, parseItem, decide, topHeader, senderProblem, itemBlock } from '../lib/cm-email.js';
 import { prepareReceiver, sanitizeText, invalidChars } from '../lib/address-rules.js';
 
 const fixture = name => fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -28,9 +28,14 @@ test('EN email → domestic Standardbrief', () => {
     orderId: '1300000001',
     addressLines: ['Renée Strauß', 'Brühlstraße 12', '67069 Ludwigshafen', 'Germany'],
     costEur: '1.25',
-    items: [{ qty: 1, name: 'Academy Manufactor (V.1) (Secret Lair Drop Series)', price: '9,95' }],
+    items: [{
+      raw: 'Academy Manufactor (V.1) (Secret Lair Drop Series) - R - English...',
+      qty: 1, name: 'Academy Manufactor (V.1)', set: 'Secret Lair Drop Series', rarity: 'R', lang: 'English', price: '9,95'
+    }],
     itemCount: 1,
-    totalEur: '11,20'
+    totalEur: '11,20',
+    commissionEur: '0,50',
+    netEur: '10,70'
   });
   const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
@@ -45,8 +50,11 @@ test('DE email → international, Polish letters sanitized', () => {
   const body = parseBody(text);
   assert.equal(body.costEur, '1.55');
   assert.equal(body.itemCount, 4);
-  assert.deepEqual(body.items, [{ qty: 4, name: 'Tekuthal, Inquiry Dominus (Commander: Edge of Eternities)', price: '1,72' }]);
-  assert.equal(body.totalEur, '8,43');
+  assert.deepEqual(body.items, [{
+    raw: 'Tekuthal, Inquiry Dominus (Commander: Edge of Eternities) - M - ...',
+    qty: 4, name: 'Tekuthal, Inquiry Dominus', set: 'Commander: Edge of Eternities', rarity: 'M', lang: null, price: '1,72'
+  }]);
+  assert.deepEqual([body.totalEur, body.commissionEur, body.netEur], ['8,43', '0,36', '8,07']);
   const d = decide({ subjectOrderId: matchSubject(subject).orderId, ...body }, limits);
   assert.equal(d.ok, true, d.reason);
   assert.equal(d.product.code, '10001');
@@ -55,6 +63,28 @@ test('DE email → international, Polish letters sanitized', () => {
   assert.equal(receiver.name, 'Lukasz Wisninski');
   assert.equal(receiver.addressLine1, 'Dluga 7B');
   assert.equal(receiver.city, 'Myszków');
+});
+
+test('CM-truncated item lines: lost parts null, cut set keeps its prefix', () => {
+  const body = parseBody(split(fixture('cm-en-truncated.txt')).text);
+  assert.deepEqual(body.items.map(({ raw, price, ...i }) => i), [
+    { qty: 1, name: 'The Ur-Dragon', set: 'Secret Lair x Magic: The Gathering | Dungeons & D', rarity: null, lang: null },
+    { qty: 2, name: 'Lightning Bolt', set: 'Magic 2010', rarity: 'C', lang: 'English' },
+    { qty: 1, name: 'Sol Ring', set: "Commander Legends: Battle for Baldur's Gate", rarity: 'U', lang: null },
+    { qty: 1, name: 'Atraxa, Grand Unifier', set: 'Phyrexia: All Will Be One', rarity: 'M', lang: 'Japanese' },
+    { qty: 3, name: 'Emrakul, the Promised End (V.2)', set: 'Eldritch Moon: Promo Packs', rarity: null, lang: null },
+    { qty: 1, name: 'Grim Lavamancer, the Very Long Promotional Name That Never Ends', set: null, rarity: null, lang: null }
+  ]);
+  assert.equal(body.items[0].raw, 'The Ur-Dragon (Secret Lair x Magic: The Gathering | Dungeons & D...');
+  assert.deepEqual(body.items.map(i => i.price), ['42,00', '0,80', '1,50', '24,90', '3,00', '0,50']);
+  assert.deepEqual([body.itemCount, body.totalEur, body.commissionEur, body.netEur, body.costEur], [9, '84,69', '4,00', '80,69', '5.19']);
+});
+
+test('parseItem: uncut line, trailing segments, no set', () => {
+  assert.deepEqual(parseItem('Opt (Dominaria) - C - German - EX - Foil'), { name: 'Opt', set: 'Dominaria', rarity: 'C', lang: 'German' });
+  assert.deepEqual(parseItem('Opt (Dominaria) - C - Germ...'), { name: 'Opt', set: 'Dominaria', rarity: 'C', lang: null });
+  assert.deepEqual(parseItem('Opt (Dominaria) - C - German - E...'), { name: 'Opt', set: 'Dominaria', rarity: 'C', lang: 'German' });
+  assert.deepEqual(parseItem('Mystery Booster'), { name: 'Mystery Booster', set: null, rarity: null, lang: null });
 });
 
 test('real mails pad the cost column with spaces', () => {
@@ -185,6 +215,7 @@ test('item block caps at 5 lines', () => {
   const block = itemBlock(items);
   assert.equal(block.split('\n').length, 9); // leading newline, ```, 5 items, more, ```
   assert.match(block, /^\n```\n1× Card '0 0,10\n/);
+  assert.match(itemBlock([{ qty: 2, name: 'Opt', set: 'Dominaria', price: '0,10' }]), /2× Opt \(Dominaria\) 0,10/);
   assert.match(block, /… \+2 more\n```$/);
   assert.equal(itemBlock([]), '');
 });

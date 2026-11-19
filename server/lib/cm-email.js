@@ -44,28 +44,60 @@ export function senderProblem(fromAddress, authResults) {
   return null;
 }
 
+// CM language names, EN + DE mails: a "..."-cut last segment counts only if it is a whole one
+const LANGUAGES = new Set([
+  'English', 'French', 'German', 'Spanish', 'Italian', 'Simplified Chinese', 'Japanese', 'Portuguese', 'Russian', 'Korean', 'Traditional Chinese',
+  'Englisch', 'Französisch', 'Deutsch', 'Spanisch', 'Italienisch', 'Chinesisch (vereinfacht)', 'Japanisch', 'Portugiesisch', 'Russisch', 'Koreanisch', 'Chinesisch (traditionell)'
+]);
+
 /**
- * Extracts order ID, address lines, shipping cost, item count (sum of quantities) and total from the plain-text body.
- * Returns { orderId, addressLines, costEur, items, itemCount, totalEur } with null for anything not found (items: []).
+ * "Name (Set) - R - English - …", cut by CM at ~70 chars with "...". Lost parts are null;
+ * a cut set keeps its prefix ("Secret La"), so callers can still prefix-match it.
+ */
+export function parseItem(raw) {
+  const cut = /\.\.\.$/.test(raw);
+  const core = raw.replace(/ ?-? ?\.\.\.$/, '');
+  const r = core.match(/^(.*?) - ([A-Z]{1,3})(?: - (.*))?$/);
+  const title = r ? r[1] : core;
+  const rest = r?.[3]?.split(' - ') ?? [];
+  const lang = rest[0] && (rest.length > 1 || !cut || LANGUAGES.has(rest[0])) ? rest[0] : null;
+  const t = title.match(/^(.*) \(([^()]*)\)$/) || (cut && !r ? title.match(/^(.*) \(([^()]*)$/) : null);
+  return { name: (t ? t[1] : title).trim(), set: t?.[2] || null, rarity: r?.[2] ?? null, lang };
+}
+
+/**
+ * Extracts order ID, address lines, shipping cost, items, item count (sum of quantities), total, commission and net from the plain-text body.
+ * Returns { orderId, addressLines, costEur, items, itemCount, totalEur, commissionEur, netEur } with null for anything not found (items: []).
+ * Item: { raw, qty, name, set, rarity, lang, price } (price per unit, as in the mail: "1,72").
  */
 export function parseBody(text) {
   const body = (text || '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim()).join('\n');
+  const amount = label => body.match(new RegExp(`^(?:${label}):? +(\\d{1,3}(?:\\.\\d{3})*,\\d{2}) EUR$`, 'm'))?.[1] ?? null;
 
   const orderId = body.match(/^(?:Shipment|Bestellnummer:) (\d+)$/m)?.[1] ?? null;
   const block = body.match(/^Status: .*\n([\s\S]*?)\n(?:Tracking|Sendungsverfolgung):/m)?.[1];
   const addressLines = block ? block.split('\n').filter(Boolean) : null;
   const cost = body.match(/^(?:Shipping|Versandkosten)\s+(\d+),(\d{2}) EUR$/m);
   const costEur = cost ? `${cost[1]}.${cost[2]}` : null;
-  // Columns are space-padded. "4x Name (Set) - M - English...": CM cuts long lines with "..."; rarity onward dropped
+  // Columns are space-padded
   const items = [...body.matchAll(/^(\d+)x (.+?) +(\d{1,3}(?:\.\d{3})*,\d{2}) EUR$/gm)].map(m => ({
+    raw: m[2],
     qty: Number(m[1]),
-    name: m[2].replace(/(?: - [A-Z]{1,3} - .*| ?-?\.\.\.)$/, '').trim(),
+    ...parseItem(m[2]),
     price: m[3]
   }));
   const itemCount = items.length ? items.reduce((sum, i) => sum + i.qty, 0) : null;
-  const totalEur = body.match(/^(?:Total|Gesamtbetrag) +(\d{1,3}(?:\.\d{3})*,\d{2}) EUR$/m)?.[1] ?? null;
 
-  return { orderId, addressLines: addressLines?.length ? addressLines : null, costEur, items, itemCount, totalEur };
+  return {
+    orderId,
+    addressLines: addressLines?.length ? addressLines : null,
+    costEur,
+    items,
+    itemCount,
+    totalEur: amount('Total|Gesamtbetrag'),
+    commissionEur: amount('Commission|Gebühren'),
+    netEur: amount('Net sale price|Auszahlungsbetrag')
+  };
 }
 
 const MAX_ITEM_LINES = 5;
@@ -73,7 +105,7 @@ const MAX_ITEM_LINES = 5;
 /** Item lines as a Discord code block (first 5, then "+N more"), '' if none parsed. */
 export function itemBlock(items) {
   if (!items?.length) return '';
-  const lines = items.slice(0, MAX_ITEM_LINES).map(i => `${i.qty}× ${i.name.replaceAll('`', "'")} ${i.price}`);
+  const lines = items.slice(0, MAX_ITEM_LINES).map(i => `${i.qty}× ${(i.set ? `${i.name} (${i.set})` : i.name).replaceAll('`', "'")} ${i.price}`);
   if (items.length > MAX_ITEM_LINES) lines.push(`… +${items.length - MAX_ITEM_LINES} more`);
   return `\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
