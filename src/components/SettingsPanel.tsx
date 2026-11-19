@@ -11,6 +11,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppConfig, IntakeSettings, ShippingProduct } from '@/types/shipping';
 import { useTranslation } from '@/hooks/useTranslation';
+import { PaketProduct, getPaketProducts } from '@/services/labelService';
+import { paketCode } from '@/hooks/usePaket';
 
 interface SettingsPanelProps {
   config: AppConfig;
@@ -132,6 +134,12 @@ export function SettingsPanel({
       });
   }, []);
   // --- END PAPER FORMATS ---
+
+  // undefined = loading, null = catalog unavailable
+  const [paketProducts, setPaketProducts] = useState<PaketProduct[] | null | undefined>(undefined);
+  useEffect(() => {
+    getPaketProducts('ALL').then(setPaketProducts).catch(() => setPaketProducts(null));
+  }, []);
 
   const domesticProducts = products.filter(p => p.domestic);
   const internationalProducts = products.filter(p => !p.domestic);
@@ -536,6 +544,28 @@ export function SettingsPanel({
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <Label className="config-label mb-2 block">{t('product.paket')}</Label>
+            {paketProducts ? (
+              <div className="space-y-2">
+                {paketProducts.map(product => {
+                  const code = paketCode(product);
+                  return (
+                    <label key={code} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={!config.hiddenProducts.includes(code)}
+                        onCheckedChange={() => toggleHidden(code)}
+                      />
+                      <span className="text-sm">{product.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t(paketProducts === null ? 'product.paketUnavailable' : 'status.loading')}</p>
+            )}
           </div>
         </TabsContent>
 

@@ -19,7 +19,7 @@ export function createPaketRouter(paket) {
 
   router.get('/products', async (req, res) => {
     const country = String(req.query.country || 'DEU').toUpperCase();
-    const products = await paket.products(country);
+    const products = country === 'ALL' ? await paket.allProducts() : await paket.products(country);
     if (!products) return res.status(502).json({ error: 'DHL catalog unavailable' });
     res.json({ products });
   });

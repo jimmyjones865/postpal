@@ -174,6 +174,19 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     return list;
   }
 
+  /** Every product offered to DE or any EU country, cheapest price. Settings' hide list. */
+  async function allProducts() {
+    const lists = await Promise.all(['DEU', ...EU_ISO3].map(products));
+    if (lists.includes(null)) return null;
+    const cheapest = new Map();
+    for (const p of lists.flat()) {
+      const key = `${p.productId}.${p.insurance}`;
+      if (!cheapest.has(key) || p.price < cheapest.get(key).price) cheapest.set(key, p);
+    }
+    const order = id => Object.keys(NAMES).indexOf(id);
+    return [...cheapest.values()].sort((a, b) => order(a.productId) - order(b.productId));
+  }
+
   /** One ⏳ notice per Berlin day (from 09:00) listing orders still awaiting payment. */
   async function remindUnpaid(now = new Date()) {
     await load();
@@ -403,5 +416,5 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await remindUnpaid();
   }
 
-  return { addOrder, getOrder, listOrders, startPayment, payAll, payAllLink, handlePaidCart, pollMails, payLink, quote, products, remindUnpaid };
+  return { addOrder, getOrder, listOrders, startPayment, payAll, payAllLink, handlePaidCart, pollMails, payLink, quote, products, allProducts, remindUnpaid };
 }

@@ -7,7 +7,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, `GET/PATCH /settings`, parse-address; daily retention cleanup.
 - `routes/labels.js` — list, `GET /:id/pdf` (`?print=1` → cropped), `POST /:id/print` (CUPS, saved settings), delete, refund (DHL retoure by voucherId), purchase (→ `lib/purchase.js`), recover by shopOrderId.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh), `POST /wallet/charge` (Portokasse top-up via `lib/topups.js`).
-- `routes/paket.js` — `/api/paket`: products by country, orders (GET/POST manual), cart-id fallback, `GET /pay/:id`, `GET /pay-all` (303 to DHL or small Nord HTML page).
+- `routes/paket.js` — `/api/paket`: products by country (`ALL` = DE+EU union for the hide list), orders (GET/POST manual), cart-id fallback, `GET /pay/:id`, `GET /pay-all` (303 to DHL or small Nord HTML page).
 - `routes/intake.js` — `GET /api/intake`: read-only merge of CM + Paket orders, newest first.
 - `lib/settings.js` — UI-editable settings in `PDF_STORAGE_PATH/settings.json`; effective = override ?? env ?? default.
 - `lib/config.js` — sender/printer env vars, `envNum`, `berlinDay`.
@@ -45,7 +45,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/ParsedAddressEditor.tsx` — debounced parse → editable fields that rewrite the raw text.
 - `components/LabelResult.tsx` — last purchase: recipient preview, reprint/download, copy ID.
 - `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund, delete.
-- `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email.
+- `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email; `hiddenProducts` hides letters and Paket (`paket:<id>[.<insurance>]`).
 - `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) settings.
 - `components/WalletBalance.tsx` — header balance, refresh, top-up chips.

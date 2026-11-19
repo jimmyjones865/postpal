@@ -11,7 +11,7 @@ interface ProductSelectorProps {
   onSelect: (productCode: string) => void;
   onDoubleClick: () => void;
   hiddenProducts: string[];
-  /** Shown below the letters, never hidden; codes start with "paket:" */
+  /** Shown below the letters; codes start with "paket:" */
   paketProducts: ShippingProduct[];
   /** Replaces the Paket cards (catalog down, country not served) */
   paketNote?: string;
@@ -51,6 +51,9 @@ export function ProductSelector({
   const visibleInternational = visibleProducts.filter((p) => !p.domestic);
   const hiddenDomestic = hidden.filter((p) => p.domestic);
   const hiddenInternational = hidden.filter((p) => !p.domestic);
+  const visiblePaket = paketProducts.filter((p) => !hiddenProducts.includes(p.code));
+  const hiddenPaket = paketProducts.filter((p) => hiddenProducts.includes(p.code));
+  const hiddenCount = hidden.length + hiddenPaket.length;
 
   const formatWeight = (grams: number) => {
     if (grams >= 1000) return `${(grams / 1000).toFixed(1)}kg`;
@@ -184,7 +187,7 @@ export function ProductSelector({
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {paketProducts.map((product) => (
+              {visiblePaket.map((product) => (
                 <ProductCard key={product.code} product={product} />
               ))}
             </div>
@@ -201,7 +204,7 @@ export function ProductSelector({
       </div>
 
       {/* Hidden products (can be expanded) */}
-      {hidden.length > 0 && (
+      {hiddenCount > 0 && (
         <div>
           <button
             onClick={() => setShowOther(!showOther)}
@@ -209,8 +212,8 @@ export function ProductSelector({
           >
             {showOther ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             {showOther 
-              ? t('product.hideProducts', { count: hidden.length })
-              : t('product.showHidden', { count: hidden.length })
+              ? t('product.hideProducts', { count: hiddenCount })
+              : t('product.showHidden', { count: hiddenCount })
             }
           </button>
           
@@ -218,6 +221,13 @@ export function ProductSelector({
             <div className="space-y-4 mt-3">
               <ProductColumns products={hiddenDomestic} type="domestic" />
               <ProductColumns products={hiddenInternational} type="international" />
+              {!paketNote && hiddenPaket.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {hiddenPaket.map((product) => (
+                    <ProductCard key={product.code} product={product} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

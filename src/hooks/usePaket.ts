@@ -9,6 +9,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 
 export const PAKET_PREFIX = 'paket:';
 export const isPaketCode = (code: string | null) => !!code?.startsWith(PAKET_PREFIX);
+export const paketCode = (p: PaketProduct) => `${PAKET_PREFIX}${p.productId}${p.insurance ? `.${p.insurance}` : ''}`;
 
 /** DHL Paket products for the parsed country (catalog prices) + manual order → DHL checkout in a new tab. */
 export function usePaket(parsedCountry: string) {
@@ -30,7 +31,7 @@ export function usePaket(parsedCountry: string) {
   }, [country]);
 
   const products: ShippingProduct[] = useMemo(() => (list || []).map(p => ({
-    code: `${PAKET_PREFIX}${p.productId}${p.insurance ? `.${p.insurance}` : ''}`,
+    code: paketCode(p),
     name: p.name,
     cost: p.price,
     domestic: country === 'DEU',
