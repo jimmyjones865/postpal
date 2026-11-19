@@ -9,6 +9,7 @@ import { getCountryCode, EU_ISO3 } from './country-codes.js';
 import { catalogPrice } from './dhl-private-api.js';
 import { berlinDay } from './config.js';
 import { archiveMails } from './mail-archive.js';
+import { pushPostage } from './sales.js';
 import { splitStreet, pakExtraLines, pakLocker } from './address-rules.js';
 
 export { splitStreet };
@@ -345,6 +346,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
           o.status = 'done';
           await save();
           stored.push({ label, item, id, o });
+          if (o.cmOrderId) pushPostage(o.cmOrderId, item.price, o.productName);
         } catch (err) {
           failed.push({ id, error: err.message });
         }

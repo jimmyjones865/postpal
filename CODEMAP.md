@@ -19,6 +19,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/cm-email.js` — pure CM mail parsing + `decide` (all no-buy rules, Paket vs letter); tested. Items split name/set/rarity/lang; CM cuts lines at ~70 chars → lost parts null, a cut set keeps its prefix.
 - `lib/plz-check.js` — DE PLZ vs city via OpenPLZ API; warn-only line in CM order summary, never blocks.
 - `lib/discord.js` — webhook notices, never throws; order summary + item block.
+- `lib/sales.js` — sale + postage push to turbostats (`SALES_URL`, off when unset); fire-and-forget, never throws, no retry. `saleFromMail` = payload (mail amount strings → numbers, country ISO3 only, no name/address).
 - `lib/mail-archive.js` — mark handled mails read + move to archive folder.
 - `lib/topups.js` — top-up limits + ledger `topups.json`, shared by UI and auto top-up.
 - `lib/print-window.js` — Berlin-time print windows for CM intake.
@@ -96,6 +97,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `✅` notice adds `📦 trackId` for tracked products (`trackId || voucherId`: DHL sends trackId only for international Einschreiben), then the address block.
 - Never delete `cm-orders.json` while live — `startedAt` resets to now (safe), but dedupe history is gone. Orders/foreign pruned after 14 days.
 - CM mail pads price columns with spaces and writes `1.234,56` above 1000 €; fixtures mirror that. Discord `allowed_mentions` off: buyer text is posted verbatim.
+- Sales push (`lib/sales.js`): every genuine mail reaching `processMail` (skipped/dry-run/retry too; queued ones once the window opens) → sale, not awaited. Letter postage (`postageEur` = `products.json` cost, kept in the order record for recovery) on `bought`; Paket postage (`item.price`) when the label is stored. Upsert by shipment ID on turbostats' side.
 - `cm-shipping.json` Paket keys are per destination (ISO3 beats `EU`) because costs collide across countries (EU Päckchen M = DE PAK10 = 11.49). Paket match wins over a letter code; unlisted cost = no label.
 
 ### DHL Paket

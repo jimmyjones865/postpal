@@ -17,6 +17,9 @@ services:
       - PORT=3000
       - PDF_STORAGE_PATH=/data/labels
       - STATIC_PATH=/app/public
+    # SALES_URL=http://host.docker.internal:3003 reaches turbostats on the host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:

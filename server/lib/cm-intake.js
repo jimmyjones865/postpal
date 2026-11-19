@@ -11,6 +11,7 @@ import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
 import { printWithSettings } from './print-label.js';
 import { notify } from './discord.js';
+import { pushMailSale, pushPostage } from './sales.js';
 import { plzCityWarning } from './plz-check.js';
 import { archiveMails, archiveFolderFromEnv } from './mail-archive.js';
 import { MIN_TOPUP_CENTS, TOPUP_MAX_CENTS, TOPUP_DAILY_MAX_CENTS, chargeErrorTitle } from './topups.js';
@@ -187,8 +188,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     }
   }
 
-  async function processMail(subjectOrderId, buyer, text, { costTable, products }) {
+  async function processMail(subjectOrderId, buyer, text, { costTable, products }, mailDate) {
     const parsed = { subjectOrderId, ...parseBody(text) };
+    pushMailSale(subjectOrderId, buyer, parsed, mailDate);
     const n = parsed.itemCount ?? '?';
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
     const plzWarning = decision.ok ? await plzCityWarning(decision.receiver) : null;
@@ -222,7 +224,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
 
     // Persisted before the DHL call; shopOrderId added once reserved, so a crash or lost response can be looked up
     const prev = state.orders[subjectOrderId];
-    const base = { productCode: product.code, productName: product.name, tracked: !!product.tracked, recipientAddress, buyer, summary, itemList, attempts: prev?.attempts || 0 };
+    const base = { productCode: product.code, productName: product.name, postageEur: product.cost, tracked: !!product.tracked, recipientAddress, buyer, summary, itemList, attempts: prev?.attempts || 0 };
     let shopOrderId = prev?.status === 'retry' ? prev.shopOrderId : undefined;
     await record(subjectOrderId, 'processing', { ...base, shopOrderId });
     await maybeTopUp(priceCents);
@@ -294,6 +296,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   /** Records a stored label, prints it, posts ✅. */
   async function finishBought(orderId, base, { label, newBalance }, what) {
     await record(orderId, 'bought', { ...base, labelId: label.id });
+    pushPostage(orderId, base.postageEur, base.productName);
     const balance = newBalance != null ? `, balance ${(newBalance / 100).toFixed(2)} €` : '';
     const p = await printWithSettings(storage, settings, label.id).catch(err => ({ success: false, error: err.message }));
     const printNote = p.skipped ? 'not printed (direct print off)' : p.success ? 'printed' : `print failed (${p.error}) — reprint from history`;
@@ -428,7 +431,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
             logger.info(`[CM] Processing order ${orderId} (${folder})`);
             try {
               const mail = await simpleParser(msg.source);
-              await processMail(orderId, buyer, mail.text, tables);
+              await processMail(orderId, buyer, mail.text, tables, mail.date);
             } catch (err) {
               // Recorded so one broken mail can't block every later order
               logger.error(`[CM] Order ${orderId} failed:`, err);
