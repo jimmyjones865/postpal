@@ -199,7 +199,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     const plzWarning = decision.ok ? await plzCityWarning(decision.receiver) : null;
     const summary = `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${parsed.totalEur ?? '?'} €${plzWarning ? `\n⚠️ ${plzWarning}` : ''}`;
     const itemList = cfg.itemsList ? itemBlock(parsed.items) : '';
-    const say = line => notify(`${summary}\n${line}${itemList}`);
+    // SOLD message (edited to PAID) already shows the items
+    const soldPosted = Boolean(state.sold[subjectOrderId]?.messageId);
+    const say = line => notify(`${summary}\n${line}${soldPosted ? '' : itemList}`);
     const rawAddress = parsed.addressLines?.join('\n') ?? '(none)';
     // Shown in the UI intake view
     const shown = { buyer, summary, itemList };
@@ -212,7 +214,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
 
     const { product, priceCents, receiver, recipientAddress } = decision;
     if (decision.paket) {
-      await paketOrder(subjectOrderId, { shown, buyer, summary, itemList, say, receiver, recipientAddress, ...decision.paket });
+      await paketOrder(subjectOrderId, { shown, buyer, summary, itemList, soldPosted, say, receiver, recipientAddress, ...decision.paket });
       return;
     }
     if (cfg.dryRun) {
@@ -272,7 +274,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   }
 
   /** DHL Paket: no purchase here — an order awaiting manual payment via the pay link. Nothing is spent, so no cap. */
-  async function paketOrder(orderId, { shown, buyer, summary, itemList, say, receiver, recipientAddress, productId, insurance }) {
+  async function paketOrder(orderId, { shown, buyer, summary, itemList, soldPosted, say, receiver, recipientAddress, productId, insurance }) {
     const productName = pakProductName(productId, insurance);
     const price = await paket?.quote(productId, insurance, receiver.country);
     const what = `${productName}${price != null ? ` (${price.toFixed(2)} €)` : ''}`;
@@ -286,7 +288,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       await say(`🧪 CM ${orderId}: would create ${what} pay link\n\`\`\`\n${recipientAddress}\n\`\`\``);
       return;
     }
-    const { order, existed, payMd, openCount, payAllMd } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList });
+    const { order, existed, payMd, openCount, payAllMd } = await paket.addOrder({ id: orderId, source: 'cm', cmOrderId: orderId, productId, productName, insurance, receiver, recipientAddress, buyer, summary, itemList, soldPosted });
     await record(orderId, 'paket', { paketProduct: productId, insurance, productName, ...shown, recipientAddress });
     if (existed && order.status !== 'awaiting-pay') {
       await say(`💳 CM ${orderId}: Paket order already exists (${order.status}) — nothing new to pay.`);
@@ -307,7 +309,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     const trackId = base.tracked && (label.trackId || label.voucherId);
     const tracking = trackId ? `\n📦 **${trackId}** [Tracking](<${TRACK_URL}${encodeURIComponent(trackId)}>)` : '';
     const address = base.recipientAddress ? `\n\`\`\`\n${base.recipientAddress}\n\`\`\`` : '';
-    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${address}${base.itemList ?? ''}`);
+    await notify(`${base.summary ?? base.buyer}\n✅ CM ${orderId}: ${what}${balance}, ${printNote}${tracking}${address}${state.sold[orderId]?.messageId ? '' : base.itemList ?? ''}`);
   }
 
   /**

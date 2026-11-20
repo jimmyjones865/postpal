@@ -118,7 +118,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
   // Oldest first (object order puts numeric CM ids before ui-… ids)
   const openIds = () => Object.entries(state.orders).filter(([, o]) => o.status === 'awaiting-pay').sort(([, a], [, b]) => Date.parse(a.at) - Date.parse(b.at)).map(([id]) => id);
 
-  /** { id, source, productId, productName, insurance, receiver, recipientAddress, buyer?, summary?, itemList? } */
+  /** { id, source, productId, productName, insurance, receiver, recipientAddress, buyer?, summary?, itemList?, soldPosted? } */
   function addOrder(order) {
     return serial(async () => {
       await load();
@@ -358,7 +358,7 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
         const warn = hadLabels.has(id) ? '\n⚠️ Another paid cart for this order — cancel one in DHL\'s checkout ("Versandmarke stornieren") if it was a double payment.' : '';
         const address = o.recipientAddress ? `\n\`\`\`\n${o.recipientAddress}\n\`\`\`` : '';
         const price = item.price ? ` ${item.price.toFixed(2)} €` : '';
-        await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 **${item.shipmentNumber}** [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.itemList ?? ''}${warn}`);
+        await notify(`${o.summary ?? o.buyer ?? id}\n✅ Paket ${id}: ${o.productName}${price}, ${printNote}\n📦 **${item.shipmentNumber}** [Tracking](<${TRACK_URL}${encodeURIComponent(item.shipmentNumber)}>)${address}${o.soldPosted ? '' : o.itemList ?? ''}${warn}`);
       }
       if (unmatched.length && !known?.unmatchedNoted) {
         // Paid but not mapped: taken out of pay-all and reminders so they can't be paid again
