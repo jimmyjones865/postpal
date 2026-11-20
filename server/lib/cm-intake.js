@@ -5,12 +5,12 @@ import path from 'path';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { logger } from './logger.js';
-import { matchSubject, parseBody, decide, topHeader, senderProblem, itemBlock } from './cm-email.js';
+import { matchSubject, matchNotice, parseBody, decide, topHeader, senderProblem, itemBlock } from './cm-email.js';
 import { getCountryCode } from './country-codes.js';
 import { envNum, berlinDay } from './config.js';
 import { buyLabel, recoverLabel } from './purchase.js';
 import { printWithSettings } from './print-label.js';
-import { notify } from './discord.js';
+import { notify, editNotice } from './discord.js';
 import { pushMailSale, pushPostage } from './sales.js';
 import { plzCityWarning } from './plz-check.js';
 import { archiveMails, archiveFolderFromEnv } from './mail-archive.js';
@@ -106,7 +106,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
 
   async function saveState() {
     const cutoff = Date.now() - KEEP_MS;
-    for (const map of [state.orders, state.foreign]) {
+    for (const map of [state.orders, state.foreign, state.sold]) {
       for (const [id, o] of Object.entries(map)) if (Date.parse(o.at) < cutoff) delete map[id];
     }
     const tmp = `${statePath}.tmp`;
@@ -123,6 +123,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       state = { startedAt: new Date().toISOString(), orders: {} };
     }
     state.foreign ||= {};
+    state.sold ||= {};
+    // SOLD tracking starts now: older SOLD mails in the lookback are never posted
+    state.soldSince ||= new Date().toISOString();
     delete state.topups; // moved to topups.json
     const interrupted = Object.entries(state.orders).filter(([, o]) => o.status === 'processing');
     for (const [id, order] of interrupted) {
@@ -359,6 +362,79 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     }
   }
 
+  const ago = ms => {
+    const m = Math.max(0, Math.round(ms / 60_000));
+    return m < 60 ? `${m} min` : m < 2880 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
+  };
+  /** SOLD message text for its current state: unpaid, paid (after how long) or cancelled. */
+  function soldText(orderId, s) {
+    const head = s.final === 'paid' ? `🟢 PAID after ${ago(Date.parse(s.paidAt) - Date.parse(s.mailAt))}`
+      : s.final === 'cancelled' ? `❌ CANCELLED — ${s.reason}` : '🟡 SOLD, unpaid';
+    return `${head} · CM ${orderId}\n${s.body}`;
+  }
+
+  /** First sight of a ship mail: the order's SOLD message → paid. Silent edit; the label notice posts separately. */
+  async function markPaid(orderId, paidAt) {
+    const s = state.sold[orderId];
+    if (!s?.messageId || s.final) return;
+    Object.assign(s, { final: 'paid', paidAt: new Date(paidAt || Date.now()).toISOString() });
+    await saveState();
+    await editNotice(s.messageId, soldText(orderId, s));
+  }
+
+  /**
+   * SOLD mail → one Discord message, its id kept in state.sold (pruned with orders, 14 d > CM's 7-day payment window).
+   * Cancel mail → that message edited. Runs before the ship pass so same-poll SOLD + ship edit in order. Read-only, no archiving.
+   */
+  async function pollNotices(client) {
+    const soldSince = new Date(state.soldSince);
+    const since = new Date(Math.max(soldSince, Date.now() - 7 * 86_400_000));
+    for (const folder of cfg.folders) {
+      if (stopping) return;
+      const lock = await client.getMailboxLock(folder, { readOnly: true });
+      try {
+        const uids = await client.search(
+          { since, or: [{ subject: 'SOLD' }, { subject: 'Verkauf' }, { subject: 'cancelled' }, { subject: 'storniert' }] },
+          { uid: true }
+        ) || [];
+        const todo = [];
+        for (let i = 0; i < uids.length; i += 200) {
+          const query = { envelope: true, internalDate: true, headers: ['authentication-results'] };
+          for await (const msg of client.fetch(uids.slice(i, i + 200), query, { uid: true })) {
+            const n = matchNotice(msg.envelope?.subject);
+            if (!n || msg.internalDate < soldSince) continue;
+            // Nothing is bought from these: a non-CM mail is only logged
+            const problem = senderProblem(msg.envelope.from?.[0]?.address, topHeader(msg.headers, 'authentication-results'));
+            if (problem) { warnOnce(`[CM] ${n.kind} mail for ${n.orderId} ignored: ${problem}`); continue; }
+            todo.push({ uid: msg.uid, date: msg.envelope.date || msg.internalDate, ...n });
+          }
+        }
+        for (const { uid, date, kind, orderId, buyer, reason } of todo) {
+          const s = state.sold[orderId];
+          if (kind === 'cancelled') {
+            if (!s?.messageId || s.final) continue;
+            Object.assign(s, { final: 'cancelled', reason });
+            await saveState();
+            await editNotice(s.messageId, soldText(orderId, s));
+            continue;
+          }
+          // Ship mail already seen (other folder first, or arrived before SOLD tracking): its notice covers it
+          if (s || state.orders[orderId]) continue;
+          const msg = await client.fetchOne(uid, { source: true }, { uid: true });
+          if (!msg?.source) continue;
+          const p = parseBody((await simpleParser(msg.source)).text);
+          const n = p.itemCount ?? '?';
+          const entry = { at: new Date().toISOString(), mailAt: new Date(date).toISOString(), body: `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${p.totalEur ?? '?'} €${cfg.itemsList ? itemBlock(p.items) : ''}` };
+          state.sold[orderId] = entry;
+          entry.messageId = await notify(soldText(orderId, entry), { wait: true });
+          await saveState();
+        }
+      } finally {
+        lock.release();
+      }
+    }
+  }
+
   /** Not from Cardmarket: noticed once per message, never recorded under the order ID (a fake must not block the real order). */
   async function rejectForeign(msg, folder, orderId, reason) {
     const key = msg.envelope?.messageId || `${folder}:${msg.uid}`;
@@ -384,6 +460,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
         products: JSON.parse(await fs.readFile(productsPath, 'utf8'))
       };
       if (!cfg.dryRun) await recoverPending();
+      await pollNotices(client).catch(err => logger.error('[CM] SOLD poll failed:', err.message));
       const startedAt = new Date(state.startedAt);
       // 7-day lookback bounds the search as the archive grows; covers up to a week of downtime
       const since = new Date(Math.max(startedAt, Date.now() - 7 * 86_400_000));
@@ -409,6 +486,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
               if (problem) { foreign.push({ msg, orderId, problem }); continue; }
               genuine.push({ uid: msg.uid, orderId });
               const known = state.orders[orderId];
+              if (!known) await markPaid(orderId, msg.envelope.date || msg.internalDate);
               if (!known || WAITING.has(known.status)) candidates.push({ uid: msg.uid, orderId, buyer });
             }
           }

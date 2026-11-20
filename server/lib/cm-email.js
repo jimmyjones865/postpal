@@ -18,7 +18,24 @@ export function matchSubject(subject) {
   return null;
 }
 
-const CM_DOMAIN = /^(?:[\w-]+\.)*cardmarket\.com$/i;
+// German cancel subject never seen yet: "wurde storniert" is a guess
+const NOTICE_PATTERNS = [
+  [/^Shipment (\d+) for (.+): SOLD$/, 'sold'],
+  [/^Bestellung (\d+) für (.+): Verkauf$/, 'sold'],
+  [/^Shipment (\d+) for (.+?) has been cancelled: (.+)$/, 'cancelled'],
+  [/^Bestellung (\d+) für (.+?) wurde storniert: (.+)$/, 'cancelled']
+];
+
+/** SOLD (unpaid) or cancelled mail → { kind, orderId, buyer, reason }, else null. */
+export function matchNotice(subject) {
+  for (const [re, kind] of NOTICE_PATTERNS) {
+    const m = (subject || '').trim().match(re);
+    if (m) return { kind, orderId: m[1], buyer: m[2], reason: m[3]?.replace(/\.$/, '') ?? null };
+  }
+  return null;
+}
+
+const CM_DOMAIN =/^(?:[\w-]+\.)*cardmarket\.com$/i;
 
 /** First (= added by the receiving server) instance of a header from a raw header block, unfolded. */
 export function topHeader(raw, name) {

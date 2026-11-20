@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { matchSubject, parseBody, parseItem, decide, topHeader, senderProblem, itemBlock } from '../lib/cm-email.js';
+import { matchSubject, matchNotice, parseBody, parseItem, decide, topHeader, senderProblem, itemBlock } from '../lib/cm-email.js';
 import { prepareReceiver, sanitizeText, invalidChars } from '../lib/address-rules.js';
 
 const fixture = name => fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -218,4 +218,13 @@ test('item block caps at 5 lines', () => {
   assert.match(itemBlock([{ qty: 2, name: 'Opt', set: 'Dominaria', price: '0,10' }]), /2× Opt \(Dominaria\) 0,10/);
   assert.match(block, /… \+2 more\n```$/);
   assert.equal(itemBlock([]), '');
+});
+
+test('matchNotice: SOLD / Verkauf / cancelled subjects, ship mails not', () => {
+  assert.deepEqual(matchNotice('Shipment 1315608725 for NecronImmortal: SOLD'), { kind: 'sold', orderId: '1315608725', buyer: 'NecronImmortal', reason: null });
+  assert.deepEqual(matchNotice('Bestellung 1315375072 für itnowski: Verkauf'), { kind: 'sold', orderId: '1315375072', buyer: 'itnowski', reason: null });
+  assert.deepEqual(matchNotice('Shipment 1312967350 for thestigPT has been cancelled: Payment deadline expired.'),
+    { kind: 'cancelled', orderId: '1312967350', buyer: 'thestigPT', reason: 'Payment deadline expired' });
+  assert.equal(matchNotice('Shipment 1315608725 for NecronImmortal: Please ship'), null);
+  assert.equal(matchNotice('Bestellung 1315588976 bei mitternachtgoblin: Zahlungseingang'), null);
 });
