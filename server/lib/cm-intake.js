@@ -1,4 +1,4 @@
-// Cardmarket order email → label bought + printed. Handled mails (bought / Paket pay link) are marked read and archived.
+// Cardmarket order email → label bought + printed. Handled mails (bought / Paket pay link / SOLD / cancel) are marked read and archived.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -384,14 +384,15 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
 
   /**
    * SOLD mail → one Discord message, its id kept in state.sold (pruned with orders, 14 d > CM's 7-day payment window).
-   * Cancel mail → that message edited. Runs before the ship pass so same-poll SOLD + ship edit in order. Read-only, no archiving.
+   * Cancel mail → that message edited. Runs before the ship pass so same-poll SOLD + ship edit in order.
+   * Handled SOLD mails (posted, or covered by a seen ship mail) and applied cancels are archived.
    */
   async function pollNotices(client) {
     const soldSince = new Date(state.soldSince);
     const since = new Date(Math.max(soldSince, Date.now() - 7 * 86_400_000));
     for (const folder of cfg.folders) {
       if (stopping) return;
-      const lock = await client.getMailboxLock(folder, { readOnly: true });
+      const lock = await client.getMailboxLock(folder, { readOnly: !cfg.archiveFolder || folder === cfg.archiveFolder });
       try {
         const uids = await client.search(
           { since, or: [{ subject: 'SOLD' }, { subject: 'Verkauf' }, { subject: 'cancelled' }, { subject: 'storniert' }] },
@@ -429,6 +430,10 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
           entry.messageId = await notify(soldText(orderId, entry), { wait: true });
           await saveState();
         }
+        const handled = ({ kind, orderId }) => kind === 'cancelled'
+          ? state.sold[orderId]?.final === 'cancelled'
+          : Boolean(state.sold[orderId] || state.orders[orderId]);
+        await archiveMails(client, folder, todo.filter(handled).map(m => m.uid), cfg.archiveFolder);
       } finally {
         lock.release();
       }
