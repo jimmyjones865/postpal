@@ -225,6 +225,9 @@ test('matchNotice: SOLD / Verkauf / cancelled subjects, ship mails not', () => {
   assert.deepEqual(matchNotice('Bestellung 1315375072 für itnowski: Verkauf'), { kind: 'sold', orderId: '1315375072', buyer: 'itnowski', reason: null });
   assert.deepEqual(matchNotice('Shipment 1312967350 for thestigPT has been cancelled: Payment deadline expired.'),
     { kind: 'cancelled', orderId: '1312967350', buyer: 'thestigPT', reason: 'Payment deadline expired' });
+  assert.deepEqual(matchNotice('Bestellung 1312967350 für thestigPT wurde storniert'),
+    { kind: 'cancelled', orderId: '1312967350', buyer: 'thestigPT', reason: null });
+  assert.equal(matchNotice('Bestellung 1312967350 für thestigPT wurde storniert: Zahlungsfrist abgelaufen.').reason, 'Zahlungsfrist abgelaufen');
   assert.equal(matchNotice('Shipment 1315608725 for NecronImmortal: Please ship'), null);
   assert.equal(matchNotice('Bestellung 1315588976 bei mitternachtgoblin: Zahlungseingang'), null);
 });

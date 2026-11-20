@@ -18,12 +18,11 @@ export function matchSubject(subject) {
   return null;
 }
 
-// German cancel subject never seen yet: "wurde storniert" is a guess
 const NOTICE_PATTERNS = [
   [/^Shipment (\d+) for (.+): SOLD$/, 'sold'],
   [/^Bestellung (\d+) für (.+): Verkauf$/, 'sold'],
-  [/^Shipment (\d+) for (.+?) has been cancelled: (.+)$/, 'cancelled'],
-  [/^Bestellung (\d+) für (.+?) wurde storniert: (.+)$/, 'cancelled']
+  [/^Shipment (\d+) for (.+?) has been cancelled(?:: (.+))?$/, 'cancelled'],
+  [/^Bestellung (\d+) für (.+?) wurde storniert(?:: (.+))?$/, 'cancelled']
 ];
 
 /** SOLD (unpaid) or cancelled mail → { kind, orderId, buyer, reason }, else null. */

@@ -369,7 +369,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
   /** SOLD message text for its current state: unpaid, paid (after how long) or cancelled. */
   function soldText(orderId, s) {
     const head = s.final === 'paid' ? `🟢 PAID after ${ago(Date.parse(s.paidAt) - Date.parse(s.mailAt))}`
-      : s.final === 'cancelled' ? `❌ CANCELLED — ${s.reason}` : '🟡 SOLD, unpaid';
+      : s.final === 'cancelled' ? `❌ CANCELLED${s.reason ? ` — ${s.reason}` : ''}` : '🟡 SOLD, unpaid';
     return `${head} · CM ${orderId}\n${s.body}`;
   }
 
