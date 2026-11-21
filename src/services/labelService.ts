@@ -206,3 +206,24 @@ export interface IntakeOrder {
 export async function getIntake(): Promise<{ dryRun: boolean; orders: IntakeOrder[] }> {
   return json(await fetch(`${API_BASE}/intake`));
 }
+
+export interface TrackedShipment {
+  key: string;
+  kind: 'letter' | 'parcel';
+  at: string;
+  buyer?: string;
+  flag?: string;
+  recipient?: string;
+  productName?: string;
+  status: string;
+  payUrl?: string;
+  tracking: { id: string; url: string }[];
+}
+
+export async function getTracked(): Promise<{ shipments: TrackedShipment[] }> {
+  return json(await fetch(`${API_BASE}/tracked`));
+}
+
+export async function markTrackedDone(key: string): Promise<void> {
+  await json(await post(`/tracked/${encodeURIComponent(key)}/done`));
+}

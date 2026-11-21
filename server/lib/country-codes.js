@@ -322,3 +322,18 @@ export function getCountryCode(country) {
   const upper = normalized.toUpperCase();
   return ISO3_CODES.has(upper) ? upper : null;
 }
+
+const ISO2 = {
+  ALB: 'AL', AND: 'AD', AUT: 'AT', BEL: 'BE', BGR: 'BG', BIH: 'BA', BLR: 'BY', CHE: 'CH', CYP: 'CY', CZE: 'CZ', DEU: 'DE', DNK: 'DK',
+  ESP: 'ES', EST: 'EE', FIN: 'FI', FRA: 'FR', GBR: 'GB', GRC: 'GR', HRV: 'HR', HUN: 'HU', IRL: 'IE', ISL: 'IS', ITA: 'IT', LIE: 'LI',
+  LTU: 'LT', LUX: 'LU', LVA: 'LV', MCO: 'MC', MDA: 'MD', MKD: 'MK', MLT: 'MT', MNE: 'ME', NLD: 'NL', NOR: 'NO', POL: 'PL', PRT: 'PT',
+  ROU: 'RO', RUS: 'RU', SMR: 'SM', SRB: 'RS', SVK: 'SK', SVN: 'SI', SWE: 'SE', TUR: 'TR', UKR: 'UA', VAT: 'VA', USA: 'US', CAN: 'CA',
+  MEX: 'MX', BRA: 'BR', ARG: 'AR', CHL: 'CL', AUS: 'AU', NZL: 'NZ', JPN: 'JP', CHN: 'CN', KOR: 'KR', IND: 'IN', SGP: 'SG', THA: 'TH',
+  VNM: 'VN', IDN: 'ID', MYS: 'MY', PHL: 'PH', ZAF: 'ZA', EGY: 'EG', MAR: 'MA', TUN: 'TN', ISR: 'IL', ARE: 'AE', SAU: 'SA',
+};
+
+/** ISO3 → flag emoji (regional indicator pair), '' if unknown. */
+export function countryFlag(iso3) {
+  const a2 = ISO2[iso3];
+  return a2 ? String.fromCodePoint(...[...a2].map(c => 0x1f1a5 + c.charCodeAt(0))) : '';
+}

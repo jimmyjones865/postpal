@@ -178,5 +178,11 @@
   "intake.dryRun": "Dry run",
   "intake.live": "Live",
   "intake.payAll": "Pay all ({count})",
-  "product.paketEmail": "Recipient email (optional, DHL tracking mails)"
+  "product.paketEmail": "Recipient email (optional, DHL tracking mails)",
+  "nav.tracked": "Tracked",
+  "tracked.title": "Tracked shipments",
+  "tracked.none": "No open tracked shipments.",
+  "tracked.letter": "Letter",
+  "tracked.parcel": "Parcel",
+  "tracked.done": "Done"
 }

@@ -9,6 +9,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh), `POST /wallet/charge` (Portokasse top-up via `lib/topups.js`).
 - `routes/paket.js` — `/api/paket`: products by country (`ALL` = DE+EU union for the hide list), orders (GET/POST manual), cart-id fallback, `GET /pay/:id`, `GET /pay-all` (303 to DHL or small Nord HTML page).
 - `routes/intake.js` — `GET /api/intake`: read-only merge of CM + Paket orders, newest first.
+- `routes/tracked.js` — `GET /api/tracked`: CM tracked letters + all Paket orders not marked done, with country flag; `POST /:key/done` (`cm:<id>` / `paket:<id>`). State `tracked-done.json`: `since` = first use − 3 days (older = done), done marks pruned with their source order.
 - `lib/settings.js` — UI-editable settings in `PDF_STORAGE_PATH/settings.json`; effective = override ?? env ?? default.
 - `lib/config.js` — sender/printer env vars, `envNum`, `berlinDay`.
 - `lib/purchase.js` — `buyLabel` (reserve shopOrderId → checkout → download → store) and `recoverLabel`; shared by UI route and CM intake.
@@ -29,14 +30,14 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/cups-printer.js` — IPP Print-Job with explicit media size.
 - `lib/european-address-parser.js` — heuristic parser; outputs German country names.
 - `lib/address-rules.js` — DP charset allowlist, sanitize, DE `Straße` → `Str.`, field limits, name/additionalName swap; also bundled into the frontend.
-- `lib/country-codes.js` — country name/ISO3 → ISO3; also bundled into the frontend.
+- `lib/country-codes.js` — country name/ISO3 → ISO3, `countryFlag(iso3)` emoji; also bundled into the frontend.
 - `lib/logger.js` — level-filtered console logger (`LOG_LEVEL`).
 - `cm-shipping.json` — CM shipping cost → letter product code, or `paket.<ISO3|EU>.<cost>` → Paket product (`.<service>` = insurance); volume-mounted.
 - `scripts/backfill-sales.js` — all CM ship mails (`MAIL_FOLDER`, read-only) + `labels.json` postage → turbostats; latest mail per order, idempotent, `--dry-run` = stats only. Run: `docker exec postpal node scripts/backfill-sales.js`. Letter postage = current `products.json` cost. Label → order: `cmOrderId` (letter top-level, Paket in `meta`), else unique name line + postcode match within 7 days after the mail (UI-bought labels; address never sent).
 - `test/` — `npm test` (node:test) with anonymized fixtures; fake DHL client for `paket.js`.
 
 ## Frontend (`src/`)
-- `pages/Index.tsx` — the only page: create / history / intake / settings tabs; owns recipient, product, balance, print-mode state.
+- `pages/Index.tsx` — the only page: create / history / tracked / intake / settings tabs; owns recipient, product, balance, print-mode state.
 - `services/labelService.ts` — every `/api` call; print/download pick CUPS vs browser print.
 - `hooks/useConfig.ts` — settings via `/api/settings`, debounced PATCH.
 - `hooks/useLabelPurchase.ts` — purchase flow: validation, auto product, country check, buy, print/download.
@@ -49,6 +50,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund, delete.
 - `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email; `hiddenProducts` hides letters and Paket (`paket:<id>[.<insurance>]`).
 - `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
+- `components/TrackedView.tsx` — Tracked tab: card per shipment (letter/parcel, date, buyer + flag, recipient, click-to-copy tracking, Done); unpaid Paket shows Pay / pay-all instead of Done; 30 s refresh.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) settings.
 - `components/WalletBalance.tsx` — header balance, refresh, top-up chips.
 - `components/ui/` — shadcn button/input/tabs/textarea/sonner; label, checkbox, select, scroll-area, confirm-dialog (`<dialog>`) are thin native wrappers.

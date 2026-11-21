@@ -178,5 +178,11 @@
   "intake.dryRun": "Testlauf",
   "intake.live": "Live",
   "intake.payAll": "Alle bezahlen ({count})",
-  "product.paketEmail": "Empfänger-E-Mail (optional, DHL-Sendungsinfos)"
+  "product.paketEmail": "Empfänger-E-Mail (optional, DHL-Sendungsinfos)",
+  "nav.tracked": "Sendungen",
+  "tracked.title": "Sendungen mit Tracking",
+  "tracked.none": "Keine offenen Sendungen mit Tracking.",
+  "tracked.letter": "Brief",
+  "tracked.parcel": "Paket",
+  "tracked.done": "Erledigt"
 }

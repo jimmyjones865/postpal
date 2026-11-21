@@ -7,7 +7,7 @@ import { TRACK_URL as PAKET_TRACK_URL } from '../lib/paket.js';
 // Discord item block ("\n```\n…\n```") → plain lines
 const itemLines = block => (block || '').split('\n').filter(l => l && l !== '```');
 
-async function readCmOrders(storagePath) {
+export async function readCmOrders(storagePath) {
   try {
     return JSON.parse(await fs.readFile(path.join(storagePath, 'cm-orders.json'), 'utf8')).orders || {};
   } catch (err) {

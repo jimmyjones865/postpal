@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, History, Inbox, Mail, Settings } from 'lucide-react';
+import { AlertCircle, History, Inbox, Mail, Settings, Truck } from 'lucide-react';
 import { useConfig } from '@/hooks/useConfig';
 import { useProducts } from '@/hooks/useProducts';
 import { useLabelHistory } from '@/hooks/useLabelHistory';
 import { useLabelPurchase } from '@/hooks/useLabelPurchase';
 import { usePaket, isPaketCode } from '@/hooks/usePaket';
 import { IntakeView } from '@/components/IntakeView';
+import { TrackedView } from '@/components/TrackedView';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { ProductSelector } from '@/components/ProductSelector';
 import { AddressInput, PrintMode } from '@/components/AddressInput';
@@ -112,7 +113,7 @@ const Index = () => {
 
       <main className="max-w-7xl mx-auto p-4 sm:p-6">
         <Tabs defaultValue="create" className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4 mb-6">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5 mb-6">
             <TabsTrigger className="text-xs sm:text-sm px-1" value="create">
               <Mail className="hidden sm:block w-4 h-4 mr-2" />
               {t('nav.createLabel')}
@@ -120,6 +121,10 @@ const Index = () => {
             <TabsTrigger className="text-xs sm:text-sm px-1" value="history">
               <History className="hidden sm:block w-4 h-4 mr-2" />
               {t('nav.history')} ({labels.length})
+            </TabsTrigger>
+            <TabsTrigger className="text-xs sm:text-sm px-1" value="tracked">
+              <Truck className="hidden sm:block w-4 h-4 mr-2" />
+              {t('nav.tracked')}
             </TabsTrigger>
             <TabsTrigger className="text-xs sm:text-sm px-1" value="intake">
               <Inbox className="hidden sm:block w-4 h-4 mr-2" />
@@ -168,6 +173,10 @@ const Index = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="tracked">
+            <TrackedView />
+          </TabsContent>
+
           <TabsContent value="intake">
             <IntakeView />
           </TabsContent>

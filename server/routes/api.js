@@ -12,6 +12,7 @@ import { createPakClient, pakConfigFromEnv } from '../lib/dhl-private-api.js';
 import { createPaketService } from '../lib/paket.js';
 import { createPaketRouter } from './paket.js';
 import { createIntakeRouter } from './intake.js';
+import { createTrackedRouter } from './tracked.js';
 import { notify } from '../lib/discord.js';
 import { printWithSettings } from '../lib/print-label.js';
 
@@ -65,6 +66,7 @@ export function createApiRouter() {
 
   router.use('/paket', createPaketRouter(paket));
   router.use('/intake', createIntakeRouter({ storagePath: PDF_STORAGE_PATH, storage, paket, settings }));
+  router.use('/tracked', createTrackedRouter({ storagePath: PDF_STORAGE_PATH, storage, paket }));
 
   // Wallet: balance operations
   router.use('/wallet', createWalletRouter(dhlClient, getCredentials, topups));
