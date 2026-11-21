@@ -184,5 +184,9 @@
   "tracked.none": "Keine offenen Sendungen mit Tracking.",
   "tracked.letter": "Brief",
   "tracked.parcel": "Paket",
-  "tracked.done": "Erledigt"
+  "tracked.done": "Erledigt",
+  "tracked.date": "Bezahlt",
+  "tracked.buyer": "Nutzer",
+  "tracked.recipient": "Empfänger",
+  "tracked.tracking": "Sendungsnr."
 }

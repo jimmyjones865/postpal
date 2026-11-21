@@ -8,6 +8,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from '@/lib/utils';
 
 const REFRESH_MS = 30_000;
+// Mobile: icon | buyer | action, tracking below. sm+: one table row.
+const ROW = 'grid grid-cols-[1rem_minmax(0,1fr)_auto] sm:grid-cols-[1rem_6.5rem_minmax(0,1fr)_minmax(0,1fr)_15rem_6.5rem] items-center gap-x-3 gap-y-1';
 
 const when = (iso: string) => new Date(iso).toLocaleString('de-DE', {
   timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
@@ -78,62 +80,68 @@ export function TrackedView() {
       </div>
       {error && <p className="text-xs text-destructive mb-3">{error}</p>}
       {shipments?.length === 0 && <p className="text-xs text-muted-foreground">{t('tracked.none')}</p>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {!!shipments?.length && (
+        <div className={cn(ROW, 'hidden sm:grid pb-2 text-xs text-muted-foreground border-b border-border')}>
+          <span />
+          <span>{t('tracked.date')}</span>
+          <span>{t('tracked.buyer')}</span>
+          <span>{t('tracked.recipient')}</span>
+          <span>{t('tracked.tracking')}</span>
+          <span />
+        </div>
+      )}
+      <div className="divide-y divide-border">
         {shipments?.map(s => {
           const Icon = s.kind === 'parcel' ? Package : Mail;
           return (
-            <div key={s.key} className="border border-border rounded-md p-3 flex flex-col gap-2">
-              <div className="flex items-start gap-2">
-                <Icon className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">
-                    {s.flag && <span className="mr-1.5">{s.flag}</span>}
-                    {s.buyer || s.recipient || s.key}
-                  </div>
-                  {s.buyer && s.recipient && <div className="text-sm truncate">{s.recipient}</div>}
-                  <div className="text-xs text-muted-foreground">
-                    {t(s.kind === 'parcel' ? 'tracked.parcel' : 'tracked.letter')} · {when(s.at)}
-                    {s.productName && ` · ${s.productName}`}
-                  </div>
+            <div key={s.key} className={cn(ROW, 'py-2')}>
+              <Icon className="w-4 h-4 text-primary" aria-label={t(s.kind === 'parcel' ? 'tracked.parcel' : 'tracked.letter')} />
+              <span className="hidden sm:block text-xs font-mono text-muted-foreground">{when(s.at)}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">
+                  {s.flag && <span className="mr-1.5">{s.flag}</span>}
+                  {s.buyer || s.recipient || s.key}
+                </div>
+                <div className="sm:hidden text-xs text-muted-foreground truncate">
+                  {[when(s.at), s.buyer && s.recipient].filter(Boolean).join(' · ')}
                 </div>
               </div>
-
-              {s.tracking.map(tr => (
-                <div key={tr.id} className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => copy(tr.id)}
-                    className={cn(
-                      'flex-1 min-w-0 flex items-center justify-between px-3 py-2 rounded-md border font-mono text-sm',
-                      'bg-muted/50 border-border hover:bg-muted transition-all',
-                      copiedId === tr.id && 'animate-flash',
-                    )}
-                  >
-                    <span className="truncate">{tr.id}</span>
-                    <Copy className="w-4 h-4 ml-2 shrink-0 text-muted-foreground" />
-                  </button>
-                  <Button asChild variant="ghost" size="sm" className="h-auto px-2" title="Tracking">
-                    <a href={tr.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a>
-                  </Button>
-                </div>
-              ))}
-
-              <div className="flex items-center gap-2 mt-auto">
+              <span className="hidden sm:block text-sm truncate">{s.buyer && s.recipient}</span>
+              <div className="col-span-full sm:col-span-1 order-last sm:order-none flex flex-col gap-1 min-w-0">
+                {s.tracking.map(tr => (
+                  <div key={tr.id} className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => copy(tr.id)}
+                      className={cn(
+                        'flex-1 min-w-0 flex items-center justify-between px-2 py-1 rounded-md border font-mono text-xs',
+                        'bg-muted/50 border-border hover:bg-muted transition-all',
+                        copiedId === tr.id && 'animate-flash',
+                      )}
+                    >
+                      <span className="truncate">{tr.id}</span>
+                      <Copy className="w-3 h-3 ml-2 shrink-0 text-muted-foreground" />
+                    </button>
+                    <Button asChild variant="ghost" size="sm" className="h-auto px-2" title="Tracking">
+                      <a href={tr.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a>
+                    </Button>
+                  </div>
+                ))}
+                {!s.tracking.length && !s.payUrl && <span className="text-xs font-mono text-destructive">{s.status}</span>}
+              </div>
+              <div className="justify-self-end">
                 {s.payUrl ? (
-                  <Button asChild size="sm" className="h-9 flex-1">
+                  <Button asChild size="sm" className="h-8">
                     <a href={s.payUrl} target="_blank" rel="noopener noreferrer">
                       <CreditCard className="w-4 h-4 mr-2" />
                       {t('intake.pay')}
                     </a>
                   </Button>
                 ) : (
-                  <>
-                    {!s.tracking.length && <span className="text-xs font-mono text-destructive">{s.status}</span>}
-                    <Button variant="secondary" size="sm" className="h-9 ml-auto" onClick={() => done(s.key)}>
-                      <Check className="w-4 h-4 mr-2" />
-                      {t('tracked.done')}
-                    </Button>
-                  </>
+                  <Button variant="secondary" size="sm" className="h-8" onClick={() => done(s.key)}>
+                    <Check className="w-4 h-4 mr-2" />
+                    {t('tracked.done')}
+                  </Button>
                 )}
               </div>
             </div>

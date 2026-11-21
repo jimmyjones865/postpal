@@ -50,7 +50,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund, delete.
 - `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email; `hiddenProducts` hides letters and Paket (`paket:<id>[.<insurance>]`).
 - `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
-- `components/TrackedView.tsx` — Tracked tab: card per shipment (letter/parcel, date, buyer + flag, recipient, click-to-copy tracking, Done); unpaid Paket shows Pay / pay-all instead of Done; 30 s refresh.
+- `components/TrackedView.tsx` — Tracked tab: table row per shipment (letter/parcel icon, paid date, buyer + flag, recipient, click-to-copy tracking, Done; mobile: tracking wraps below); unpaid Paket shows Pay / pay-all instead of Done; 30 s refresh.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) settings.
 - `components/WalletBalance.tsx` — header balance, refresh, top-up chips.
 - `components/ui/` — shadcn button/input/tabs/textarea/sonner; label, checkbox, select, scroll-area, confirm-dialog (`<dialog>`) are thin native wrappers.

@@ -184,5 +184,9 @@
   "tracked.none": "No open tracked shipments.",
   "tracked.letter": "Letter",
   "tracked.parcel": "Parcel",
-  "tracked.done": "Done"
+  "tracked.done": "Done",
+  "tracked.date": "Paid",
+  "tracked.buyer": "User",
+  "tracked.recipient": "Recipient",
+  "tracked.tracking": "Tracking no."
 }
