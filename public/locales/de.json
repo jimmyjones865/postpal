@@ -188,5 +188,7 @@
   "tracked.date": "Bezahlt",
   "tracked.buyer": "Nutzer",
   "tracked.recipient": "Empfänger",
-  "tracked.tracking": "Sendungsnr."
+  "tracked.tracking": "Sendungsnr.",
+  "tracked.letters": "Briefe",
+  "tracked.parcels": "Pakete"
 }

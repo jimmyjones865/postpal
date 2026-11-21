@@ -188,5 +188,7 @@
   "tracked.date": "Paid",
   "tracked.buyer": "User",
   "tracked.recipient": "Recipient",
-  "tracked.tracking": "Tracking no."
+  "tracked.tracking": "Tracking no.",
+  "tracked.letters": "Letters",
+  "tracked.parcels": "Parcels"
 }

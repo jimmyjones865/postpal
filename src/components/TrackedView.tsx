@@ -22,6 +22,7 @@ export function TrackedView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [kind, setKind] = useState<TrackedShipment['kind'] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,12 +62,24 @@ export function TrackedView() {
   };
 
   const toPay = shipments?.filter(s => s.payUrl).length ?? 0;
+  const shown = kind ? shipments?.filter(s => s.kind === kind) : shipments;
+  const count = (k: TrackedShipment['kind']) => shipments?.filter(s => s.kind === k).length ?? 0;
 
   return (
     <div className="bg-card border border-border rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <Truck className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm">{t('tracked.title')}{shipments && ` (${shipments.length})`}</h2>
+        <h2 className="font-semibold text-sm">{t('tracked.title')}{shown && ` (${shown.length})`}</h2>
+        {(['letter', 'parcel'] as const).map(k => {
+          const Icon = k === 'parcel' ? Package : Mail;
+          return (
+            <Button key={k} variant={kind === k ? 'default' : 'outline'} size="sm" className="h-7 px-2 text-xs"
+              onClick={() => setKind(kind === k ? null : k)} aria-pressed={kind === k}>
+              <Icon className="w-3 h-3 mr-1.5" />
+              {t(`tracked.${k}s`)} ({count(k)})
+            </Button>
+          );
+        })}
         {toPay > 1 && (
           <Button asChild size="sm" className="h-8 ml-auto">
             <a href="/api/paket/pay-all" target="_blank" rel="noopener noreferrer">
@@ -79,8 +92,8 @@ export function TrackedView() {
         </Button>
       </div>
       {error && <p className="text-xs text-destructive mb-3">{error}</p>}
-      {shipments?.length === 0 && <p className="text-xs text-muted-foreground">{t('tracked.none')}</p>}
-      {!!shipments?.length && (
+      {shown?.length === 0 && <p className="text-xs text-muted-foreground">{t('tracked.none')}</p>}
+      {!!shown?.length && (
         <div className={cn(ROW, 'hidden sm:grid pb-2 text-xs text-muted-foreground border-b border-border')}>
           <span />
           <span>{t('tracked.date')}</span>
@@ -91,7 +104,7 @@ export function TrackedView() {
         </div>
       )}
       <div className="divide-y divide-border">
-        {shipments?.map(s => {
+        {shown?.map(s => {
           const Icon = s.kind === 'parcel' ? Package : Mail;
           return (
             <div key={s.key} className={cn(ROW, 'py-2')}>
