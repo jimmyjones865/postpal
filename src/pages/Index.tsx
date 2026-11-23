@@ -45,6 +45,7 @@ const Index = () => {
     refresh: refreshLabels,
     removeLabel,
     refund: refundLabel,
+    checkRefund,
     addLabel
   } = useLabelHistory();
   const trackedCodes = useMemo(() => new Set(products.filter(p => p.tracked).map(p => p.code)), [products]);
@@ -169,7 +170,7 @@ const Index = () => {
                 <History className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-sm">{t('history.printHistory')}</h2>
               </div>
-              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} onRefund={refundLabel} printerConfig={config.printerConfig} trackedCodes={trackedCodes} />
+              <LabelHistory labels={labels} isLoading={labelsLoading} error={labelsError} onRefresh={refreshLabels} onDelete={removeLabel} onRefund={refundLabel} onCheckRefund={checkRefund} printerConfig={config.printerConfig} trackedCodes={trackedCodes} />
             </div>
           </TabsContent>
           

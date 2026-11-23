@@ -25,15 +25,17 @@ interface LabelHistoryProps {
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
   onRefund: (id: string) => Promise<void>;
+  onCheckRefund: (id: string) => Promise<StoredLabel>;
   printerConfig: PrinterConfig;
   trackedCodes: Set<string>;
 }
 
-export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, onRefund, printerConfig, trackedCodes }: LabelHistoryProps) {
+export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, onRefund, onCheckRefund, printerConfig, trackedCodes }: LabelHistoryProps) {
   const { t } = useTranslation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [refundingId, setRefundingId] = useState<string | null>(null);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'refund' | 'delete'; label: StoredLabel } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -70,6 +72,18 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
       toast.error(t('toast.refundFailed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setRefundingId(null);
+    }
+  };
+
+  const handleCheckRefund = async (id: string) => {
+    setCheckingId(id);
+    try {
+      const updated = await onCheckRefund(id);
+      if (updated.refund?.state === 'open') toast.info(t('toast.refundStillOpen'));
+    } catch (err) {
+      toast.error(t('toast.refundCheckFailed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setCheckingId(null);
     }
   };
 
@@ -143,7 +157,23 @@ export function LabelHistory({ labels, isLoading, error, onRefresh, onDelete, on
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                     <Package className="w-3 h-3" />
                     <span className="font-medium">{label.productName}</span>
-                    {label.refund && <span className="text-accent-foreground">· {t('history.refundRequested')}</span>}
+                    {label.refund?.state === 'refunded' && <span className="text-accent-foreground">· {t('history.refunded')}</span>}
+                    {label.refund?.state === 'rejected' && <span className="text-destructive">· {t('history.refundRejected')}</span>}
+                    {label.refund && (!label.refund.state || label.refund.state === 'open') && (
+                      <span className="flex items-center gap-1 text-accent-foreground">
+                        · {t('history.refundRequested')}
+                        <button
+                          type="button"
+                          className="p-0.5 hover:text-foreground disabled:opacity-50"
+                          onClick={() => handleCheckRefund(label.id)}
+                          disabled={checkingId === label.id}
+                          title={t('history.checkRefund')}
+                          aria-label={t('history.checkRefund')}
+                        >
+                          <RefreshCw className={cn('w-3 h-3', checkingId === label.id && 'animate-spin')} />
+                        </button>
+                      </span>
+                    )}
                   </div>
                   <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed">
                     {label.recipientAddress.trim()}

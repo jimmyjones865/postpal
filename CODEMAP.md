@@ -5,7 +5,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 ## Server (`server/`)
 - `index.js` — Express app: JSON body, `/api` router, static frontend, SPA fallback, graceful shutdown.
 - `routes/api.js` — builds shared services, mounts sub-routers; health, credentials status, config, `GET/PATCH /settings`, parse-address; daily retention cleanup.
-- `routes/labels.js` — list, `GET /:id/pdf` (`?print=1` → cropped), `POST /:id/print` (CUPS, saved settings), delete, refund (DHL retoure by voucherId), purchase (→ `lib/purchase.js`), recover by shopOrderId.
+- `routes/labels.js` — list, `GET /:id/pdf` (`?print=1` → cropped), `POST /:id/print` (CUPS, saved settings), delete, refund (DHL retoure by voucherId), `POST /:id/refund/check` (retoure state → `refund.state` open/refunded/rejected), purchase (→ `lib/purchase.js`), recover by shopOrderId.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh), `POST /wallet/charge` (Portokasse top-up via `lib/topups.js`).
 - `routes/paket.js` — `/api/paket`: products by country (`ALL` = DE+EU union for the hide list), orders (GET/POST manual), cart-id fallback, `GET /pay/:id`, `GET /pay-all` (303 to DHL or small Nord HTML page).
 - `routes/intake.js` — `GET /api/intake`: read-only merge of CM + Paket orders, newest first.
@@ -13,7 +13,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/settings.js` — UI-editable settings in `PDF_STORAGE_PATH/settings.json`; effective = override ?? env ?? default.
 - `lib/config.js` — sender/printer env vars, `envNum`, `berlinDay`.
 - `lib/purchase.js` — `buyLabel` (reserve shopOrderId → checkout → download → store) and `recoverLabel`; shared by UI route and CM intake.
-- `lib/dhl-api.js` — Internetmarke client: auth token cache, cart, checkout, retrieve, wallet charge, refund; 30 s timeout.
+- `lib/dhl-api.js` — Internetmarke client: auth token cache, cart, checkout, retrieve, wallet charge, refund + refund state; 30 s timeout.
 - `lib/dhl-private-api.js` — DHL Parcel DE Private Shipping client: catalog + `catalogPrice`, `createCart`, `getCart`, `getLabel`.
 - `lib/paket.js` — DHL Paket orders (`paket-orders.json`): pay links, pay-all, paid-mail polling → label → print, daily unpaid reminder.
 - `lib/cm-intake.js` — Cardmarket email intake: IMAP poll → decide → buy → print → Discord; state in `cm-orders.json`.
@@ -47,7 +47,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/AddressInput.tsx` — raw address textarea, print/download toggle, Ctrl+Enter.
 - `components/ParsedAddressEditor.tsx` — debounced parse → editable fields that rewrite the raw text.
 - `components/LabelResult.tsx` — last purchase: recipient preview, reprint/download, copy ID.
-- `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund, delete.
+- `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund (status + manual check button in the row), delete.
 - `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email; `hiddenProducts` hides letters and Paket (`paket:<id>[.<insurance>]`).
 - `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
 - `components/TrackedView.tsx` — Tracked tab: letter/parcel quick filter (click again clears), table row per shipment (letter/parcel icon, paid date, buyer + flag, recipient, click-to-copy tracking, Done; mobile: tracking wraps below); unpaid Paket shows Pay / pay-all instead of Done; 30 s refresh.

@@ -25,7 +25,7 @@ export interface StoredLabel {
   trackId?: string;
   createdAt: string;
   provider?: 'dhl-paket';
-  refund?: { shopRetoureId: string; retoureTransactionId: string; requestedAt: string };
+  refund?: { shopRetoureId: string; retoureTransactionId: string; requestedAt: string; state?: 'open' | 'refunded' | 'rejected'; checkedAt?: string };
 }
 
 interface DhlAddress {
@@ -105,6 +105,10 @@ export async function deleteLabel(id: string): Promise<void> {
 
 export async function refundLabel(id: string): Promise<StoredLabel> {
   return (await json<{ label: StoredLabel }>(await post(`/labels/${id}/refund`))).label;
+}
+
+export async function checkRefund(id: string): Promise<StoredLabel> {
+  return (await json<{ label: StoredLabel }>(await post(`/labels/${id}/refund/check`))).label;
 }
 
 /** @returns new balance in cents, null when DHL didn't report it */

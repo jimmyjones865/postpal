@@ -267,6 +267,28 @@ export function createDhlClient() {
   }
 
   /**
+   * Reads the booking state of one retoure.
+   *
+   * @returns {Object} { success, state: 'open'|'refunded'|'rejected' } or { success: false, status, details }
+   */
+  async function getRefundState(accessToken, { shopRetoureId, voucherId }) {
+    const response = await fetch(`${DHL_API_BASE}/app/retoure?shopRetoureId=${encodeURIComponent(shopRetoureId)}`, {
+      signal: AbortSignal.timeout(DHL_TIMEOUT_MS),
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    const text = await response.text();
+    logger.debug(`[DHL] Retoure state status=${response.status}, body=${text}`);
+    if (!response.ok) return { success: false, status: response.status, details: text };
+
+    const entry = JSON.parse(text).RetrieveRetoureStateResponse?.[0];
+    if (!entry) return { success: false, status: 404, details: 'Retoure not found' };
+    const refunded = entry.refundedVouchers?.some(v => v.voucherId === voucherId);
+    const state = refunded ? 'refunded' : entry.countStillOpen > 0 ? 'open' : 'rejected';
+    return { success: true, state };
+  }
+
+  /**
    * Builds a shopping cart payload for label purchase.
    * 
    * @param {Object} params - Purchase parameters
@@ -301,6 +323,7 @@ export function createDhlClient() {
     initShoppingCart,
     retrieveShoppingCart,
     chargeWallet,
-    refundVoucher
+    refundVoucher,
+    getRefundState
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StoredLabel, getLabels, deleteLabel, refundLabel } from '@/services/labelService';
+import { StoredLabel, getLabels, deleteLabel, refundLabel, checkRefund } from '@/services/labelService';
 
 export function useLabelHistory() {
   const [labels, setLabels] = useState<StoredLabel[]>([]);
@@ -39,6 +39,12 @@ export function useLabelHistory() {
     setLabels(prev => prev.map(l => (l.id === id ? updated : l)));
   };
 
+  const checkRefundState = async (id: string) => {
+    const updated = await checkRefund(id);
+    setLabels(prev => prev.map(l => (l.id === id ? updated : l)));
+    return updated;
+  };
+
   const addLabel = (label: StoredLabel) => {
     setLabels(prev => [label, ...prev]);
   };
@@ -50,6 +56,7 @@ export function useLabelHistory() {
     refresh: fetchLabels,
     removeLabel,
     refund,
+    checkRefund: checkRefundState,
     addLabel,
   };
 }

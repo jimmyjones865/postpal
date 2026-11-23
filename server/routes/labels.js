@@ -136,6 +136,37 @@ export function createLabelsRouter(storage, dhlClient, getCredentials, print) {
   });
 
   /**
+   * POST /labels/:id/refund/check - Read the refund's booking state from DHL and store it
+   */
+  router.post('/:id/refund/check', async (req, res) => {
+    try {
+      const label = await storage.getLabel(req.params.id);
+      if (!label) return res.status(404).json({ error: 'Label not found' });
+      if (!label.refund) return res.status(400).json({ error: 'No refund requested' });
+      if (label.refund.state && label.refund.state !== 'open') return res.json({ success: true, label });
+
+      const tokenData = await dhlClient.getAccessToken(getCredentials());
+      const result = await dhlClient.getRefundState(tokenData.accessToken, {
+        shopRetoureId: label.refund.shopRetoureId,
+        voucherId: label.voucherId
+      });
+      if (!result.success) {
+        logger.warn('[Labels] Refund check failed:', result.status, result.details);
+        return res.status(result.status || 500).json({ error: 'Refund check failed', details: result.details });
+      }
+
+      logger.info(`[Labels] Refund ${label.refund.shopRetoureId} for ${label.voucherId}: ${result.state}`);
+      const updated = await storage.updateLabel(label.id, {
+        refund: { ...label.refund, state: result.state, checkedAt: new Date().toISOString() }
+      });
+      res.json({ success: true, label: updated });
+    } catch (err) {
+      logger.error('[Labels] Refund check error:', err);
+      res.status(500).json({ error: err.message || 'Failed to check refund' });
+    }
+  });
+
+  /**
    * POST /labels/purchase - Purchase a label from DHL, download its PDF and store it
    */
   router.post('/purchase', async (req, res) => {
