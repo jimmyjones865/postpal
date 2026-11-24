@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CreditCard, ExternalLink, Inbox, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, Inbox, MailQuestion, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { IntakeOrder, getIntake, submitPaketCart } from '@/services/labelService';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { IntakeOrder, SoldOrder, getIntake, manualCmOrder, submitPaketCart } from '@/services/labelService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from '@/lib/utils';
 
@@ -36,10 +38,59 @@ function OrderDetails({ order }: { order: IntakeOrder }) {
   );
 }
 
+/** SOLD order whose ship mail never came: address from the CM order page → processed like the ship mail. */
+function SoldRow({ order, dryRun, onDone }: { order: SoldOrder; dryRun: boolean; onDone: () => void }) {
+  const { t } = useTranslation();
+  const [address, setAddress] = useState('');
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    setConfirm(false);
+    setBusy(true);
+    try {
+      const r = await manualCmOrder(order.id, address);
+      toast.success(t('intake.manualDone', { status: r.status }), { description: r.note || `CM ${order.id}` });
+      onDone();
+    } catch (err) {
+      toast.error(t('intake.manualFailed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <details className="py-2">
+      <summary className="flex flex-wrap items-center gap-x-3 gap-y-1 cursor-pointer list-none">
+        <span className="text-xs text-muted-foreground font-mono whitespace-nowrap sm:w-24 shrink-0">{when(order.at)}</span>
+        <span className="text-sm min-w-0 flex-1">{order.summary}</span>
+        <span className="text-xs text-muted-foreground font-mono">CM {order.id}</span>
+      </summary>
+      <div className="mt-2 space-y-2 sm:pl-[6.75rem]">
+        {order.items.length > 0 && <pre className="whitespace-pre-wrap text-xs font-mono text-muted-foreground">{order.items.join('\n')}</pre>}
+        <Textarea value={address} onChange={e => setAddress(e.target.value)} rows={4} maxLength={500}
+          placeholder={t('intake.manualPlaceholder')} className="font-mono text-sm" />
+        <Button size="sm" onClick={() => setConfirm(true)} disabled={busy || address.trim().split('\n').length < 3}>
+          {dryRun ? t('intake.dryRun') : t('intake.manualBuy')}
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirm}
+        title={t('intake.manualTitle', { id: order.id })}
+        description={t('intake.manualConfirm')}
+        confirmLabel={dryRun ? t('intake.dryRun') : t('intake.manualBuy')}
+        cancelLabel={t('history.cancel')}
+        onConfirm={run}
+        onCancel={() => setConfirm(false)}
+      />
+    </details>
+  );
+}
+
 /** CM intake + Paket orders. Refreshes every 30 s while the tab is open (Radix unmounts inactive tabs). */
 export function IntakeView() {
   const { t } = useTranslation();
-  const [data, setData] = useState<{ dryRun: boolean; orders: IntakeOrder[] } | null>(null);
+  const [data, setData] = useState<{ dryRun: boolean; orders: IntakeOrder[]; sold: SoldOrder[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cartId, setCartId] = useState('');
@@ -144,6 +195,19 @@ export function IntakeView() {
           </div>
         </div>
       </div>
+
+      {!!data?.sold.length && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <MailQuestion className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-sm">{t('intake.sold')} ({data.sold.length})</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">{t('intake.soldHint')}</p>
+          <div className="divide-y divide-border">
+            {data.sold.map(o => <SoldRow key={o.id} order={o} dryRun={data.dryRun} onDone={load} />)}
+          </div>
+        </div>
+      )}
 
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">

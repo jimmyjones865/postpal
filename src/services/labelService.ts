@@ -207,8 +207,22 @@ export interface IntakeOrder {
   carts?: number;
 }
 
-export async function getIntake(): Promise<{ dryRun: boolean; orders: IntakeOrder[] }> {
+/** SOLD mail seen, no ship mail yet */
+export interface SoldOrder {
+  id: string;
+  at: string;
+  buyer: string;
+  summary: string;
+  items: string[];
+}
+
+export async function getIntake(): Promise<{ dryRun: boolean; orders: IntakeOrder[]; sold: SoldOrder[] }> {
   return json(await fetch(`${API_BASE}/intake`));
+}
+
+/** Lost ship mail: SOLD mail data + address from the CM order page → same path as a ship mail. */
+export async function manualCmOrder(orderId: string, address: string): Promise<{ status: string; note?: string }> {
+  return json(await post(`/intake/${encodeURIComponent(orderId)}/manual`, { address }));
 }
 
 export interface TrackedShipment {

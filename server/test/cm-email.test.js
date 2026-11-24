@@ -10,7 +10,8 @@ const split = raw => {
   return { subject: head.replace(/^Subject: /, ''), text: rest.join('\n\n') };
 };
 const costTable = JSON.parse(fs.readFileSync(new URL('../cm-shipping.json', import.meta.url)));
-const products = JSON.parse(fs.readFileSync(new URL('../../public/products.json', import.meta.url)));
+// Repo: ../../public; Docker image: ../public
+const products = JSON.parse(fs.readFileSync(['../../public/products.json', '../public/products.json'].map(p => new URL(p, import.meta.url)).find(fs.existsSync)));
 const limits = { costTable, products, boughtToday: 0, dailyCap: 30 };
 
 test('subject filter', () => {

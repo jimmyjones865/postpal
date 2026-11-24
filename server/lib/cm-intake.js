@@ -43,7 +43,8 @@ export function stopCmIntake() {
   return current;
 }
 
-export function startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath, paket }) {
+/** → { manualOrder, pollNow }, or undefined when intake is off (no MAIL_*). */
+export function startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath, paket, createImap = opts => new ImapFlow(opts) }) {
   const cfg = {
     host: process.env.MAIL_SERVER,
     port: envNum('MAIL_PORT', 993),
@@ -191,8 +192,8 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     }
   }
 
-  async function processMail(subjectOrderId, buyer, text, { costTable, products }, mailDate) {
-    const parsed = { subjectOrderId, ...parseBody(text) };
+  /** parsed: parseBody result + subjectOrderId, from a ship mail or a SOLD mail + typed address. */
+  async function processOrder(subjectOrderId, buyer, parsed, { costTable, products }, mailDate) {
     pushMailSale(subjectOrderId, buyer, parsed, mailDate);
     const n = parsed.itemCount ?? '?';
     const decision = decide(parsed, { costTable, products, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
@@ -422,12 +423,20 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
             continue;
           }
           // Ship mail already seen (other folder first, or arrived before SOLD tracking): its notice covers it
-          if (s || state.orders[orderId]) continue;
+          if (state.orders[orderId] || (s && (s.mail || s.final))) continue;
           const msg = await client.fetchOne(uid, { source: true }, { uid: true });
           if (!msg?.source) continue;
           const p = parseBody((await simpleParser(msg.source)).text);
+          // Everything a ship mail has except the address: lets a lost ship mail be replaced by hand (manualOrder)
+          const mail = { buyer, costEur: p.costEur, items: p.items, itemCount: p.itemCount, totalEur: p.totalEur, commissionEur: p.commissionEur, netEur: p.netEur };
+          if (s) {
+            // Posted before SOLD data was kept
+            s.mail = mail;
+            await saveState();
+            continue;
+          }
           const n = p.itemCount ?? '?';
-          const entry = { at: new Date().toISOString(), mailAt: new Date(date).toISOString(), body: `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${p.totalEur ?? '?'} €${cfg.itemsList ? itemBlock(p.items) : ''}` };
+          const entry = { at: new Date().toISOString(), mailAt: new Date(date).toISOString(), body: `${buyer}: ${n} item${n === 1 ? '' : 's'} @ ${p.totalEur ?? '?'} €${cfg.itemsList ? itemBlock(p.items) : ''}`, mail };
           state.sold[orderId] = entry;
           entry.messageId = await notify(soldText(orderId, entry), { wait: true });
           await saveState();
@@ -451,8 +460,33 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     await notify(`🚫 CM ${orderId}: mail ignored — ${reason}. Not from Cardmarket?`);
   }
 
+  const loadTables = async () => ({
+    costTable: JSON.parse(await fs.readFile(costTablePath, 'utf8')),
+    products: JSON.parse(await fs.readFile(productsPath, 'utf8'))
+  });
+
+  /** Unexpected per-order error: recorded so one broken order can't block every later one, never retried. */
+  async function orderFailed(orderId, buyer, err) {
+    logger.error(`[CM] Order ${orderId} failed:`, err);
+    const prev = state.orders[orderId];
+    if (!prev || ['processing', 'retry', 'queued'].includes(prev.status)) {
+      // Purchase fields kept: an error mid-purchase may have been paid (cap, lookup by shopOrderId)
+      const { status: _s, at: _a, ...keep } = prev || {};
+      await record(orderId, 'error', { ...keep, error: err.message });
+    }
+    // A Paket order created before the error is still payable: point there instead of a manual buy
+    const po = await paket?.getOrder(orderId).catch(() => null);
+    if (po?.status === 'awaiting-pay') {
+      const { status: _s, at: _a, ...rest } = state.orders[orderId] || {};
+      await record(orderId, 'paket', { ...rest, error: err.message }).catch(e => logger.error('[CM] Record failed:', e.message));
+      await notify(`${buyer}\n⚠️ CM ${orderId}: error after the Paket order was created — ${err.message}. Don't buy manually; pay: ${po.payMd}`);
+    } else {
+      await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
+    }
+  }
+
   async function pollOnce() {
-    const client = new ImapFlow({
+    const client = createImap({
       host: cfg.host,
       port: cfg.port,
       secure: cfg.port === 993,
@@ -462,10 +496,7 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
     client.on('error', err => logger.warn('[CM] IMAP error:', err.message));
     try {
       await client.connect();
-      const tables = {
-        costTable: JSON.parse(await fs.readFile(costTablePath, 'utf8')),
-        products: JSON.parse(await fs.readFile(productsPath, 'utf8'))
-      };
+      const tables = await loadTables();
       if (!cfg.dryRun) await recoverPending();
       await pollNotices(client).catch(err => logger.error('[CM] SOLD poll failed:', err.message));
       const startedAt = new Date(state.startedAt);
@@ -516,25 +547,9 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
             logger.info(`[CM] Processing order ${orderId} (${folder})`);
             try {
               const mail = await simpleParser(msg.source);
-              await processMail(orderId, buyer, mail.text, tables, mail.date);
+              await processOrder(orderId, buyer, { subjectOrderId: orderId, ...parseBody(mail.text) }, tables, mail.date);
             } catch (err) {
-              // Recorded so one broken mail can't block every later order
-              logger.error(`[CM] Order ${orderId} failed:`, err);
-              const prev = state.orders[orderId];
-              if (!prev || ['processing', 'retry', 'queued'].includes(prev.status)) {
-                // Purchase fields kept: an error mid-purchase may have been paid (cap, lookup by shopOrderId)
-                const { status: _s, at: _a, ...keep } = prev || {};
-                await record(orderId, 'error', { ...keep, error: err.message });
-              }
-              // A Paket order created before the error is still payable: point there instead of a manual buy
-              const po = await paket?.getOrder(orderId).catch(() => null);
-              if (po?.status === 'awaiting-pay') {
-                const { status: _s, at: _a, ...rest } = state.orders[orderId] || {};
-                await record(orderId, 'paket', { ...rest, error: err.message }).catch(e => logger.error('[CM] Record failed:', e.message));
-                await notify(`${buyer}\n⚠️ CM ${orderId}: error after the Paket order was created — ${err.message}. Don't buy manually; pay: ${po.payMd}`);
-              } else {
-                await notify(`${buyer}\n🛑 CM ${orderId}: error — ${err.message}. Do it manually, no retry.`);
-              }
+              await orderFailed(orderId, buyer, err);
             }
           }
           await archiveMails(client, folder, genuine.filter(m => ARCHIVE.has(state.orders[m.orderId]?.status)).map(m => m.uid), cfg.archiveFolder);
@@ -584,11 +599,59 @@ export function startCmIntake({ storage, dhlClient, getCredentials, topups, sett
       .finally(() => { running = false; });
   }
 
-  loadState()
+  /** Runs fn after any in-flight poll and blocks new polls meanwhile: a ship mail can't race a manual order. */
+  async function exclusive(fn) {
+    while (running) await current;
+    running = true;
+    const run = fn();
+    current = run.catch(() => {}).finally(() => { running = false; });
+    return run;
+  }
+
+  /**
+   * Paid order whose ship mail never came: its SOLD mail data + the address typed from the CM order page,
+   * then the same path as a ship mail (no print window: someone is there). Recorded under the order ID,
+   * so a late ship mail is a duplicate. → { status, note } or { error, code } (nothing recorded).
+   */
+  async function manualOrder(orderId, address) {
+    await ready;
+    if (!state || stopping) return { error: 'CM intake not running', code: 503 };
+    return exclusive(async () => {
+      await refreshSettings();
+      const s = state.sold[orderId];
+      const known = state.orders[orderId];
+      if (known) return { error: `already handled (${known.status})`, code: 409 };
+      if (!s?.mail) return { error: 'no SOLD mail on record for this order', code: 404 };
+      if (s.final === 'cancelled') return { error: 'order was cancelled', code: 409 };
+      const { buyer, ...fields } = s.mail;
+      const parsed = { subjectOrderId: orderId, orderId, addressLines: address.split('\n').map(l => l.trim()).filter(Boolean), ...fields };
+      const tables = await loadTables();
+      // Checked first so a typo can be fixed and resent: a skipped order is final
+      const check = decide(parsed, { ...tables, boughtToday: boughtToday(), dailyCap: cfg.dailyCap });
+      if (!check.ok) return { error: check.reason, code: 400 };
+      logger.info(`[CM] Manual order ${orderId}`);
+      await markPaid(orderId, Date.now());
+      try {
+        await processOrder(orderId, buyer, parsed, tables, new Date());
+      } catch (err) {
+        await orderFailed(orderId, buyer, err);
+      }
+      const o = state.orders[orderId];
+      return { status: o?.status, note: o?.reason || o?.error };
+    });
+  }
+
+  const ready = loadState()
     .then(() => {
       logger.info(`[CM] Email intake on, polling ${cfg.folders.join(' + ')} every ${cfg.pollMs / 1000}s, since ${state.startedAt}`);
       poll();
       timer = setInterval(poll, cfg.pollMs);
     })
-    .catch(err => logger.error('[CM] Intake start failed:', err.message));
+    .catch(err => {
+      state = undefined;
+      logger.error('[CM] Intake start failed:', err.message);
+    });
+
+  // pollNow: tests
+  return { manualOrder, pollNow: () => { poll(); return current; } };
 }

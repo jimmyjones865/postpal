@@ -195,5 +195,13 @@
   "tracked.recipient": "Empfänger",
   "tracked.tracking": "Sendungsnr.",
   "tracked.letters": "Briefe",
-  "tracked.parcels": "Pakete"
+  "tracked.parcels": "Pakete",
+  "intake.sold": "Verkauft, keine Versandmail",
+  "intake.soldHint": "Auf Cardmarket bezahlt, aber die Versandmail kam nie? Adresse von der CM-Bestellseite einfügen: wird wie die Versandmail verarbeitet (Label, Druck, Discord, Sales). Eine spätere Versandmail wird ignoriert.",
+  "intake.manualPlaceholder": "Name\nStraße 1\n12345 Stadt\nLand",
+  "intake.manualBuy": "Label kaufen",
+  "intake.manualTitle": "CM {id}: ohne Versandmail kaufen?",
+  "intake.manualConfirm": "Nur wenn Cardmarket die Bestellung als bezahlt zeigt. Eine spätere Versandmail dazu wird ignoriert.",
+  "intake.manualDone": "Bestellung verarbeitet: {status}",
+  "intake.manualFailed": "Bestellung nicht verarbeitet"
 }

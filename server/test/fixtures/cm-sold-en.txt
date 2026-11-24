@@ -1,0 +1,31 @@
+Subject: Shipment 1300000002 for Kupiec99PL: SOLD
+
+Hello TURBOFOIL,
+
+Kupiec99PL has bought from you. The shipment is now waiting for payment. The current status of the order is UNPAID. You do not need to ship it before payment arrives. Please wait until we inform you that it was paid.
+If the buyer does not pay within 7 days, you will be able to cancel the order.
+
+The Cardmarket Team
+
+Shipment 1300000002
+Seller: TURBOFOIL
+Buyer: Kupiec99PL
+Status: Unpaid
+
+Tracking:
+
+Total sale price: 8,43 EUR
+Commission: 0,36 EUR
+Net sale price: 8,07 EUR
+
+Contents:
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+4x Tekuthal, Inquiry Dominus (Commander: Edge of Eternities) - M - ...     1,72 EUR
+Shipping                                                                  1,55 EUR
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Total                                                                     8,43 EUR
+
+
+Sammelkartenmarkt GmbH & Co. KG
+Nordkapstr. 4, 10439 Berlin

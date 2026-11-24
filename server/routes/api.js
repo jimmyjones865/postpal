@@ -65,7 +65,8 @@ export function createApiRouter() {
   router.use('/labels', createLabelsRouter(storage, dhlClient, getCredentials, print));
 
   router.use('/paket', createPaketRouter(paket));
-  router.use('/intake', createIntakeRouter({ storagePath: PDF_STORAGE_PATH, storage, paket, settings }));
+  let cmIntake;
+  router.use('/intake', createIntakeRouter({ storagePath: PDF_STORAGE_PATH, storage, paket, settings, cmIntake: () => cmIntake }));
   router.use('/tracked', createTrackedRouter({ storagePath: PDF_STORAGE_PATH, storage, paket }));
 
   // Wallet: balance operations
@@ -149,7 +150,7 @@ export function createApiRouter() {
     storage.cleanupOldLabels(RETENTION_DAYS);
     // Schedule daily cleanup
     setInterval(() => storage.cleanupOldLabels(RETENTION_DAYS), 24 * 60 * 60 * 1000);
-    startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath: PDF_STORAGE_PATH, paket });
+    cmIntake = startCmIntake({ storage, dhlClient, getCredentials, topups, settings, storagePath: PDF_STORAGE_PATH, paket });
   });
 
   return router;

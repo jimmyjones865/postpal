@@ -8,7 +8,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `routes/labels.js` — list, `GET /:id/pdf` (`?print=1` → cropped), `POST /:id/print` (CUPS, saved settings), delete, refund (DHL retoure by voucherId), `POST /:id/refund/check` (retoure state → `refund.state` open/refunded/rejected), purchase (→ `lib/purchase.js`), recover by shopOrderId.
 - `routes/wallet.js` — `POST /wallet/balance` (forces token refresh), `POST /wallet/charge` (Portokasse top-up via `lib/topups.js`).
 - `routes/paket.js` — `/api/paket`: products by country (`ALL` = DE+EU union for the hide list), orders (GET/POST manual), cart-id fallback, `GET /pay/:id`, `GET /pay-all` (303 to DHL or small Nord HTML page).
-- `routes/intake.js` — `GET /api/intake`: read-only merge of CM + Paket orders, newest first.
+- `routes/intake.js` — `GET /api/intake`: merge of CM + Paket orders, newest first, + `sold` (SOLD mail kept, no ship mail yet); `POST /:orderId/manual` `{ address }` → `manualOrder`.
 - `routes/tracked.js` — `GET /api/tracked`: CM tracked letters + all Paket orders not marked done, with country flag; `POST /:key/done` (`cm:<id>` / `paket:<id>`). State `tracked-done.json`: `since` = first use − 3 days (older = done), done marks pruned with their source order.
 - `lib/settings.js` — UI-editable settings in `PDF_STORAGE_PATH/settings.json`; effective = override ?? env ?? default.
 - `lib/config.js` — sender/printer env vars, `envNum`, `berlinDay`.
@@ -16,7 +16,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/dhl-api.js` — Internetmarke client: auth token cache, cart, checkout, retrieve, wallet charge, refund + refund state; 30 s timeout.
 - `lib/dhl-private-api.js` — DHL Parcel DE Private Shipping client: catalog + `catalogPrice`, `createCart`, `getCart`, `getLabel`.
 - `lib/paket.js` — DHL Paket orders (`paket-orders.json`): pay links, pay-all, paid-mail polling → label → print, daily unpaid reminder.
-- `lib/cm-intake.js` — Cardmarket email intake: IMAP poll → decide → buy → print → Discord; state in `cm-orders.json`.
+- `lib/cm-intake.js` — Cardmarket email intake: IMAP poll → decide → buy → print → Discord; state in `cm-orders.json`. Returns `{ manualOrder, pollNow }` (undefined when off); `createImap` injectable (tests).
 - `lib/cm-email.js` — pure CM mail parsing + `decide` (all no-buy rules, Paket vs letter); tested. Items split name/set/rarity/lang; CM cuts lines at ~70 chars → lost parts null, a cut set keeps its prefix.
 - `lib/plz-check.js` — DE PLZ vs city via OpenPLZ API; warn-only line in CM order summary, never blocks.
 - `lib/discord.js` — webhook notices, never throws; `notify(text, { wait })` → message id, `editNotice(id, text)` (no time limit, edits don't ping).
@@ -34,7 +34,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `lib/logger.js` — level-filtered console logger (`LOG_LEVEL`).
 - `cm-shipping.json` — CM shipping cost → letter product code, or `paket.<ISO3|EU>.<cost>` → Paket product (`.<service>` = insurance); volume-mounted.
 - `scripts/backfill-sales.js` — all CM ship mails (`MAIL_FOLDER`, read-only) + `labels.json` postage → turbostats; latest mail per order, idempotent, `--dry-run` = stats only. Run: `docker exec postpal node scripts/backfill-sales.js`. Letter postage = current `products.json` cost. Label → order: `cmOrderId` (letter top-level, Paket in `meta`), else unique name line + postcode match within 7 days after the mail (UI-bought labels; address never sent).
-- `test/` — `npm test` (node:test) with anonymized fixtures; fake DHL client for `paket.js`.
+- `test/` — `npm test` (node:test) with anonymized fixtures; fake DHL client for `paket.js`; fake IMAP for `cm-intake.js` (needs canvas → skipped on the Alpine host, runs in the image: `docker run --rm postpal-test npm test`).
 
 ## Frontend (`src/`)
 - `pages/Index.tsx` — the only page: create / history / tracked / intake / settings tabs; owns recipient, product, balance, print-mode state.
@@ -49,7 +49,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - `components/LabelResult.tsx` — last purchase: recipient preview, reprint/download, copy ID.
 - `components/LabelHistory.tsx` — stored labels: tracking link, download, print, refund (status + manual check button in the row), delete.
 - `components/ProductSelector.tsx` — letter product grid + DHL Paket section with optional recipient email; `hiddenProducts` hides letters and Paket (`paket:<id>[.<insurance>]`).
-- `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, recent CM + Paket orders; 30 s refresh.
+- `components/IntakeView.tsx` — Intake tab: open pay links, pay-all, SOLD orders without ship mail (address textarea + confirm → manual order), recent CM + Paket orders; 30 s refresh.
 - `components/TrackedView.tsx` — Tracked tab: letter/parcel quick filter (click again clears), table row per shipment (letter/parcel icon, paid date, buyer + flag, recipient, click-to-copy tracking, Done; mobile: tracking wraps below); unpaid Paket shows Pay / pay-all instead of Done; 30 s refresh.
 - `components/SettingsPanel.tsx` — sender, printer/crop, product visibility, Automatik (intake) settings.
 - `components/WalletBalance.tsx` — header balance, refresh, top-up chips.
@@ -72,7 +72,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - Stored PDFs are always the original; cropping happens per request. Endless-roll height comes from the crop result, so endless roll + crop failure = print error by design.
 - Landscape: `print-label.js` remaps margins into portrait space before cropping, because the PDF is rotated 90° CW afterwards. Change one side and the other must change too.
 - `dhl-paket` labels (MOPS 70×170 mm) get +2 mm top / +3 mm bottom on top of the settings margins (`PAKET_EXTRA_MM`).
-- `pdf-cropper.js` thresholds and retry passes were tuned against real DHL labels — change only with real labels to test. Crop math assumes MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (`NodeCanvasFactory._createCanvas` hack is v3-specific). `overrides` in `server/package.json` points pdfjs' optional `canvas` at the top-level 3.x; npm won't apply overrides to existing lock entries — delete them from `package-lock.json` and re-resolve. Alpine host has no canvas prebuild: local install needs `--ignore-scripts` (tests don't need canvas).
+- `pdf-cropper.js` thresholds and retry passes were tuned against real DHL labels — change only with real labels to test. Crop math assumes MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (`NodeCanvasFactory._createCanvas` hack is v3-specific). `overrides` in `server/package.json` points pdfjs' optional `canvas` at the top-level 3.x; npm won't apply overrides to existing lock entries — delete them from `package-lock.json` and re-resolve. Alpine host has no canvas prebuild: local install needs `--ignore-scripts` (only `cm-intake.test.js` needs canvas; skipped locally).
 - `label-storage.js`: every metadata change goes through `updateMetadata` (queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
 - Shutdown (SIGTERM/SIGINT) drains requests and lets the CM poll finish its current order, capped at 150 s; compose `stop_grace_period` 160 s must stay above it.
 - UI and CM intake share one printer/sender config (`settings.json`). CUPS print reads `settings.json` only; browser print/download still pass crop margins in the URL. `settings.json` holds only overrides; `null` in a PATCH drops one; validated on write (400).
@@ -101,6 +101,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 - Never delete `cm-orders.json` while live — `startedAt` resets to now (safe), but dedupe history is gone. Orders/foreign pruned after 14 days.
 - CM mail pads price columns with spaces and writes `1.234,56` above 1000 €; fixtures mirror that. Discord `allowed_mentions` off: buyer text is posted verbatim.
 - SOLD mails (`Shipment N for X: SOLD` / `Bestellung N für X: Verkauf`, unpaid) → one `🟡 SOLD` message, id in `cm-orders.json` `sold` (pruned 14 d). First ship mail of that order edits it to `🟢 PAID after …` (silent; label notice still posts new, without the item list). `… has been cancelled[: reason]` / `Bestellung N für X wurde storniert[: …]` → `❌ CANCELLED`. Pass runs before the ship pass, archives handled mails (same poll); only mails after `soldSince` (first start with this feature). Skipped if the ship mail was seen first. SOLD → ship gap seen up to 8.4 days.
+- Manual order (lost ship mail): SOLD pass keeps `sold[id].mail` (buyer, cost, items, amounts — everything but the address; older entries backfilled on the next poll). `manualOrder(id, address)`: refused if the order is known, cancelled or has no `mail`; `decide` runs first so a rejected address records nothing; then SOLD → PAID edit + `processOrder` like a ship mail (no print window, sale push dated now). Runs via `exclusive`: waits for an in-flight poll, blocks new ones. Recorded under the order ID → a late ship mail is a duplicate.
 - Sales push (`lib/sales.js`): every genuine mail reaching `processMail` (skipped/dry-run/retry too; queued ones once the window opens) → sale, not awaited. Letter postage (`postageEur` = `products.json` cost, kept in the order record for recovery) on `bought`; Paket postage (`item.price`) when the label is stored. Upsert by shipment ID on turbostats' side.
 - `cm-shipping.json` Paket keys are per destination (ISO3 beats `EU`) because costs collide across countries (EU Päckchen M = DE PAK10 = 11.49). Paket match wins over a letter code; unlisted cost = no label.
 

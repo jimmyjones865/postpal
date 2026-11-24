@@ -195,5 +195,13 @@
   "tracked.recipient": "Recipient",
   "tracked.tracking": "Tracking no.",
   "tracked.letters": "Letters",
-  "tracked.parcels": "Parcels"
+  "tracked.parcels": "Parcels",
+  "intake.sold": "SOLD, no ship mail",
+  "intake.soldHint": "Paid on Cardmarket but the ship mail never came? Paste the address from the CM order page: processed like the ship mail (label, print, Discord, sales). A ship mail arriving later is ignored.",
+  "intake.manualPlaceholder": "Name\nStreet 1\n12345 City\nCountry",
+  "intake.manualBuy": "Buy label",
+  "intake.manualTitle": "CM {id}: buy without ship mail?",
+  "intake.manualConfirm": "Only if Cardmarket shows the order as paid. A later ship mail for it is ignored.",
+  "intake.manualDone": "Order processed: {status}",
+  "intake.manualFailed": "Order not processed"
 }

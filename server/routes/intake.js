@@ -1,27 +1,32 @@
 import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from '../lib/logger.js';
 import { TRACK_URL as LETTER_TRACK_URL } from '../lib/cm-intake.js';
 import { TRACK_URL as PAKET_TRACK_URL } from '../lib/paket.js';
+import { itemBlock } from '../lib/cm-email.js';
 
 // Discord item block ("\n```\n…\n```") → plain lines
 const itemLines = block => (block || '').split('\n').filter(l => l && l !== '```');
 
-export async function readCmOrders(storagePath) {
+async function readCmState(storagePath) {
   try {
-    return JSON.parse(await fs.readFile(path.join(storagePath, 'cm-orders.json'), 'utf8')).orders || {};
+    return JSON.parse(await fs.readFile(path.join(storagePath, 'cm-orders.json'), 'utf8'));
   } catch (err) {
     if (err.code === 'ENOENT') return {};
     throw err;
   }
 }
 
-/** Read-only view of CM intake (cm-orders.json) + Paket orders for the UI, newest first. */
-export function createIntakeRouter({ storagePath, storage, paket, settings }) {
+export const readCmOrders = async storagePath => (await readCmState(storagePath)).orders || {};
+
+/** CM intake (cm-orders.json) + Paket orders for the UI, newest first; manual order for a lost ship mail. */
+export function createIntakeRouter({ storagePath, storage, paket, settings, cmIntake }) {
   const router = express.Router();
 
   router.get('/', async (req, res) => {
-    const [cm, paketOrders, labels] = await Promise.all([readCmOrders(storagePath), paket.listOrders(), storage.getAllLabels()]);
+    const [state, paketOrders, labels] = await Promise.all([readCmState(storagePath), paket.listOrders(), storage.getAllLabels()]);
+    const cm = state.orders || {};
     const labelById = new Map(labels.map(l => [l.id, l]));
     const paketById = new Map(paketOrders.map(o => [o.id, o]));
 
@@ -55,7 +60,28 @@ export function createIntakeRouter({ storagePath, storage, paket, settings }) {
     await Promise.all(orders.filter(o => o.payUrl).map(async o => {
       o.price = await paket.quote(o.paket.productId, o.paket.insurance, o.paket.country);
     }));
-    res.json({ dryRun: settings.get().intake.dryRun, orders });
+    // SOLD, no ship mail yet: candidates for a manual order (unpaid ones too — only CM knows)
+    const sold = Object.entries(state.sold || {})
+      .filter(([id, s]) => s.mail && !s.final && !cm[id])
+      .map(([id, s]) => ({ id, at: s.mailAt, buyer: s.mail.buyer, summary: s.body.split('\n')[0], items: itemLines(itemBlock(s.mail.items)) }))
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    res.json({ dryRun: settings.get().intake.dryRun, orders, sold });
+  });
+
+  router.post('/:orderId/manual', async (req, res) => {
+    const { orderId } = req.params;
+    const address = req.body?.address;
+    if (!/^\d+$/.test(orderId)) return res.status(400).json({ error: 'order ID = digits' });
+    if (typeof address !== 'string' || !address.trim() || address.length > 500) return res.status(400).json({ error: 'address required (max 500 chars)' });
+    const intake = cmIntake();
+    if (!intake) return res.status(503).json({ error: 'CM intake off (MAIL_* not set)' });
+    try {
+      const r = await intake.manualOrder(orderId, address);
+      res.status(r.code || 200).json(r);
+    } catch (err) {
+      logger.error('[CM] Manual order failed:', err);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return router;
