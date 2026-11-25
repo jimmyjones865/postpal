@@ -45,7 +45,13 @@ export async function sendToCups(pdfBuffer, cupsUrl, printerName, options = {}) 
       'media-size': {
         'x-dimension': Math.round(mediaWidthMm * 100),  // hundredths of mm
         'y-dimension': Math.round(mediaHeightMm * 100)
-      }
+      },
+      // Printer default is 3.03 mm per side, which clips 83.8 mm labels on an 88 mm roll.
+      // 1.54 mm is the smallest side margin it advertises; top/bottom stay at its default.
+      'media-left-margin': 154,
+      'media-right-margin': 154,
+      'media-top-margin': 303,
+      'media-bottom-margin': 303
     };
     logger.debug(`[CUPS] Setting media size: ${mediaWidthMm.toFixed(1)}x${mediaHeightMm.toFixed(1)}mm`);
   }
