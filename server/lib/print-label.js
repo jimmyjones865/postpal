@@ -27,12 +27,14 @@ export async function printStoredLabel(storage, labelId, {
   const parseMargin = v => { const n = parseFloat(v); return isNaN(n) ? 5 : n; };
 
   // Parse 4-direction crop margins as the user intends them (relative to printed orientation)
-  const extra = label.provider === 'dhl-paket' ? PAKET_EXTRA_MM : { top: 0, bottom: 0 };
+  const isPaket = label.provider === 'dhl-paket';
+  const extra = isPaket ? PAKET_EXTRA_MM : { top: 0, bottom: 0 };
   const marginTop = parseMargin(cropTop) + extra.top;
   const marginRight = parseMargin(cropRight);
   const marginBottom = parseMargin(cropBottom) + extra.bottom;
   const marginLeft = parseMargin(cropLeft);
-  const isLandscape = orientation === 'landscape';
+  // Orientation is a letter setting: Paket labels (~72x150 mm) only fit the roll portrait
+  const isLandscape = orientation === 'landscape' && !isPaket;
 
   // For landscape, the PDF is rotated 90° CW after cropping, so margins must be remapped
   // to portrait space so they land on the correct edges after rotation:

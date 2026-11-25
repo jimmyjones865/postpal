@@ -65,7 +65,7 @@
   "settings.orientation": "Ausrichtung",
   "settings.portrait": "Hochformat",
   "settings.landscape": "Querformat",
-  "settings.landscapeHint": "Querformat verwenden um Labels 90° zu drehen für schmale Rollen.",
+  "settings.landscapeHint": "Querformat dreht Brief-Labels um 90°. DHL Paket druckt immer hochkant.",
   "settings.paperSize": "Papiergröße",
   "settings.paperWidth": "Papierbreite (mm)",
   "settings.paperHeight": "Papierhöhe (mm)",

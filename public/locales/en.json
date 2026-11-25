@@ -65,7 +65,7 @@
   "settings.orientation": "Orientation",
   "settings.portrait": "Portrait",
   "settings.landscape": "Landscape",
-  "settings.landscapeHint": "Use Landscape to rotate labels 90° for narrow rolls.",
+  "settings.landscapeHint": "Landscape rotates letter labels 90°. DHL Paket always prints portrait.",
   "settings.paperSize": "Paper Size",
   "settings.paperWidth": "Paper width (mm)",
   "settings.paperHeight": "Paper height (mm)",

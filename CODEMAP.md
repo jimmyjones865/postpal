@@ -70,7 +70,7 @@ Two independent Node packages: `/` = Vite/React/TS frontend, `/server` = Express
 
 ### Labels, printing
 - Stored PDFs are always the original; cropping happens per request. Endless-roll height comes from the crop result, so endless roll + crop failure = print error by design.
-- Landscape: `print-label.js` remaps margins into portrait space before cropping, because the PDF is rotated 90° CW afterwards. Change one side and the other must change too.
+- Landscape applies to letters only; Paket always prints portrait. `print-label.js` remaps margins into portrait space before cropping, because the PDF is rotated 90° CW afterwards. Change one side and the other must change too.
 - `dhl-paket` labels (MOPS 70×170 mm) get +2 mm top / +3 mm bottom on top of the settings margins (`PAKET_EXTRA_MM`).
 - `pdf-cropper.js` thresholds and retry passes were tuned against real DHL labels — change only with real labels to test. Crop math assumes MediaBox starts at (0,0). Stays on `pdfjs-dist` 3.x (`NodeCanvasFactory._createCanvas` hack is v3-specific). `overrides` in `server/package.json` points pdfjs' optional `canvas` at the top-level 3.x; npm won't apply overrides to existing lock entries — delete them from `package-lock.json` and re-resolve. Alpine host has no canvas prebuild: local install needs `--ignore-scripts` (only `cm-intake.test.js` needs canvas; skipped locally).
 - `label-storage.js`: every metadata change goes through `updateMetadata` (queued load→mutate→save); writing `labels.json` directly loses concurrent changes.
