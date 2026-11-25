@@ -73,7 +73,7 @@ const paidCart = (orderId, pakIds = ['PAK1']) => ({ cartId: 'CART00000001', stat
 test('pay flow: cart tagged, reopen guard, paid → stored once', async () => {
   const t = await setup({ cart: paidCart('o1') });
   const { payUrl } = await t.svc.addOrder(order);
-  assert.equal(payUrl, 'http://pp/api/paket/pay/o1');
+  assert.equal(payUrl, '/api/paket/pay/o1');
   const r1 = await t.svc.startPayment('o1');
   assert.equal(r1.entryUrl, 'https://dhl/entry/1');
   assert.equal(t.carts[0].shipments[0].receiver.email, undefined);
@@ -184,7 +184,7 @@ test('pay all: one cart for every open order, items matched by position + recipi
   await t.svc.addOrder(order);
   const added = await t.svc.addOrder(cmOrder);
   assert.equal(added.openCount, 2);
-  assert.equal(added.payAllUrl, 'http://pp/api/paket/pay-all');
+  assert.equal(added.payAllUrl, '/api/paket/pay-all');
   assert.equal(added.payAllMd, '[Tailscale](<http://pp/api/paket/pay-all>) · [LAN](<http://10.0.0.50:3001/api/paket/pay-all>)');
 
   const r = await t.svc.payAll();

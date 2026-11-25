@@ -109,8 +109,9 @@ export function createPaketService({ storage, settings, pakClient, storagePath, 
     await fs.rename(tmp, statePath);
   }
 
-  const payLink = id => `${publicUrl}/api/paket/pay/${encodeURIComponent(id)}`;
-  const payAllLink = `${publicUrl}/api/paket/pay-all`;
+  // Relative: in-app buttons stay on whatever host the UI was opened on
+  const payLink = id => `/api/paket/pay/${encodeURIComponent(id)}`;
+  const payAllLink = '/api/paket/pay-all';
   // Discord markdown: main link + LAN fallback when POSTPAL_LOCAL_URL is set
   const md = p => [`[Tailscale](<${publicUrl}${p}>)`, localUrl && `[LAN](<${localUrl}${p}>)`].filter(Boolean).join(' · ');
   const payMd = id => md(`/api/paket/pay/${encodeURIComponent(id)}`);
